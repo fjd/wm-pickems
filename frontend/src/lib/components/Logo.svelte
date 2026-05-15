@@ -10,7 +10,7 @@
 <style>
 	.logo {
 		display: inline-flex;
-		align-items: center;
+		align-items: baseline;
 		gap: 0.6rem;
 		color: var(--text);
 		font-weight: 800;
@@ -23,7 +23,7 @@
 	}
 	.word {
 		font-family: var(--font-display);
-		font-size: 1.2rem;
+		font-size: 1.65rem;
 		letter-spacing: 0.01em;
 		text-transform: uppercase;
 	}

@@ -46,7 +46,10 @@ docker compose exec app wm-pickems superuser create you@example.com 'a-strong-pa
 - **Recompute everything** (after changing a scoring config):
   `POST /api/admin/recompute` (superuser).
 - **Scoring config**: edit the `scoring_configs` "Default" record in `/_/`
-  (or a per-League override) — values are live, no redeploy.
+  (or a per-League override) — no redeploy. Note: a config change (or a
+  schema migration that rewrites it) does **not** retro-rescore matches that
+  are already finished until you call `POST /api/admin/recompute` (or the
+  next result comes in, which recomputes automatically).
 
 ## 5. Backup
 

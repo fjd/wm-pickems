@@ -43,7 +43,9 @@ export const api = {
 		),
 	myLeagues: () => get<{ leagues: LeagueSummary[] }>('/api/leagues/mine'),
 	leaderboard: (id: string) =>
-		get<{ league: { id: string; name: string }; rows: LeaderboardRow[] }>(
-			`/api/leagues/${id}/leaderboard`
-		)
+		get<{
+			league: { id: string; name: string };
+			rows: LeaderboardRow[];
+			scoring?: Record<string, unknown>;
+		}>(`/api/leagues/${id}/leaderboard`)
 };

@@ -6,6 +6,7 @@ package leagues
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -145,6 +146,24 @@ func Register(app core.App, se *core.ServeEvent) {
 		lb, err := scoring.Leaderboard(app, id)
 		if err != nil {
 			return bad(e, http.StatusNotFound, "league not found")
+		}
+		// Include the league's scoring config so the legend can render it
+		// without the client reading the (now members-only) leagues table.
+		if lg, err := app.FindRecordById("leagues", id); err == nil {
+			cid := lg.GetString("scoringConfig")
+			var sc *core.Record
+			if cid != "" {
+				sc, _ = app.FindRecordById("scoring_configs", cid)
+			}
+			if sc == nil {
+				sc, _ = app.FindFirstRecordByFilter("scoring_configs", "isDefault = true")
+			}
+			if sc != nil {
+				var cfg map[string]any
+				if json.Unmarshal([]byte(sc.GetString("config")), &cfg) == nil {
+					lb["scoring"] = cfg
+				}
+			}
 		}
 		return e.JSON(http.StatusOK, lb)
 	})

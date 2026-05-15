@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api, type LeaderboardRow } from '$lib/api';
-	import { pb } from '$lib/pb';
 	import { auth } from '$lib/auth.svelte';
 	import { Eye, EyeOff, Copy, ChevronDown } from '@lucide/svelte';
 
@@ -38,21 +37,6 @@
 		CHAMPION: 'Champion'
 	};
 
-	async function loadConfig(lid: string) {
-		try {
-			const lg = await pb.collection('leagues').getOne(lid);
-			const scId = lg.scoringConfig as string;
-			const rec = scId
-				? await pb.collection('scoring_configs').getOne(scId)
-				: await pb
-						.collection('scoring_configs')
-						.getFirstListItem('isDefault = true');
-			cfg = rec.config as Cfg;
-		} catch {
-			/* legend just won't show */
-		}
-	}
-
 	let revealed = $state(false);
 	let openRow = $state<string | null>(null);
 
@@ -67,11 +51,12 @@
 	$effect(() => {
 		const lid = id;
 		loaded = false;
-		loadConfig(lid);
+		cfg = null;
 		Promise.all([api.leaderboard(lid), api.myLeagues()])
 			.then(([lb, mine]) => {
 				league = lb.league;
 				rows = lb.rows;
+				cfg = (lb.scoring as Cfg | undefined) ?? null;
 				invite = mine.leagues.find((l) => l.id === lid)?.inviteCode ?? '';
 			})
 			.catch(() => (error = 'Could not load this league.'))
