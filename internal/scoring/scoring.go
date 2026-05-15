@@ -430,10 +430,16 @@ func koStableKey(m *core.Record) string {
 }
 
 type fcBreakdown struct {
+	// Points.
 	Groups   int `json:"groups"`   // exact final positions (+ perfect bonus)
 	Advance  int `json:"advance"`  // predicted advancers that actually advanced
 	Knockout int `json:"knockout"` // predicted teams reaching KO rounds
 	Champion int `json:"champion"`
+	// Correct-pick counts (for the Forecast leaderboard view).
+	GroupsCorrect   int            `json:"groupsCorrect"`
+	AdvanceCorrect  int            `json:"advanceCorrect"`
+	RoundCorrect    map[string]int `json:"roundCorrect"` // R32..FINAL
+	ChampionCorrect int            `json:"championCorrect"`
 }
 
 func (b fcBreakdown) total() int {
@@ -441,7 +447,7 @@ func (b fcBreakdown) total() int {
 }
 
 func scoreForecast(app core.App, cfg Config, fc *core.Record) (fcBreakdown, int) {
-	var b fcBreakdown
+	b := fcBreakdown{RoundCorrect: map[string]int{}}
 
 	var order map[string][]string
 	_ = fc.UnmarshalJSONField("groupOrder", &order)
@@ -457,6 +463,7 @@ func scoreForecast(app core.App, cfg Config, fc *core.Record) (fcBreakdown, int)
 		for i := 0; i < 4 && i < len(actual); i++ {
 			if i < len(pred) && pred[i] == actual[i] {
 				b.Groups += cfg.Forecast.GroupPosition
+				b.GroupsCorrect++
 			} else {
 				allCorrect = false
 			}
@@ -487,6 +494,7 @@ func scoreForecast(app core.App, cfg Config, fc *core.Record) (fcBreakdown, int)
 			for _, pid := range []string{pred[0], pred[1]} {
 				if actualAdv[pid] {
 					b.Advance += cfg.Forecast.Advance
+					b.AdvanceCorrect++
 				}
 			}
 		}
@@ -494,6 +502,7 @@ func scoreForecast(app core.App, cfg Config, fc *core.Record) (fcBreakdown, int)
 		// third.
 		if len(pred) >= 3 && thirds[g] != "" && actualAdv[pred[2]] {
 			b.Advance += cfg.Forecast.Advance
+			b.AdvanceCorrect++
 		}
 	}
 
@@ -523,6 +532,7 @@ func scoreForecast(app core.App, cfg Config, fc *core.Record) (fcBreakdown, int)
 		for _, pid := range []string{predHome, predAway} {
 			if pid != "" && actualRounds[st] != nil && actualRounds[st][pid] {
 				b.Knockout += w
+				b.RoundCorrect[st]++
 			}
 		}
 	}
@@ -536,6 +546,7 @@ func scoreForecast(app core.App, cfg Config, fc *core.Record) (fcBreakdown, int)
 		}
 		if champKey != "" && bracket[champKey] == actualChamp {
 			b.Champion += cfg.Forecast.Round["CHAMPION"]
+			b.ChampionCorrect = 1
 		}
 	}
 

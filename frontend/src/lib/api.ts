@@ -27,6 +27,7 @@ export interface LeaderboardRow {
 	exactScores: number;
 	correctWinners: number;
 	gdDeviation: number;
+	forecast?: Record<string, number>;
 }
 
 export const api = {

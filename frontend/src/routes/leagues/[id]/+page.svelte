@@ -80,6 +80,7 @@
 	let sorted = $derived(
 		[...rows].sort((a, b) => b[tab] - a[tab])
 	);
+	let fcView = $derived(tab === 'forecastPoints');
 
 	function copyInvite() {
 		navigator.clipboard?.writeText(invite);
@@ -128,16 +129,28 @@
 				<tr>
 					<th>#</th>
 					<th>Player</th>
-					<th class="num ext" title="Matches predicted">Pred</th>
-					<th class="num ext" title="Forecast points">FC</th>
-					<th class="num ext" title="Exact scores (tiebreak 1)">Exact</th>
-					<th class="num ext" title="Correct winners (tiebreak 2)">Win</th>
-					<th class="num ext" title="Goal-diff error (tiebreak 3, lower is better)">GD&Delta;</th>
-					<th class="num">Pts</th>
+					{#if fcView}
+						<th class="num ext" title="Correct group positions">Grp</th>
+						<th class="num ext" title="Correct advancers (group stage)">Adv</th>
+						<th class="num ext" title="Predicted teams that reached the Round of 32">R32</th>
+						<th class="num ext" title="…Round of 16">R16</th>
+						<th class="num ext" title="…Quarter-finals">QF</th>
+						<th class="num ext" title="…Semi-finals">SF</th>
+						<th class="num ext" title="…the Final">F</th>
+						<th class="num ext" title="Champion predicted correctly">Win</th>
+					{:else}
+						<th class="num ext" title="Matches predicted">Pred</th>
+						<th class="num ext" title="Forecast points">FC</th>
+						<th class="num ext" title="Exact scores (tiebreak 1)">Exact</th>
+						<th class="num ext" title="Correct winners (tiebreak 2)">Win</th>
+						<th class="num ext" title="Goal-diff error (tiebreak 3, lower is better)">GD&Delta;</th>
+					{/if}
+					<th class="num pts">Pts</th>
 				</tr>
 			</thead>
 			<tbody>
 				{#each sorted as r, i (r.userId)}
+					{@const f = r.forecast ?? {}}
 					<tr
 						class:lead={i === 0}
 						class="main"
@@ -152,24 +165,48 @@
 								<ChevronDown size={14} class="rx" />
 							</div>
 						</td>
-						<td class="num ext digits">{r.predicted}</td>
-						<td class="num ext digits">{r.forecastPoints}</td>
-						<td class="num ext digits">{r.exactScores}</td>
-						<td class="num ext digits">{r.correctWinners}</td>
-						<td class="num ext digits">{r.gdDeviation}</td>
-						<td class="num digits">{r[tab]}</td>
+						{#if fcView}
+							<td class="num ext digits">{f.groups ?? 0}</td>
+							<td class="num ext digits">{f.advance ?? 0}</td>
+							<td class="num ext digits">{f.R32 ?? 0}</td>
+							<td class="num ext digits">{f.R16 ?? 0}</td>
+							<td class="num ext digits">{f.QF ?? 0}</td>
+							<td class="num ext digits">{f.SF ?? 0}</td>
+							<td class="num ext digits">{f.FINAL ?? 0}</td>
+							<td class="num ext digits">{f.champion ? '✓' : '–'}</td>
+						{:else}
+							<td class="num ext digits">{r.predicted}</td>
+							<td class="num ext digits">{r.forecastPoints}</td>
+							<td class="num ext digits">{r.exactScores}</td>
+							<td class="num ext digits">{r.correctWinners}</td>
+							<td class="num ext digits">{r.gdDeviation}</td>
+						{/if}
+						<td class="num pts digits">{r[tab]}</td>
 					</tr>
 					{#if openRow === r.userId}
 						<tr class="detail">
-							<td colspan="8">
-								<div class="stats">
-									<span><i>Matches predicted</i><b>{r.predicted}</b></span>
-									<span><i>Tip points</i><b>{r.tipsPoints}</b></span>
-									<span><i>Forecast points</i><b>{r.forecastPoints}</b></span>
-									<span><i>Exact scores</i><b>{r.exactScores}</b></span>
-									<span><i>Correct winners</i><b>{r.correctWinners}</b></span>
-									<span><i>Goal-diff error</i><b>{r.gdDeviation}</b></span>
-								</div>
+							<td colspan="12">
+								{#if fcView}
+									<div class="stats">
+										<span><i>Correct group positions</i><b>{f.groups ?? 0}</b></span>
+										<span><i>Correct advancers</i><b>{f.advance ?? 0}</b></span>
+										<span><i>Reached Round of 32</i><b>{f.R32 ?? 0}</b></span>
+										<span><i>Reached Round of 16</i><b>{f.R16 ?? 0}</b></span>
+										<span><i>Reached Quarter-finals</i><b>{f.QF ?? 0}</b></span>
+										<span><i>Reached Semi-finals</i><b>{f.SF ?? 0}</b></span>
+										<span><i>Reached the Final</i><b>{f.FINAL ?? 0}</b></span>
+										<span><i>Champion correct</i><b>{f.champion ? 'Yes' : 'No'}</b></span>
+									</div>
+								{:else}
+									<div class="stats">
+										<span><i>Matches predicted</i><b>{r.predicted}</b></span>
+										<span><i>Tip points</i><b>{r.tipsPoints}</b></span>
+										<span><i>Forecast points</i><b>{r.forecastPoints}</b></span>
+										<span><i>Exact scores</i><b>{r.exactScores}</b></span>
+										<span><i>Correct winners</i><b>{r.correctWinners}</b></span>
+										<span><i>Goal-diff error</i><b>{r.gdDeviation}</b></span>
+									</div>
+								{/if}
 							</td>
 						</tr>
 					{/if}
@@ -323,6 +360,17 @@
 	.lb th.num,
 	.lb td.num {
 		text-align: right;
+	}
+
+	/* Pts is the focus — set it apart from the stat columns. */
+	.lb th.pts,
+	.lb td.pts {
+		padding-left: 1.15rem;
+		border-left: 1px solid var(--border);
+		font-size: 1.02rem;
+	}
+	.lb th.pts {
+		font-size: 0.8rem;
 	}
 
 	/* Extra tiebreaker columns: desktop only. */

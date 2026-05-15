@@ -17,10 +17,12 @@ type Row struct {
 	ForecastPoints int    `json:"forecastPoints"`
 	Predicted      int    `json:"predicted"` // # matches the user has tipped
 	// Tiebreakers (also returned for transparency).
-	ExactScores    int    `json:"exactScores"`
-	CorrectWinners int    `json:"correctWinners"`
-	GdDeviation    int    `json:"gdDeviation"`
-	lastEdit       string // earliest-wins; not serialized
+	ExactScores    int `json:"exactScores"`
+	CorrectWinners int `json:"correctWinners"`
+	GdDeviation    int `json:"gdDeviation"`
+	// Forecast correct-pick counts (groups/advance/champion + R32..FINAL).
+	Forecast map[string]int `json:"forecast"`
+	lastEdit string         // earliest-wins; not serialized
 }
 
 // Leaderboard builds a League's standings using its scoring config and the
@@ -73,6 +75,23 @@ func Leaderboard(app core.App, leagueID string) (map[string]any, error) {
 			"user = {:u} && config = {:c}",
 			map[string]any{"u": uid, "c": cfgID}); err == nil {
 			row.ForecastPoints = fs.GetInt("points")
+			var bd struct {
+				GroupsCorrect   int            `json:"groupsCorrect"`
+				AdvanceCorrect  int            `json:"advanceCorrect"`
+				RoundCorrect    map[string]int `json:"roundCorrect"`
+				ChampionCorrect int            `json:"championCorrect"`
+			}
+			if json.Unmarshal([]byte(fs.GetString("breakdown")), &bd) == nil {
+				f := map[string]int{
+					"groups":   bd.GroupsCorrect,
+					"advance":  bd.AdvanceCorrect,
+					"champion": bd.ChampionCorrect,
+				}
+				for k, v := range bd.RoundCorrect {
+					f[k] = v
+				}
+				row.Forecast = f
+			}
 		}
 
 		row.Total = row.TipsPoints + row.ForecastPoints

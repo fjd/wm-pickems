@@ -23,7 +23,7 @@
 </script>
 
 <div class="auth">
-	<h1>WM Pickems</h1>
+	<h1>WM Tips</h1>
 	<p class="muted">Predict the World Cup. Beat your friends.</p>
 
 	<form class="card" onsubmit={submit}>
