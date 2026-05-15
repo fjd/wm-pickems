@@ -5,8 +5,10 @@
 
 	let {
 		align = 'right' as 'right' | 'left',
-		up = false
-	}: { align?: 'right' | 'left'; up?: boolean } = $props();
+		up = false,
+		showName = false
+	}: { align?: 'right' | 'left'; up?: boolean; showName?: boolean } =
+		$props();
 	let open = $state(false);
 	let root: HTMLElement;
 
@@ -27,6 +29,7 @@
 		aria-expanded={open}
 	>
 		<Avatar name={auth.user?.name ?? '?'} src={auth.user?.avatarUrl} size={36} />
+		{#if showName}<span class="tname">{auth.user?.name}</span>{/if}
 		<ChevronDown size={16} class="chev {open ? 'up' : ''}" />
 	</button>
 
@@ -59,11 +62,22 @@
 	.trigger {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.3rem;
+		gap: 0.5rem;
+		width: 100%;
 		background: none;
 		border: none;
 		padding: 0;
 		color: var(--muted);
+	}
+	.tname {
+		flex: 1;
+		min-width: 0;
+		text-align: left;
+		font-weight: 700;
+		color: var(--text);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	:global(.um .chev) {
 		transition: transform 0.15s ease;

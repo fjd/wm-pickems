@@ -328,26 +328,48 @@ func assignThirds(koList []*core.Record, thirds map[string]string) map[int]strin
 	}
 	sort.Strings(chosen)
 
-	used := map[string]bool{}
-	out := map[int]string{}
-	for _, s := range slots {
+	// Deterministic backtracking perfect matching (greedy can dead-end).
+	assign := make([]string, len(slots))
+	var solve func(i int) bool
+	solve = func(i int) bool {
+		if i == len(slots) {
+			return true
+		}
 		for _, letter := range chosen {
-			if used[letter] {
-				continue
-			}
-			ok := false
-			for _, a := range s.allowed {
+			taken := false
+			for _, a := range assign {
 				if a == letter {
-					ok = true
+					taken = true
 					break
 				}
 			}
-			if !ok {
+			if taken {
 				continue
 			}
-			out[s.num] = thirds[letter]
-			used[letter] = true
-			break
+			allowed := false
+			for _, a := range slots[i].allowed {
+				if a == letter {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				continue
+			}
+			assign[i] = letter
+			if solve(i + 1) {
+				return true
+			}
+			assign[i] = ""
+		}
+		return false
+	}
+	solve(0)
+
+	out := map[int]string{}
+	for i, s := range slots {
+		if assign[i] != "" {
+			out[s.num] = thirds[assign[i]]
 		}
 	}
 	return out

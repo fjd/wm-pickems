@@ -34,7 +34,7 @@
 		<div class="rail-logo"><Logo /></div>
 		<NavLinks variant="rail" />
 		<div class="spacer"></div>
-		<div class="rail-user"><UserMenu align="left" up /></div>
+		<div class="rail-user"><UserMenu align="left" up showName /></div>
 	</aside>
 
 	<!-- Mobile: bottom tab bar -->

@@ -146,24 +146,35 @@ class ForecastStore {
 		}
 	}
 
-	/** Deterministically slot the 8 chosen thirds into the 8 R32 third-slots:
-	 *  slots in match order, each filled by the lowest-letter chosen third its
-	 *  rule allows that isn't used yet. Mirrors the backend so Forecast
-	 *  knockout scoring agrees. */
+	/** Slot the chosen thirds into the 8 R32 third-slots. Greedy can dead-end
+	 *  (a slot left empty though a full assignment exists), so this does a
+	 *  deterministic backtracking perfect matching — slots in match order,
+	 *  letters tried in alphabetical order. Mirrors the Go scorer exactly so
+	 *  Forecast knockout scoring agrees. */
 	thirdAssignment(): Record<number, string> {
-		const chosen = this.chosenThirdLetters.sort();
-		const used = new Set<string>();
-		const out: Record<number, string> = {};
-		for (const slot of [...this.thirdSlots].sort(
+		const slots = [...this.thirdSlots].sort(
 			(a, b) => a.matchNum - b.matchNum
-		)) {
+		);
+		const chosen = this.chosenThirdLetters.sort();
+		const assign: (string | null)[] = new Array(slots.length).fill(null);
+
+		const solve = (i: number): boolean => {
+			if (i === slots.length) return true;
 			for (const letter of chosen) {
-				if (used.has(letter) || !slot.allowed.includes(letter)) continue;
-				out[slot.matchNum] = this.groupThird(letter);
-				used.add(letter);
-				break;
+				if (assign.includes(letter)) continue;
+				if (!slots[i].allowed.includes(letter)) continue;
+				assign[i] = letter;
+				if (solve(i + 1)) return true;
+				assign[i] = null;
 			}
-		}
+			return false;
+		};
+		solve(0);
+
+		const out: Record<number, string> = {};
+		slots.forEach((s, i) => {
+			if (assign[i]) out[s.matchNum] = this.groupThird(assign[i] as string);
+		});
 		return out;
 	}
 
