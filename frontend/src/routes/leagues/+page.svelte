@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { api, type LeagueSummary } from '$lib/api';
 	import { goto } from '$app/navigation';
+	import { Users } from '@lucide/svelte';
 
 	let leagues = $state<LeagueSummary[]>([]);
 	let loaded = $state(false);
@@ -68,7 +69,7 @@
 				<span>{l.name}</span>
 				{#if l.role === 'owner'}<span class="pill">owner</span>{/if}
 				<span class="spacer"></span>
-				<span class="pill">{l.members} 👥</span>
+				<span class="cnt"><Users size={15} /> {l.members}</span>
 			</a>
 		{/each}
 	{/if}
@@ -118,6 +119,13 @@
 	}
 	.lrow:first-of-type {
 		border-top: none;
+	}
+	.cnt {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		color: var(--muted);
+		font-size: 0.9rem;
 	}
 	.code {
 		text-transform: uppercase;

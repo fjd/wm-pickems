@@ -45,15 +45,29 @@ h3 {
 	letter-spacing: -0.02em;
 }
 
+:root {
+	--topbar-h: 56px;
+	--rail-w: 230px;
+}
+
 .app-shell {
 	max-width: var(--maxw);
 	margin: 0 auto;
-	padding: 1rem 1rem calc(var(--nav-h) + 1.5rem);
+	padding: 1rem;
+}
+/* Mobile: clear the fixed top header and bottom tab bar. */
+.app-shell.with-chrome {
+	padding-top: calc(var(--topbar-h) + 1rem);
+	padding-bottom: calc(var(--nav-h) + 1.25rem);
 }
 
 @media (min-width: 900px) {
 	:root {
 		--maxw: 1080px;
+	}
+	.app-shell.with-chrome {
+		padding: 1.5rem;
+		padding-left: calc(var(--rail-w) + 2rem);
 	}
 }
 
@@ -154,8 +168,25 @@ h3 {
 	border-radius: 999px;
 }
 
-/* Bottom nav (mobile) -> left rail (desktop) */
-.nav {
+/* Mobile top header */
+.topbar {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: var(--topbar-h);
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0 1rem;
+	background: color-mix(in srgb, var(--surface) 92%, transparent);
+	backdrop-filter: blur(8px);
+	border-bottom: 1px solid var(--border);
+	z-index: 50;
+}
+
+/* Mobile bottom tab bar */
+.tabbar {
 	position: fixed;
 	left: 0;
 	right: 0;
@@ -166,46 +197,36 @@ h3 {
 	border-top: 1px solid var(--border);
 	z-index: 50;
 }
-.nav a {
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: 2px;
-	color: var(--muted);
-	font-size: 0.7rem;
-}
-.nav a.active {
-	color: var(--accent);
-}
-.nav a .ico {
-	font-size: 1.25rem;
-	line-height: 1;
+
+/* Desktop left rail */
+.siderail {
+	display: none;
 }
 
 @media (min-width: 900px) {
-	.nav {
+	.topbar,
+	.tabbar {
+		display: none;
+	}
+	.siderail {
+		position: fixed;
 		top: 0;
-		right: auto;
-		width: 220px;
-		height: 100dvh;
+		left: 0;
+		bottom: 0;
+		width: var(--rail-w);
+		display: flex;
 		flex-direction: column;
-		border-top: none;
+		gap: 0.6rem;
+		padding: 1.4rem 0;
+		background: var(--surface);
 		border-right: 1px solid var(--border);
-		padding-top: 1.5rem;
-		gap: 0.25rem;
+		z-index: 50;
 	}
-	.nav a {
-		flex: none;
-		flex-direction: row;
-		justify-content: flex-start;
-		gap: 0.75rem;
-		padding: 0.8rem 1.4rem;
-		font-size: 0.95rem;
+	.rail-logo {
+		padding: 0 1.4rem 0.6rem;
 	}
-	.app-shell {
-		padding-left: calc(220px + 2rem);
-		padding-bottom: 2rem;
+	.rail-user {
+		padding: 0.8rem 1.4rem 0;
+		border-top: 1px solid var(--border);
 	}
 }

@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { api, type LeaderboardRow } from '$lib/api';
 
-	let id = $derived($page.params.id);
+	let id = $derived($page.params.id ?? '');
 	let league = $state<{ id: string; name: string } | null>(null);
 	let rows = $state<LeaderboardRow[]>([]);
 	let invite = $state('');

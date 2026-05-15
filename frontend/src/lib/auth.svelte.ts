@@ -3,7 +3,12 @@ import { pb } from './pb';
 // Reactive auth state backed by PocketBase's authStore. Svelte 5 runes class;
 // a single shared instance is exported below.
 class Auth {
-	user = $state<{ id: string; name: string; email: string } | null>(null);
+	user = $state<{
+		id: string;
+		name: string;
+		email: string;
+		avatarUrl: string | null;
+	} | null>(null);
 
 	constructor() {
 		this.sync();
@@ -12,10 +17,22 @@ class Auth {
 
 	private sync() {
 		const r = pb.authStore.record;
-		this.user =
-			pb.authStore.isValid && r
-				? { id: r.id, name: r.name ?? r.email, email: r.email }
-				: null;
+		if (!pb.authStore.isValid || !r) {
+			this.user = null;
+			return;
+		}
+		// Avatar comes from the PocketBase file field; Google OAuth (added
+		// later) maps its avatar URL into this same field, so the UI needs
+		// no change when that lands.
+		const avatarUrl = r.avatar
+			? pb.files.getURL(r, r.avatar as string)
+			: null;
+		this.user = {
+			id: r.id,
+			name: (r.name as string) || r.email,
+			email: r.email,
+			avatarUrl
+		};
 	}
 
 	get isAuthed() {
