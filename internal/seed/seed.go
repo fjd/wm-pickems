@@ -109,8 +109,49 @@ func slug(s string) string {
 	}, s)
 }
 
+// defaultScoringConfig matches the agreed rules (see scoring-rules notes). All
+// weights live here so they can be tuned without code changes; per-League
+// overrides reference a different scoring_configs record.
+const defaultScoringConfig = `{
+  "match": {
+    "tendency": 3,
+    "exact": 1,
+    "totalGoals": 1,
+    "goalDiff": 1,
+    "koOtBonus": true,
+    "advancer": 2
+  },
+  "forecast": {
+    "groupPosition": 1,
+    "perfectGroupBonus": 2,
+    "thirdQualifier": 2,
+    "round": { "R32": 1, "R16": 2, "QF": 3, "SF": 5, "FINAL": 8, "CHAMPION": 13 }
+  },
+  "tiebreakers": ["points", "exactScores", "correctWinners", "goalDiffDeviation", "earliestEdit"]
+}`
+
+// ensureDefaultScoringConfig creates the default scoring config once.
+func ensureDefaultScoringConfig(app core.App) error {
+	if n, _ := app.CountRecords("scoring_configs"); n > 0 {
+		return nil
+	}
+	col, err := app.FindCollectionByNameOrId("scoring_configs")
+	if err != nil {
+		return err
+	}
+	rec := core.NewRecord(col)
+	rec.Set("name", "Default")
+	rec.Set("isDefault", true)
+	rec.Set("config", defaultScoringConfig)
+	return app.Save(rec)
+}
+
 // Run seeds the database if it hasn't been seeded yet.
 func Run(app core.App) error {
+	if err := ensureDefaultScoringConfig(app); err != nil {
+		return err
+	}
+
 	teamsCol, err := app.FindCollectionByNameOrId("teams")
 	if err != nil {
 		return err
