@@ -14,6 +14,8 @@ import (
 	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"github.com/floholz/wm-pickems/internal/bracket"
 )
 
 // ---- Config ----
@@ -300,13 +302,16 @@ type fcResolver struct {
 	ko         map[int]*core.Record
 }
 
-// assignThirds slots the user's chosen best thirds ({groupLetter: teamId})
-// into the 8 R32 third-slots: slots in match order, each filled by the
-// lowest-letter chosen third its rule allows that isn't used yet. Identical
-// to the frontend so Forecast knockout scoring agrees.
+// assignThirds maps the user's chosen best thirds ({groupLetter: teamId})
+// onto the 8 R32 third-slots. It uses FIFA's official Annex C allocation
+// table for the given combination of 8 qualifying groups; if the combination
+// isn't exactly 8 / not in the table it falls back to a deterministic
+// backtracking matching. Identical logic on the frontend so the predicted
+// Forecast bracket and its scoring always agree.
 func assignThirds(koList []*core.Record, thirds map[string]string) map[int]string {
 	type slot struct {
 		num     int
+		winner  string
 		allowed []string
 	}
 	var slots []slot
@@ -314,10 +319,13 @@ func assignThirds(koList []*core.Record, thirds map[string]string) map[int]strin
 		if mt.GetString("stage") != "R32" {
 			continue
 		}
-		for _, lbl := range []string{mt.GetString("homeLabel"), mt.GetString("awayLabel")} {
+		home, away := mt.GetString("homeLabel"), mt.GetString("awayLabel")
+		for _, lbl := range []string{home, away} {
 			if strings.HasPrefix(lbl, "3") && strings.Contains(lbl, "/") {
+				w, _ := bracket.WinnerLetter(home, away)
 				slots = append(slots, slot{
 					num:     mt.GetInt("num"),
+					winner:  w,
 					allowed: strings.Split(strings.TrimPrefix(lbl, "3"), "/"),
 				})
 			}
@@ -331,7 +339,18 @@ func assignThirds(koList []*core.Record, thirds map[string]string) map[int]strin
 	}
 	sort.Strings(chosen)
 
-	// Deterministic backtracking perfect matching (greedy can dead-end).
+	// Official FIFA table for this exact set of 8 qualifying groups.
+	if m, ok := bracket.Lookup(chosen); ok {
+		out := map[int]string{}
+		for _, s := range slots {
+			if g, ok := m[s.winner]; ok {
+				out[s.num] = thirds[g]
+			}
+		}
+		return out
+	}
+
+	// Fallback: deterministic backtracking perfect matching.
 	assign := make([]string, len(slots))
 	var solve func(i int) bool
 	solve = func(i int) bool {

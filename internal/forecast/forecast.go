@@ -13,6 +13,7 @@ import (
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 
+	"github.com/floholz/wm-pickems/internal/bracket"
 	"github.com/floholz/wm-pickems/internal/clock"
 )
 
@@ -102,7 +103,8 @@ func validate(app core.App, rec *core.Record) error {
 // ThirdSlot is an R32 match whose away side is a best-third placeholder.
 type ThirdSlot struct {
 	MatchNum int      `json:"matchNum"`
-	Allowed  []string `json:"allowed"` // group letters eligible for this slot
+	Winner   string   `json:"winner"`  // group-winner letter this slot pairs with
+	Allowed  []string `json:"allowed"` // group letters eligible (fallback only)
 }
 
 // Register wires the Forecast validation hooks and the structure endpoint.
@@ -155,8 +157,10 @@ func Register(app core.App, se *core.ServeEvent) {
 			})
 			for _, lbl := range []string{home, away} {
 				if strings.HasPrefix(lbl, "3") && strings.Contains(lbl, "/") {
+					w, _ := bracket.WinnerLetter(home, away)
 					thirds = append(thirds, ThirdSlot{
 						MatchNum: num,
+						Winner:   w,
 						Allowed:  strings.Split(strings.TrimPrefix(lbl, "3"), "/"),
 					})
 				}
@@ -168,6 +172,7 @@ func Register(app core.App, se *core.ServeEvent) {
 			"groups":          gOut,
 			"knockout":        kOut,
 			"thirdSlots":      thirds,
+			"thirdTable":      bracket.Table(),
 			"tournamentStart": ts,
 			"locked":          locked(app),
 		})

@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"github.com/floholz/wm-pickems/internal/bracket"
 )
 
 // ResolveBracket fills knockout matches' homeTeam/awayTeam from their
@@ -38,13 +40,70 @@ func ResolveBracket(app core.App) error {
 
 	first, second, thirds := groupStandings(matches)
 
-	// Ranked best thirds (group letter list) for the greedy slot fill.
-	thirdQueue := make([]string, 0, len(thirds))
+	// Resolve the 8 R32 third-slots. With all 8 best thirds known, use FIFA's
+	// official Annex C table; otherwise fall back to a deterministic greedy
+	// fill (only hit while the group stage is still incomplete, when the
+	// bracket can't be resolved yet anyway).
+	quals := make([]string, 0, len(thirds))
 	for _, st := range thirds {
-		thirdQueue = append(thirdQueue, st.group)
+		quals = append(quals, st.group)
+	}
+	thirdByNum := map[int]string{}
+	if tbl, ok := bracket.Lookup(quals); ok {
+		for _, m := range matches {
+			if m.GetString("stage") != "R32" {
+				continue
+			}
+			home, away := m.GetString("homeLabel"), m.GetString("awayLabel")
+			isSlot := (strings.HasPrefix(home, "3") && strings.Contains(home, "/")) ||
+				(strings.HasPrefix(away, "3") && strings.Contains(away, "/"))
+			if !isSlot {
+				continue
+			}
+			if w, ok := bracket.WinnerLetter(home, away); ok {
+				thirdByNum[m.GetInt("num")] = thirdTeam[tbl[w]]
+			}
+		}
+	} else {
+		thirdQueue := make([]string, len(quals))
+		copy(thirdQueue, quals)
+		r32 := []*core.Record{}
+		for _, m := range matches {
+			if m.GetString("stage") == "R32" {
+				r32 = append(r32, m)
+			}
+		}
+		sort.Slice(r32, func(i, j int) bool {
+			return r32[i].GetInt("num") < r32[j].GetInt("num")
+		})
+		for _, m := range r32 {
+			for _, lbl := range []string{m.GetString("homeLabel"), m.GetString("awayLabel")} {
+				if !strings.HasPrefix(lbl, "3") || !strings.Contains(lbl, "/") {
+					continue
+				}
+				allowed := strings.Split(strings.TrimPrefix(lbl, "3"), "/")
+				for i, g := range thirdQueue {
+					if g == "" {
+						continue
+					}
+					ok := false
+					for _, a := range allowed {
+						if g == a {
+							ok = true
+							break
+						}
+					}
+					if ok {
+						thirdByNum[m.GetInt("num")] = thirdTeam[g]
+						thirdQueue[i] = ""
+						break
+					}
+				}
+			}
+		}
 	}
 
-	resolve := func(label string) string {
+	resolve := func(label string, num int) string {
 		if label == "" {
 			return ""
 		}
@@ -54,21 +113,7 @@ func ResolveBracket(app core.App) error {
 		case '2':
 			return second[label[1:]]
 		case '3':
-			// e.g. "3A/B/C/D/F": first queued third whose group is allowed.
-			allowed := strings.Split(strings.TrimPrefix(label, "3"), "/")
-			for i, g := range thirdQueue {
-				if g == "" {
-					continue
-				}
-				for _, a := range allowed {
-					if g == a {
-						tid := thirdTeam[g]
-						thirdQueue[i] = "" // consumed
-						return tid
-					}
-				}
-			}
-			return ""
+			return thirdByNum[num]
 		case 'W', 'L':
 			n, err := strconv.Atoi(label[1:])
 			if err != nil {
@@ -100,14 +145,15 @@ func ResolveBracket(app core.App) error {
 			continue
 		}
 		changed := false
+		num := m.GetInt("num")
 		if m.GetString("homeTeam") == "" {
-			if id := resolve(m.GetString("homeLabel")); id != "" {
+			if id := resolve(m.GetString("homeLabel"), num); id != "" {
 				m.Set("homeTeam", id)
 				changed = true
 			}
 		}
 		if m.GetString("awayTeam") == "" {
-			if id := resolve(m.GetString("awayLabel")); id != "" {
+			if id := resolve(m.GetString("awayLabel"), num); id != "" {
 				m.Set("awayTeam", id)
 				changed = true
 			}

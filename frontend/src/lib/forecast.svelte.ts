@@ -11,6 +11,7 @@ export interface KOMatch {
 }
 export interface ThirdSlot {
 	matchNum: number;
+	winner: string;
 	allowed: string[];
 }
 export interface GroupDef {
@@ -31,6 +32,7 @@ class ForecastStore {
 	teams = $state<Record<string, Team>>({});
 	groups = $state<GroupDef[]>([]);
 	knockout = $state<KOMatch[]>([]);
+	thirdTable: Record<string, Record<string, string>> = {};
 	thirdSlots = $state<ThirdSlot[]>([]);
 
 	// Editable forecast.
@@ -90,6 +92,7 @@ class ForecastStore {
 		this.groups = structure.groups;
 		this.knockout = structure.knockout;
 		this.thirdSlots = structure.thirdSlots ?? [];
+		this.thirdTable = structure.thirdTable ?? {};
 		this.tournamentStart = structure.tournamentStart;
 		this.locked = structure.locked;
 
@@ -244,16 +247,31 @@ class ForecastStore {
 		}
 	}
 
-	/** Slot the chosen thirds into the 8 R32 third-slots. Greedy can dead-end
-	 *  (a slot left empty though a full assignment exists), so this does a
-	 *  deterministic backtracking perfect matching — slots in match order,
-	 *  letters tried in alphabetical order. Mirrors the Go scorer exactly so
-	 *  Forecast knockout scoring agrees. */
+	/** Slot the chosen thirds into the 8 R32 third-slots. Uses FIFA's official
+	 *  Annex C table (served from the backend) for the chosen combination of 8
+	 *  groups; falls back to a deterministic backtracking matching otherwise.
+	 *  Mirrors the Go scorer exactly so the Forecast bracket + scoring agree. */
 	thirdAssignment(): Record<number, string> {
 		const slots = [...this.thirdSlots].sort(
 			(a, b) => a.matchNum - b.matchNum
 		);
 		const chosen = this.chosenThirdLetters.sort();
+
+		// Official table for this exact set of 8 qualifying groups.
+		if (chosen.length === 8) {
+			const key = [...chosen].sort().join('');
+			const map = this.thirdTable[key];
+			if (map) {
+				const out: Record<number, string> = {};
+				for (const s of slots) {
+					const g = map[s.winner];
+					if (g) out[s.matchNum] = this.groupThird(g);
+				}
+				return out;
+			}
+		}
+
+		// Fallback: deterministic backtracking perfect matching.
 		const assign: (string | null)[] = new Array(slots.length).fill(null);
 
 		const solve = (i: number): boolean => {
