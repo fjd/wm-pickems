@@ -1,13 +1,22 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { navItems, isActive } from '$lib/nav';
+	import { navItems, isActive, type NavItem } from '$lib/nav';
+	import { serverClock } from '$lib/serverclock.svelte';
+	import { FlaskConical } from '@lucide/svelte';
 
 	let { variant = 'tab' as 'tab' | 'rail' } = $props();
 	let path = $derived($page.url.pathname);
+
+	// Dev tools tab only when the server reports dev mode.
+	let items = $derived<NavItem[]>(
+		serverClock.dev
+			? [...navItems, { href: '/dev', label: 'Dev', icon: FlaskConical }]
+			: navItems
+	);
 </script>
 
 <div class="links {variant}">
-	{#each navItems as it (it.href)}
+	{#each items as it (it.href)}
 		{@const Icon = it.icon}
 		<a href={it.href} class:active={isActive(it.href, path)}>
 			<Icon size={variant === 'rail' ? 20 : 22} />
