@@ -13,7 +13,10 @@ import (
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 	"github.com/pocketbase/pocketbase/tools/hook"
 
+	"github.com/floholz/wm-pickems/internal/seed"
+	wmsync "github.com/floholz/wm-pickems/internal/sync"
 	"github.com/floholz/wm-pickems/internal/web"
+	_ "github.com/floholz/wm-pickems/migrations"
 )
 
 func main() {
@@ -23,6 +26,16 @@ func main() {
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
 		TemplateLang: migratecmd.TemplateLangGo,
 		Automigrate:  true,
+	})
+
+	// Seed teams/groups/fixtures from the embedded openfootball dataset on
+	// first boot (idempotent).
+	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
+		if err := seed.Run(e.App); err != nil {
+			return err
+		}
+		wmsync.Register(e.App, e)
+		return e.Next()
 	})
 
 	// Serve the embedded SvelteKit build with SPA (index.html) fallback so
