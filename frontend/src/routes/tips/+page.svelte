@@ -30,8 +30,10 @@
 	});
 
 	function goNow() {
+		// Scroll to the day-header of the day holding the "now" match —
+		// nicer context, and days hold only a handful of games.
 		document
-			.getElementById(`m-${nowId}`)
+			.getElementById(`day-${nowDayIndex}`)
 			?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
@@ -48,6 +50,10 @@
 				return acc;
 			}, {})
 		)
+	);
+
+	let nowDayIndex = $derived(
+		days.findIndex(([, ms]) => ms.some((m) => m.id === nowId))
 	);
 </script>
 
@@ -83,10 +89,10 @@
 			: 'Nothing here.'}
 	</p>
 {:else}
-	{#each days as [day, ms] (day)}
-		<h3 class="day">{day}</h3>
+	{#each days as [day, ms], i (day)}
+		<h3 class="day" id={`day-${i}`}>{day}</h3>
 		{#each ms as m (m.id)}
-			<div id={`m-${m.id}`} class="anchor"><TipCard match={m} /></div>
+			<div class="match"><TipCard match={m} /></div>
 		{/each}
 	{/each}
 {/if}
@@ -147,15 +153,16 @@
 		margin: 1.3rem 0 0.6rem;
 		font-size: 0.95rem;
 		color: var(--muted);
-	}
-	/* Land below the fixed top bar + collapsed sticky header. */
-	.anchor {
-		scroll-margin-top: 165px;
+		/* Land below the fixed top bar + collapsed sticky header. */
+		scroll-margin-top: 150px;
 	}
 	@media (min-width: 900px) {
-		.anchor {
-			scroll-margin-top: 110px;
+		.day {
+			scroll-margin-top: 96px;
 		}
+	}
+	.match + .match {
+		margin-top: 6px;
 	}
 	.fab {
 		position: fixed;
