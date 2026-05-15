@@ -3,15 +3,15 @@
 </script>
 
 <a class="logo" href="/" aria-label="WM Tips home">
-	<img class="mark" src="/logos/fhun_logo-text.svg" alt="fhun - logo" />
+	<img class="mark" src="/logos/fhun_logo-icon.svg" alt="fhun - logo" />
 	{#if !compact}<span class="word">WM&nbsp;Tips</span>{/if}
 </a>
 
 <style>
 	.logo {
 		display: inline-flex;
-		align-items: baseline;
-		gap: 0.6rem;
+		align-items: center;
+		gap: 1.1rem;
 		color: var(--text);
 		font-weight: 800;
 		letter-spacing: -0.02em;
