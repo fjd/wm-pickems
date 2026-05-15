@@ -15,6 +15,7 @@ import (
 
 	"github.com/floholz/wm-pickems/internal/forecast"
 	"github.com/floholz/wm-pickems/internal/leagues"
+	"github.com/floholz/wm-pickems/internal/scoring"
 	"github.com/floholz/wm-pickems/internal/seed"
 	wmsync "github.com/floholz/wm-pickems/internal/sync"
 	"github.com/floholz/wm-pickems/internal/tips"
@@ -41,6 +42,7 @@ func main() {
 		leagues.Register(e.App, e)
 		tips.Register(e.App, e)
 		forecast.Register(e.App, e)
+		scoring.Register(e.App, e)
 		return e.Next()
 	})
 

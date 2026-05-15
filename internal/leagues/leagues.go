@@ -12,6 +12,8 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+
+	"github.com/floholz/wm-pickems/internal/scoring"
 )
 
 const codeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no ambiguous chars
@@ -140,34 +142,11 @@ func Register(app core.App, se *core.ServeEvent) {
 			map[string]any{"l": id, "u": e.Auth.Id}); err != nil {
 			return bad(e, http.StatusForbidden, "not a member of this league")
 		}
-		lg, err := app.FindRecordById("leagues", id)
+		lb, err := scoring.Leaderboard(app, id)
 		if err != nil {
 			return bad(e, http.StatusNotFound, "league not found")
 		}
-		members, err := app.FindRecordsByFilter("league_members",
-			"league = {:l}", "joinedAt", 0, 0, map[string]any{"l": id})
-		if err != nil {
-			return err
-		}
-		rows := make([]map[string]any, 0, len(members))
-		for _, m := range members {
-			u, err := app.FindRecordById("users", m.GetString("user"))
-			if err != nil {
-				continue
-			}
-			// Points filled by the Phase 5 scoring engine.
-			rows = append(rows, map[string]any{
-				"userId":         u.Id,
-				"name":           u.GetString("name"),
-				"total":          0,
-				"tipsPoints":     0,
-				"forecastPoints": 0,
-			})
-		}
-		return e.JSON(http.StatusOK, map[string]any{
-			"league": map[string]any{"id": lg.Id, "name": lg.GetString("name")},
-			"rows":   rows,
-		})
+		return e.JSON(http.StatusOK, lb)
 	})
 }
 
