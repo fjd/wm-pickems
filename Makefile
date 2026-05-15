@@ -27,6 +27,10 @@ test: ## Run Go tests
 docker: ## Build the production Docker image
 	docker build -t wm-pickems:latest .
 
+reset: ## Wipe the local dev database (pb_data is disposable — re-seeded on boot)
+	rm -rf pb_data
+	@echo "pb_data removed — next 'make run'/'make dev-backend' re-seeds a fresh DB."
+
 clean: ## Remove build artifacts
 	rm -f wm-pickems
 	rm -rf frontend/.svelte-kit frontend/build
