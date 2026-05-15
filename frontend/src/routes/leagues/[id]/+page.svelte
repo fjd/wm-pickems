@@ -128,7 +128,7 @@
 				<tr>
 					<th>#</th>
 					<th>Player</th>
-					<th class="num ext" title="Tip points">Tips</th>
+					<th class="num ext" title="Matches predicted">Pred</th>
 					<th class="num ext" title="Forecast points">FC</th>
 					<th class="num ext" title="Exact scores (tiebreak 1)">Exact</th>
 					<th class="num ext" title="Correct winners (tiebreak 2)">Win</th>
@@ -146,8 +146,13 @@
 							(openRow = openRow === r.userId ? null : r.userId)}
 					>
 						<td class="rank">{i + 1}</td>
-						<td class="player">{r.name}<ChevronDown size={14} class="rx" /></td>
-						<td class="num ext digits">{r.tipsPoints}</td>
+						<td class="player">
+							<div class="pwrap">
+								<span class="pname">{r.name}</span>
+								<ChevronDown size={14} class="rx" />
+							</div>
+						</td>
+						<td class="num ext digits">{r.predicted}</td>
 						<td class="num ext digits">{r.forecastPoints}</td>
 						<td class="num ext digits">{r.exactScores}</td>
 						<td class="num ext digits">{r.correctWinners}</td>
@@ -158,8 +163,9 @@
 						<tr class="detail">
 							<td colspan="8">
 								<div class="stats">
-									<span><i>Tips</i><b>{r.tipsPoints}</b></span>
-									<span><i>Forecast</i><b>{r.forecastPoints}</b></span>
+									<span><i>Matches predicted</i><b>{r.predicted}</b></span>
+									<span><i>Tip points</i><b>{r.tipsPoints}</b></span>
+									<span><i>Forecast points</i><b>{r.forecastPoints}</b></span>
 									<span><i>Exact scores</i><b>{r.exactScores}</b></span>
 									<span><i>Correct winners</i><b>{r.correctWinners}</b></span>
 									<span><i>Goal-diff error</i><b>{r.gdDeviation}</b></span>
@@ -324,9 +330,17 @@
 		display: none;
 	}
 	.player {
+		width: 100%;
+	}
+	.pwrap {
 		display: flex;
 		align-items: center;
 		gap: 0.4rem;
+	}
+	.pname {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	:global(.lb .rx) {
 		color: var(--muted);

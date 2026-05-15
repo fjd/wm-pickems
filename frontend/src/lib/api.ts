@@ -23,6 +23,7 @@ export interface LeaderboardRow {
 	total: number;
 	tipsPoints: number;
 	forecastPoints: number;
+	predicted: number;
 	exactScores: number;
 	correctWinners: number;
 	gdDeviation: number;

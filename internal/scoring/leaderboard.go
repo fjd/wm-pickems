@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"sort"
 
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -14,6 +15,7 @@ type Row struct {
 	Total          int    `json:"total"`
 	TipsPoints     int    `json:"tipsPoints"`
 	ForecastPoints int    `json:"forecastPoints"`
+	Predicted      int    `json:"predicted"` // # matches the user has tipped
 	// Tiebreakers (also returned for transparency).
 	ExactScores    int    `json:"exactScores"`
 	CorrectWinners int    `json:"correctWinners"`
@@ -74,6 +76,10 @@ func Leaderboard(app core.App, leagueID string) (map[string]any, error) {
 		}
 
 		row.Total = row.TipsPoints + row.ForecastPoints
+
+		if n, err := app.CountRecords("tips", dbx.HashExp{"user": uid}); err == nil {
+			row.Predicted = int(n)
+		}
 
 		// Earliest last-edit across this user's tips (earlier = better).
 		if tps, _ := app.FindRecordsByFilter("tips",
