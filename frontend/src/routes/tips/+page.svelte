@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tipsStore, isLocked, type Match } from '$lib/tips.svelte';
 	import TipCard from '$lib/components/TipCard.svelte';
+	import { collapseOnScroll } from '$lib/actions';
 
 	let tab = $state<'upcoming' | 'group' | 'ko' | 'all'>('upcoming');
 
@@ -33,10 +34,12 @@
 	);
 </script>
 
-<div class="stickyhead">
+<div class="stickyhead" use:collapseOnScroll>
 	<p class="kicker">Match predictions</p>
-	<h1>Tips</h1>
-	<p class="muted desc">Predict every match. Editable until kickoff.</p>
+	<div class="sh-expand">
+		<h1>Tips</h1>
+		<p class="muted desc">Predict every match. Editable until kickoff.</p>
+	</div>
 	<div class="tabs">
 		<button class:active={tab === 'upcoming'} onclick={() => (tab = 'upcoming')}
 			>Upcoming</button

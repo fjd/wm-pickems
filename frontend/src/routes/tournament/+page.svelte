@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tipsStore, type Match } from '$lib/tips.svelte';
 	import Flag from '$lib/components/Flag.svelte';
+	import { collapseOnScroll } from '$lib/actions';
 
 	let view = $state<'groups' | 'bracket'>('groups');
 
@@ -107,9 +108,9 @@
 	}
 </script>
 
-<div class="stickyhead">
+<div class="stickyhead" use:collapseOnScroll>
 	<p class="kicker">World Cup 2026</p>
-	<h1>The Tournament</h1>
+	<div class="sh-expand"><h1>The Tournament</h1></div>
 	<div class="seg">
 		<button class:on={view === 'groups'} onclick={() => (view = 'groups')}>Group tables</button>
 		<button class:on={view === 'bracket'} onclick={() => (view = 'bracket')}>Bracket</button>

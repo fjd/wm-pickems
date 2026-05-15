@@ -2,6 +2,7 @@
 	import { forecastStore as fs, koKey, type KOMatch } from '$lib/forecast.svelte';
 	import Flag from '$lib/components/Flag.svelte';
 	import { ChevronUp, ChevronDown, Lock, Check, Trophy } from '@lucide/svelte';
+	import { collapseOnScroll } from '$lib/actions';
 
 	let section = $state<'groups' | 'thirds' | 'bracket'>('groups');
 	let busy = $state(false);
@@ -74,13 +75,15 @@
 	}
 </script>
 
-<div class="stickyhead">
+<div class="stickyhead" use:collapseOnScroll>
 	<p class="kicker">The big call</p>
-	<h1>Forecast</h1>
-	<p class="muted desc">
-		Your one-time tournament call. {#if fs.locked}<b>Locked.</b>{:else}Locks
-			at kickoff{lockDate ? ` · ${lockDate}` : ''}.{/if}
-	</p>
+	<div class="sh-expand">
+		<h1>Forecast</h1>
+		<p class="muted desc">
+			Your one-time tournament call. {#if fs.locked}<b>Locked.</b>{:else}Locks
+				at kickoff{lockDate ? ` · ${lockDate}` : ''}.{/if}
+		</p>
+	</div>
 	{#if fs.loaded}
 		<div class="seg">
 			<button class:on={section === 'groups'} onclick={() => (section = 'groups')}>Groups</button>

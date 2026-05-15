@@ -270,6 +270,26 @@ h3 {
 	color: var(--accent-fg);
 }
 
+/* Collapsible part of a sticky header — hidden once scrolled (the
+   collapseOnScroll action toggles .scrolled on .stickyhead). */
+.sh-expand {
+	overflow: hidden;
+	max-height: 40vh;
+	opacity: 1;
+	transition:
+		max-height 0.28s ease,
+		opacity 0.18s ease;
+}
+.stickyhead.scrolled .sh-expand {
+	max-height: 0;
+	opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+	.sh-expand {
+		transition: none;
+	}
+}
+
 /* ---- Page-load reveal ---- */
 @keyframes rise {
 	from {
