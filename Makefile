@@ -13,8 +13,9 @@ dev-backend: ## Run PocketBase backend on :8090
 	go run . serve --http=127.0.0.1:8090 --dir=./pb_data
 
 build-frontend: ## Build the SPA into internal/web/build (cleaned first)
-	rm -rf internal/web/build && mkdir -p internal/web/build && touch internal/web/build/.gitkeep
+	rm -rf internal/web/build && mkdir -p internal/web/build
 	cd frontend && npm run build
+	touch internal/web/build/.gitkeep
 
 build: build-frontend ## Build the single binary (frontend embedded)
 	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o wm-pickems .
