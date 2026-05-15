@@ -2,7 +2,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import { serverClock } from '$lib/serverclock.svelte';
 	import Avatar from './Avatar.svelte';
-	import { LogOut, ChevronDown, FlaskConical } from '@lucide/svelte';
+	import { LogOut, ChevronDown, FlaskConical, Settings } from '@lucide/svelte';
 
 	let {
 		align = 'right' as 'right' | 'left',
@@ -41,14 +41,16 @@
 			class:up
 			role="menu"
 		>
-			<div class="who">
+			<a class="who" href="/settings" onclick={() => (open = false)}>
 				<Avatar name={auth.user?.name ?? '?'} src={auth.user?.avatarUrl} size={40} />
 				<div class="meta">
 					<div class="name">{auth.user?.name}</div>
 					<div class="email">{auth.user?.email}</div>
 				</div>
-			</div>
-			<!-- "Connect Google" goes here once OAuth is wired. -->
+			</a>
+			<a class="item" href="/settings" onclick={() => (open = false)}>
+				<Settings size={17} /> Settings
+			</a>
 			{#if serverClock.dev}
 				<a class="item" href="/dev" onclick={() => (open = false)}>
 					<FlaskConical size={17} /> Dev tools
@@ -118,6 +120,11 @@
 		padding: 0.5rem 0.5rem 0.7rem;
 		border-bottom: 1px solid var(--border);
 		margin-bottom: 0.4rem;
+		color: var(--text);
+		border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+	}
+	.who:hover {
+		background: var(--surface);
 	}
 	.name {
 		font-weight: 700;

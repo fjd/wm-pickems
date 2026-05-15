@@ -49,6 +49,19 @@ class Auth {
 		await pb.collection('users').authWithOAuth2({ provider: 'google' });
 	}
 
+	// Update the signed-in user's display name and (optionally) avatar.
+	// FormData carries the text field and the optional image in one request;
+	// authRefresh re-pulls the auth record so onChange → sync() propagates the
+	// change to the UserMenu and anywhere else reading auth.user.
+	async updateProfile(opts: { name: string; avatarFile?: File | null }) {
+		if (!this.user) throw new Error('Not signed in.');
+		const body = new FormData();
+		body.set('name', opts.name.trim());
+		if (opts.avatarFile) body.set('avatar', opts.avatarFile);
+		await pb.collection('users').update(this.user.id, body);
+		await pb.collection('users').authRefresh();
+	}
+
 	async register(name: string, email: string, password: string) {
 		await pb.collection('users').create({
 			name,
