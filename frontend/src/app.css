@@ -272,16 +272,22 @@ h3 {
 
 /* Collapsible part of a sticky header — hidden once scrolled (the
    collapseOnScroll action toggles .scrolled on .stickyhead). */
+/* Animate the REAL height (grid 1fr<->0fr) so it can't overshoot/pop like a
+   max-height guess. .sh-expand must hold exactly one child (.sh-inner). */
 .sh-expand {
-	overflow: hidden;
-	max-height: 40vh;
-	opacity: 1;
+	display: grid;
+	grid-template-rows: 1fr;
 	transition:
-		max-height 0.28s ease,
-		opacity 0.18s ease;
+		grid-template-rows 0.26s ease,
+		opacity 0.2s ease;
+	opacity: 1;
+}
+.sh-expand > .sh-inner {
+	min-height: 0;
+	overflow: hidden;
 }
 .stickyhead.scrolled .sh-expand {
-	max-height: 0;
+	grid-template-rows: 0fr;
 	opacity: 0;
 }
 @media (prefers-reduced-motion: reduce) {

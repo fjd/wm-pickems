@@ -37,8 +37,10 @@
 <div class="stickyhead" use:collapseOnScroll>
 	<p class="kicker">Match predictions</p>
 	<div class="sh-expand">
-		<h1>Tips</h1>
-		<p class="muted desc">Predict every match. Editable until kickoff.</p>
+		<div class="sh-inner">
+			<h1>Tips</h1>
+			<p class="muted desc">Predict every match. Editable until kickoff.</p>
+		</div>
 	</div>
 	<div class="tabs">
 		<button class:active={tab === 'upcoming'} onclick={() => (tab = 'upcoming')}

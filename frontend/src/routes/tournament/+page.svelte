@@ -110,7 +110,7 @@
 
 <div class="stickyhead" use:collapseOnScroll>
 	<p class="kicker">World Cup 2026</p>
-	<div class="sh-expand"><h1>The Tournament</h1></div>
+	<div class="sh-expand"><div class="sh-inner"><h1>The Tournament</h1></div></div>
 	<div class="seg">
 		<button class:on={view === 'groups'} onclick={() => (view = 'groups')}>Group tables</button>
 		<button class:on={view === 'bracket'} onclick={() => (view = 'bracket')}>Bracket</button>

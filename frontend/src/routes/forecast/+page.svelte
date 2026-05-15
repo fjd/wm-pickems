@@ -97,11 +97,15 @@
 <div class="stickyhead" use:collapseOnScroll>
 	<p class="kicker">The big call</p>
 	<div class="sh-expand">
-		<h1>Forecast</h1>
-		<p class="muted desc">
-			Your one-time tournament call. {#if fs.locked}<b>Locked.</b>{:else}Locks
-				at kickoff{lockDate ? ` · ${lockDate}` : ''}.{/if}
-		</p>
+		<div class="sh-inner">
+			<h1>Forecast</h1>
+			<p class="muted desc">
+				Your one-time tournament call. {#if fs.locked}<b>Locked.</b
+					>{:else}Locks at kickoff{lockDate
+						? ` · ${lockDate}`
+						: ''}.{/if}
+			</p>
+		</div>
 	</div>
 	{#if fs.loaded}
 		<div class="seg">
