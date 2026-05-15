@@ -33,21 +33,23 @@
 	);
 </script>
 
-<p class="kicker">Match predictions</p>
-<h1>Tips</h1>
-<p class="muted">Predict every match. Editable until kickoff.</p>
-
-<div class="tabs">
-	<button class:active={tab === 'upcoming'} onclick={() => (tab = 'upcoming')}
-		>Upcoming</button
-	>
-	<button class:active={tab === 'group'} onclick={() => (tab = 'group')}
-		>Groups</button
-	>
-	<button class:active={tab === 'ko'} onclick={() => (tab = 'ko')}
-		>Knockout</button
-	>
-	<button class:active={tab === 'all'} onclick={() => (tab = 'all')}>All</button>
+<div class="stickyhead">
+	<p class="kicker">Match predictions</p>
+	<h1>Tips</h1>
+	<p class="muted desc">Predict every match. Editable until kickoff.</p>
+	<div class="tabs">
+		<button class:active={tab === 'upcoming'} onclick={() => (tab = 'upcoming')}
+			>Upcoming</button
+		>
+		<button class:active={tab === 'group'} onclick={() => (tab = 'group')}
+			>Groups</button
+		>
+		<button class:active={tab === 'ko'} onclick={() => (tab = 'ko')}
+			>Knockout</button
+		>
+		<button class:active={tab === 'all'} onclick={() => (tab = 'all')}>All</button
+		>
+	</div>
 </div>
 
 {#if !tipsStore.loaded}
@@ -68,18 +70,34 @@
 {/if}
 
 <style>
-	h1 {
-		margin: 0.25rem 0 0.2rem;
+	.stickyhead {
+		position: sticky;
+		top: var(--topbar-h);
+		z-index: 20;
+		margin: 0 -1rem;
+		padding: 0.6rem 1rem 0.75rem;
+		background: color-mix(in srgb, var(--bg) 86%, transparent);
+		backdrop-filter: blur(12px) saturate(1.3);
+		border-bottom: 1px solid var(--border);
 	}
-	.muted {
-		margin: 0 0 1rem;
+	.stickyhead h1 {
+		margin: 0.1rem 0 0;
+	}
+	.stickyhead .desc {
+		margin: 0.3rem 0 0;
+		font-size: 0.9rem;
+	}
+	@media (min-width: 900px) {
+		.stickyhead {
+			top: 0;
+			margin: 0 -2rem;
+			padding: 0.75rem 2rem 0.85rem;
+		}
 	}
 	.tabs {
 		display: flex;
 		gap: 0.4rem;
-		margin-bottom: 1rem;
-		position: sticky;
-		top: calc(var(--topbar-h));
+		margin: 0.75rem 0 0;
 		z-index: 10;
 	}
 	.tabs button {

@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { api, type LeaderboardRow } from '$lib/api';
+	import { Eye, EyeOff, Copy } from '@lucide/svelte';
+
+	let revealed = $state(false);
 
 	let id = $derived($page.params.id ?? '');
 	let league = $state<{ id: string; name: string } | null>(null);
@@ -43,12 +46,23 @@
 	<h1>{league.name}</h1>
 
 	<section class="card invite">
-		<div>
+		<div class="ic">
 			<div class="muted small">Invite code</div>
-			<div class="code">{invite}</div>
+			<div class="code" class:masked={!revealed}>
+				{revealed ? invite : '•'.repeat(invite.length || 6)}
+			</div>
 		</div>
 		<div class="spacer"></div>
-		<button class="btn secondary copy" onclick={copyInvite}>Copy</button>
+		<button
+			class="btn secondary eye"
+			aria-label={revealed ? 'Hide code' : 'Reveal code'}
+			onclick={() => (revealed = !revealed)}
+		>
+			{#if revealed}<EyeOff size={18} />{:else}<Eye size={18} />{/if}
+		</button>
+		<button class="btn secondary copy" onclick={copyInvite}>
+			<Copy size={16} /> Copy
+		</button>
 	</section>
 
 	<section class="card">
@@ -90,14 +104,27 @@
 	.invite {
 		display: flex;
 		align-items: center;
+		gap: 0.5rem;
+	}
+	.ic {
+		min-width: 0;
 	}
 	.small {
 		font-size: 0.8rem;
 	}
 	.code {
-		font-weight: 800;
+		font-family: var(--font-mono);
+		font-weight: 700;
 		letter-spacing: 0.2em;
 		font-size: 1.3rem;
+	}
+	.code.masked {
+		color: var(--muted);
+		letter-spacing: 0.15em;
+	}
+	.eye {
+		width: auto;
+		padding: 0.7rem;
 	}
 	.copy {
 		width: auto;

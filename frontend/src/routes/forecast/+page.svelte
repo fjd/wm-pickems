@@ -74,12 +74,21 @@
 	}
 </script>
 
-<p class="kicker">The big call</p>
-<h1>Forecast</h1>
-<p class="muted">
-	Your one-time tournament call. {#if fs.locked}<b>Locked.</b>{:else}Locks at
-		kickoff{lockDate ? ` · ${lockDate}` : ''}.{/if}
-</p>
+<div class="stickyhead">
+	<p class="kicker">The big call</p>
+	<h1>Forecast</h1>
+	<p class="muted desc">
+		Your one-time tournament call. {#if fs.locked}<b>Locked.</b>{:else}Locks
+			at kickoff{lockDate ? ` · ${lockDate}` : ''}.{/if}
+	</p>
+	{#if fs.loaded}
+		<div class="seg">
+			<button class:on={section === 'groups'} onclick={() => (section = 'groups')}>Groups</button>
+			<button class:on={section === 'thirds'} onclick={() => (section = 'thirds')}>Best thirds</button>
+			<button class:on={section === 'bracket'} onclick={() => (section = 'bracket')}>Bracket</button>
+		</div>
+	{/if}
+</div>
 
 {#if err}<p class="error">{err}</p>{/if}
 
@@ -89,12 +98,6 @@
 	{#if fs.locked}
 		<div class="card lockbar"><Lock size={16} /> The tournament has started — your Forecast is final.</div>
 	{/if}
-
-	<div class="seg">
-		<button class:on={section === 'groups'} onclick={() => (section = 'groups')}>Groups</button>
-		<button class:on={section === 'thirds'} onclick={() => (section = 'thirds')}>Best thirds</button>
-		<button class:on={section === 'bracket'} onclick={() => (section = 'bracket')}>Bracket</button>
-	</div>
 
 	{#if section === 'groups'}
 		<p class="muted small">Order each group 1st → 4th. Top 2 advance; 3rd may qualify as a best third.</p>
@@ -152,7 +155,13 @@
 		{#if champion}
 			<div class="card champ">
 				<Trophy size={20} />
-				<span>Predicted champion: <b>{tname(champion)}</b></span>
+				<span class="lbl">Predicted champion</span>
+				<Flag
+					iso2={fs.team(champion)?.iso2 ?? ''}
+					code={fs.team(champion)?.fifaCode ?? ''}
+					size={26}
+				/>
+				<b>{tname(champion)}</b>
 			</div>
 		{/if}
 		{#each byStage as col (col.stage)}
@@ -211,12 +220,34 @@
 		gap: 0.5rem;
 		color: var(--warning);
 	}
+	.stickyhead {
+		position: sticky;
+		top: var(--topbar-h);
+		z-index: 20;
+		margin: 0 -1rem;
+		padding: 0.6rem 1rem 0.75rem;
+		background: color-mix(in srgb, var(--bg) 86%, transparent);
+		backdrop-filter: blur(12px) saturate(1.3);
+		border-bottom: 1px solid var(--border);
+	}
+	.stickyhead h1 {
+		margin: 0.1rem 0 0;
+	}
+	.stickyhead .desc {
+		margin: 0.3rem 0 0;
+		font-size: 0.9rem;
+	}
+	@media (min-width: 900px) {
+		.stickyhead {
+			top: 0;
+			margin: 0 -2rem;
+			padding: 0.75rem 2rem 0.85rem;
+		}
+	}
 	.seg {
 		display: flex;
 		gap: 0.4rem;
-		margin: 1rem 0;
-		position: sticky;
-		top: var(--topbar-h);
+		margin: 0.75rem 0 0;
 		z-index: 10;
 	}
 	.seg button {
@@ -330,7 +361,27 @@
 		display: flex;
 		align-items: center;
 		gap: 0.6rem;
-		color: var(--accent-2);
+		color: var(--gold);
+		border-color: color-mix(in srgb, var(--gold) 45%, var(--border));
+		background:
+			radial-gradient(
+				120% 140% at 0% 0%,
+				color-mix(in srgb, var(--gold) 14%, transparent),
+				transparent 60%
+			),
+			var(--surface);
+		text-shadow: 0 0 14px color-mix(in srgb, var(--gold) 55%, transparent);
+	}
+	.champ .lbl {
+		text-transform: uppercase;
+		letter-spacing: 0.14em;
+		font-size: 0.78rem;
+		font-weight: 700;
+	}
+	.champ b {
+		font-family: var(--font-display);
+		font-size: 1.15rem;
+		letter-spacing: 0.02em;
 	}
 	.savebar {
 		position: sticky;

@@ -107,12 +107,13 @@
 	}
 </script>
 
-<p class="kicker">World Cup 2026</p>
-<h1>The Tournament</h1>
-
-<div class="seg" style="margin:1rem 0 1.25rem">
-	<button class:on={view === 'groups'} onclick={() => (view = 'groups')}>Group tables</button>
-	<button class:on={view === 'bracket'} onclick={() => (view = 'bracket')}>Bracket</button>
+<div class="stickyhead">
+	<p class="kicker">World Cup 2026</p>
+	<h1>The Tournament</h1>
+	<div class="seg">
+		<button class:on={view === 'groups'} onclick={() => (view = 'groups')}>Group tables</button>
+		<button class:on={view === 'bracket'} onclick={() => (view = 'bracket')}>Bracket</button>
+	</div>
 </div>
 
 {#if !tipsStore.loaded}
@@ -177,6 +178,29 @@
 {/if}
 
 <style>
+	.stickyhead {
+		position: sticky;
+		top: var(--topbar-h);
+		z-index: 20;
+		margin: 0 -1rem;
+		padding: 0.6rem 1rem 0.75rem;
+		background: color-mix(in srgb, var(--bg) 86%, transparent);
+		backdrop-filter: blur(12px) saturate(1.3);
+		border-bottom: 1px solid var(--border);
+	}
+	.stickyhead h1 {
+		margin: 0.1rem 0 0.7rem;
+	}
+	.stickyhead .seg {
+		margin: 0;
+	}
+	@media (min-width: 900px) {
+		.stickyhead {
+			top: 0;
+			margin: 0 -2rem;
+			padding: 0.75rem 2rem 0.85rem;
+		}
+	}
 	.gwrap {
 		display: grid;
 		gap: 0.85rem;
