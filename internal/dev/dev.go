@@ -6,6 +6,7 @@
 package dev
 
 import (
+	"fmt"
 	"hash/fnv"
 	"math/rand"
 	"net/http"
@@ -16,9 +17,17 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 
 	"github.com/floholz/wm-pickems/internal/clock"
+	"github.com/floholz/wm-pickems/internal/forecast"
 	"github.com/floholz/wm-pickems/internal/scoring"
 	wmsync "github.com/floholz/wm-pickems/internal/sync"
+	"github.com/floholz/wm-pickems/internal/tips"
 )
+
+var botNames = []string{
+	"Bot Alex", "Bot Robin", "Bot Sam", "Bot Casey", "Bot Jordan",
+	"Bot Riley", "Bot Quinn", "Bot Skylar", "Bot Morgan", "Bot Drew",
+	"Bot Pat", "Bot Lee", "Bot Noor", "Bot Kai", "Bot Remy",
+}
 
 // Match windows: a result is "finished" once sim time passes kickoff+window,
 // "live" between kickoff and that, otherwise still scheduled.
@@ -141,6 +150,92 @@ func simulate(app core.App, simNow time.Time) error {
 	return scoring.Recompute(app)
 }
 
+// makeBots creates `count` bot users, each with a complete consistent
+// Forecast and a Tip on every match, joined to the given leagues. Uses the
+// dev-only validation bypass so it works even after the clock is advanced.
+func makeBots(app core.App, count int, leagueIDs []string) ([]string, error) {
+	usersCol, err := app.FindCollectionByNameOrId("users")
+	if err != nil {
+		return nil, err
+	}
+	fcCol, err := app.FindCollectionByNameOrId("forecasts")
+	if err != nil {
+		return nil, err
+	}
+	tipsCol, err := app.FindCollectionByNameOrId("tips")
+	if err != nil {
+		return nil, err
+	}
+	lmCol, err := app.FindCollectionByNameOrId("league_members")
+	if err != nil {
+		return nil, err
+	}
+	matches, err := app.FindRecordsByFilter("matches", "id != ''", "kickoff", 0, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	forecast.SetBypass(true)
+	tips.SetBypass(true)
+	defer forecast.SetBypass(false)
+	defer tips.SetBypass(false)
+
+	created := []string{}
+	used := map[string]int{}
+	for i := 0; i < count; i++ {
+		rng := rand.New(rand.NewSource(time.Now().UnixNano() + int64(i*7919)))
+		name := botNames[rng.Intn(len(botNames))]
+		if used[name]++; used[name] > 1 {
+			name = fmt.Sprintf("%s %d", name, used[name])
+		}
+
+		u := core.NewRecord(usersCol)
+		u.SetEmail(fmt.Sprintf("bot-%d@dev.local", time.Now().UnixNano()+int64(i)))
+		u.SetRandomPassword()
+		u.Set("name", name)
+		u.Set("verified", true)
+		if err := app.Save(u); err != nil {
+			return created, err
+		}
+
+		order, thirds, bracket, err := scoring.RandomForecast(app, rng)
+		if err != nil {
+			return created, err
+		}
+		f := core.NewRecord(fcCol)
+		f.Set("user", u.Id)
+		f.Set("groupOrder", order)
+		f.Set("thirdQualifiers", thirds)
+		f.Set("bracket", bracket)
+		if err := app.Save(f); err != nil {
+			return created, err
+		}
+
+		for _, m := range matches {
+			t := core.NewRecord(tipsCol)
+			t.Set("user", u.Id)
+			t.Set("match", m.Id)
+			t.Set("ftHome", rng.Intn(5))
+			t.Set("ftAway", rng.Intn(5))
+			if err := app.Save(t); err != nil {
+				return created, err
+			}
+		}
+
+		for _, lid := range leagueIDs {
+			lm := core.NewRecord(lmCol)
+			lm.Set("league", lid)
+			lm.Set("user", u.Id)
+			lm.Set("role", "member")
+			if err := app.Save(lm); err != nil {
+				return created, err
+			}
+		}
+		created = append(created, name)
+	}
+	return created, nil
+}
+
 func parseTimestamp(s string) (time.Time, bool) {
 	for _, layout := range []string{
 		time.RFC3339Nano,
@@ -207,6 +302,41 @@ func Register(app core.App, se *core.ServeEvent) {
 			return e.JSON(500, map[string]string{"error": err.Error()})
 		}
 		return e.JSON(http.StatusOK, state(app))
+	})
+
+	// POST /api/dev/bots { "count": 3, "leagueId": "" } — create bot players
+	// with a full Forecast + a Tip on every match. Joins the given league, or
+	// every league the caller is in if omitted.
+	g.POST("/bots", func(e *core.RequestEvent) error {
+		var body struct {
+			Count    int    `json:"count"`
+			LeagueID string `json:"leagueId"`
+		}
+		_ = e.BindBody(&body)
+		if body.Count <= 0 {
+			body.Count = 1
+		}
+		if body.Count > 20 {
+			body.Count = 20
+		}
+		var leagueIDs []string
+		if body.LeagueID != "" {
+			leagueIDs = []string{body.LeagueID}
+		} else {
+			mems, _ := app.FindRecordsByFilter("league_members",
+				"user = {:u}", "", 0, 0, map[string]any{"u": e.Auth.Id})
+			for _, m := range mems {
+				leagueIDs = append(leagueIDs, m.GetString("league"))
+			}
+		}
+		names, err := makeBots(app, body.Count, leagueIDs)
+		if err != nil {
+			return e.JSON(500, map[string]any{"error": err.Error(), "created": names})
+		}
+		if err := scoring.Recompute(app); err != nil {
+			return e.JSON(500, map[string]any{"error": err.Error()})
+		}
+		return e.JSON(http.StatusOK, map[string]any{"created": names})
 	})
 
 	// POST /api/dev/reset — clear all results and the dev clock.

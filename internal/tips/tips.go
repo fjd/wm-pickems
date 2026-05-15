@@ -8,6 +8,7 @@ package tips
 
 import (
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/pocketbase/pocketbase/apis"
@@ -24,8 +25,18 @@ func locked(app core.App, m *core.Record) bool {
 	return !clock.Now(app).Before(matchKickoff(m))
 }
 
+// bypass lets the dev bot generator insert tips for every match regardless
+// of lock / knockout-resolution. Never set in production (dev-only path).
+var bypass atomic.Bool
+
+// SetBypass toggles the dev-only validation bypass.
+func SetBypass(b bool) { bypass.Store(b) }
+
 // validateAndDerive applies lock + validation and sets the derived advancer.
 func validateAndDerive(app core.App, tip *core.Record) error {
+	if bypass.Load() {
+		return nil
+	}
 	match, err := app.FindRecordById("matches", tip.GetString("match"))
 	if err != nil {
 		return apis.NewBadRequestError("unknown match", nil)

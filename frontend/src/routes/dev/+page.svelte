@@ -1,10 +1,38 @@
 <script lang="ts">
 	import { pb } from '$lib/pb';
 	import { serverClock } from '$lib/serverclock.svelte';
+	import { api, type LeagueSummary } from '$lib/api';
 
 	let when = $state('');
 	let busy = $state(false);
 	let msg = $state('');
+
+	let botCount = $state(3);
+	let botLeague = $state('');
+	let leagues = $state<LeagueSummary[]>([]);
+
+	$effect(() => {
+		if (serverClock.dev)
+			api
+				.myLeagues()
+				.then((r) => (leagues = r.leagues))
+				.catch(() => {});
+	});
+
+	async function genBots() {
+		busy = true;
+		msg = '';
+		try {
+			await pb.send('/api/dev/bots', {
+				method: 'POST',
+				body: { count: botCount, leagueId: botLeague }
+			});
+			location.reload();
+		} catch (e: unknown) {
+			msg = (e as { message?: string })?.message ?? 'Failed';
+			busy = false;
+		}
+	}
 
 	$effect(() => {
 		serverClock.refresh();
@@ -106,6 +134,38 @@
 				>
 			{/each}
 		</div>
+	</section>
+
+	<section class="card">
+		<h3>Generate bot players</h3>
+		<p class="muted small">
+			Each bot gets a full random Forecast and a Tip on every match, and
+			joins the chosen league (or all your leagues) — instant leaderboard
+			competition.
+		</p>
+		<div class="field">
+			<label for="bc">How many</label>
+			<input
+				id="bc"
+				class="input"
+				type="number"
+				min="1"
+				max="20"
+				bind:value={botCount}
+			/>
+		</div>
+		<div class="field">
+			<label for="bl">League</label>
+			<select id="bl" class="input" bind:value={botLeague}>
+				<option value="">All my leagues</option>
+				{#each leagues as l (l.id)}
+					<option value={l.id}>{l.name}</option>
+				{/each}
+			</select>
+		</div>
+		<button class="btn" disabled={busy} onclick={genBots}>
+			Generate {botCount} bot{botCount === 1 ? '' : 's'}
+		</button>
 	</section>
 
 	<section class="card">

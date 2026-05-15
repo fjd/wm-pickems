@@ -7,6 +7,7 @@ package forecast
 import (
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/pocketbase/pocketbase/apis"
@@ -54,7 +55,17 @@ func groupTeams(app core.App) (map[string]map[string]bool, error) {
 // group's own teams without duplicates. Partial forecasts are allowed (the
 // user fills it in over multiple sessions); only clearly invalid data is
 // rejected.
+// bypass lets the dev bot generator insert a complete Forecast regardless of
+// the lock. Never set in production (dev-only path).
+var bypass atomic.Bool
+
+// SetBypass toggles the dev-only validation bypass.
+func SetBypass(b bool) { bypass.Store(b) }
+
 func validate(app core.App, rec *core.Record) error {
+	if bypass.Load() {
+		return nil
+	}
 	if locked(app) {
 		return apis.NewBadRequestError("the tournament has started — the Forecast is locked", nil)
 	}
