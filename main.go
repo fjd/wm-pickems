@@ -16,6 +16,7 @@ import (
 	"github.com/floholz/wm-pickems/internal/leagues"
 	"github.com/floholz/wm-pickems/internal/seed"
 	wmsync "github.com/floholz/wm-pickems/internal/sync"
+	"github.com/floholz/wm-pickems/internal/tips"
 	"github.com/floholz/wm-pickems/internal/web"
 	_ "github.com/floholz/wm-pickems/migrations"
 )
@@ -37,6 +38,7 @@ func main() {
 		}
 		wmsync.Register(e.App, e)
 		leagues.Register(e.App, e)
+		tips.Register(e.App, e)
 		return e.Next()
 	})
 
