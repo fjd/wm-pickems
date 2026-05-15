@@ -6,6 +6,7 @@
 		ChevronDown,
 		Lock,
 		Check,
+		CircleCheck,
 		X,
 		Trophy
 	} from '@lucide/svelte';
@@ -142,15 +143,37 @@
 				<h3>Group {g.letter}</h3>
 				{#each fs.groupOrder[g.letter] as id, i (id)}
 					{@const ao = fs.actualOrder(g.letter)}
-					{@const correct = ao ? ao[i] === id : null}
 					{@const apos = ao ? ao.indexOf(id) + 1 : 0}
-					<div class="trow" class:rwin={correct === true} class:rmiss={correct === false}>
+					{@const exact = ao ? ao[i] === id : null}
+					{@const advanced =
+						ao &&
+						(apos <= 2 ||
+							(apos === 3 && (actualThirds?.has(id) ?? false)))}
+					{@const scoredAdv =
+						advanced && (i < 2 || (i === 2 && !!fs.thirds[g.letter]))}
+					{@const state =
+						exact === null
+							? 'pending'
+							: exact
+								? 'ok'
+								: scoredAdv
+									? 'half'
+									: 'miss'}
+					<div
+						class="trow"
+						class:rwin={state === 'ok'}
+						class:rhalf={state === 'half'}
+						class:rmiss={state === 'miss'}
+					>
 						<span class="pos">{i + 1}</span>
 						<Flag iso2={fs.team(id)?.iso2 ?? ''} code={fs.team(id)?.fifaCode ?? ''} />
 						<span class="nm">{tname(id)}</span>
 						<span class="tag">
-							{#if correct === true}<span class="ind ok"><Check size={15} /></span>
-							{:else if correct === false}
+							{#if state === 'ok'}<span class="ind ok"><Check size={15} /></span>
+							{:else if state === 'half'}
+								<span class="apos half">finished {ord(apos)}</span>
+								<span class="ind half"><CircleCheck size={15} /></span>
+							{:else if state === 'miss'}
 								<span class="apos">finished {ord(apos)}</span>
 								<span class="ind no"><X size={15} /></span>
 							{:else if i < 2}<span class="pill ok">advances</span>
@@ -547,6 +570,12 @@
 	.ind.no {
 		color: var(--danger);
 	}
+	.ind.half {
+		color: var(--gold);
+	}
+	.apos.half {
+		color: var(--gold);
+	}
 	.tag {
 		display: inline-flex;
 		align-items: center;
@@ -566,6 +595,9 @@
 	.trow.rwin,
 	.bm.rwin {
 		border-color: color-mix(in srgb, var(--success) 45%, var(--border));
+	}
+	.trow.rhalf {
+		border-color: color-mix(in srgb, var(--gold) 45%, var(--border));
 	}
 	.trow.rmiss,
 	.bm.rmiss {
