@@ -70,9 +70,9 @@
 		min-width: 220px;
 		background: var(--surface-2);
 		border: 1px solid var(--border);
-		border-radius: 12px;
+		border-radius: var(--radius);
 		padding: 0.5rem;
-		box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+		box-shadow: var(--shadow-pop);
 		z-index: 60;
 	}
 	.panel.left {
@@ -102,7 +102,7 @@
 		padding: 0.6rem 0.55rem;
 		background: none;
 		border: none;
-		border-radius: 8px;
+		border-radius: var(--radius-sm);
 		color: var(--text);
 		font: inherit;
 		text-align: left;

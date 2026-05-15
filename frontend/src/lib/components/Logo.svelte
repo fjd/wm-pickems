@@ -24,7 +24,7 @@
 		height: 32px;
 		border-radius: 9px;
 		background: linear-gradient(135deg, var(--accent), var(--accent-2));
-		color: #07122b;
+		color: var(--accent-ink);
 	}
 	.word {
 		font-size: 1.05rem;

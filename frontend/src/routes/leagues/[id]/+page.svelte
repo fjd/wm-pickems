@@ -110,12 +110,12 @@
 		padding: 0.5rem;
 		background: var(--surface-2);
 		border: 1px solid var(--border);
-		border-radius: 10px;
+		border-radius: var(--radius-sm);
 		color: var(--muted);
 		font-weight: 600;
 	}
 	.tabs button.active {
-		color: #fff;
+		color: var(--accent-fg);
 		background: var(--accent);
 		border-color: var(--accent);
 	}

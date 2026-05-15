@@ -52,7 +52,7 @@
 		flex: none;
 	}
 	.fallback {
-		color: #fff;
+		color: var(--accent-fg);
 		font-weight: 700;
 		letter-spacing: 0.02em;
 	}

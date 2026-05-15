@@ -1,0 +1,50 @@
+/* =========================================================================
+   THEME — single source of truth for the app's look.
+
+   To re-skin the whole app, edit ONLY this file. Every component and page
+   references these CSS custom properties; no colour/raddi/shadow literals
+   live anywhere else. (A future light theme can be added by overriding these
+   under a `:root[data-theme='light']` block at the bottom.)
+   ========================================================================= */
+:root {
+	/* ---- Brand ---- */
+	--accent: #4f8cff; /* primary actions, links, active nav */
+	--accent-2: #29d3a4; /* secondary accent, gradients */
+	--accent-fg: #ffffff; /* text/icon on a solid --accent fill */
+	--accent-ink: #07122b; /* text/icon on a bright accent gradient */
+
+	/* ---- Surfaces & text ---- */
+	--bg: #0b1020; /* app background */
+	--surface: #141a30; /* cards, bars */
+	--surface-2: #1c2440; /* insets, chips, hover */
+	--border: #2a3354; /* hairlines, outlines */
+	--text: #e8ecf8; /* primary text */
+	--muted: #97a0c0; /* secondary text */
+
+	/* ---- Status ---- */
+	--danger: #ff5d6c;
+	--success: #29d3a4;
+	--warning: #ffb454;
+
+	/* ---- Effects ---- */
+	--radius: 14px;
+	--radius-sm: 10px;
+	--radius-pill: 999px;
+	--ring: 2px solid var(--accent);
+	--shadow-pop: 0 12px 30px rgba(0, 0, 0, 0.45);
+
+	/* ---- Layout metrics ---- */
+	--maxw: 720px;
+	--nav-h: 64px; /* mobile bottom tab bar */
+	--topbar-h: 56px; /* mobile top header */
+	--rail-w: 230px; /* desktop side rail */
+
+	/* ---- Typography ---- */
+	--font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@media (min-width: 900px) {
+	:root {
+		--maxw: 1080px;
+	}
+}

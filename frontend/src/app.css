@@ -1,19 +1,6 @@
-/* Base theme + small design system — mobile-first, scales to desktop.
-   Visual polish pass happens in Phase 6; this is the structural baseline. */
-:root {
-	--bg: #0b1020;
-	--surface: #141a30;
-	--surface-2: #1c2440;
-	--border: #2a3354;
-	--text: #e8ecf8;
-	--muted: #97a0c0;
-	--accent: #4f8cff;
-	--accent-2: #29d3a4;
-	--danger: #ff5d6c;
-	--radius: 14px;
-	--maxw: 720px;
-	--nav-h: 64px;
-}
+/* Design system — structure only. ALL colours/radii/shadows/metrics come from
+   the design tokens in ./lib/theme.css (the single place to re-theme). */
+@import './lib/theme.css';
 
 * {
 	box-sizing: border-box;
@@ -25,8 +12,7 @@ body {
 	padding: 0;
 	background: var(--bg);
 	color: var(--text);
-	font-family:
-		'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+	font-family: var(--font);
 	-webkit-font-smoothing: antialiased;
 }
 
@@ -45,11 +31,6 @@ h3 {
 	letter-spacing: -0.02em;
 }
 
-:root {
-	--topbar-h: 56px;
-	--rail-w: 230px;
-}
-
 .app-shell {
 	max-width: var(--maxw);
 	margin: 0 auto;
@@ -62,9 +43,6 @@ h3 {
 }
 
 @media (min-width: 900px) {
-	:root {
-		--maxw: 1080px;
-	}
 	.app-shell.with-chrome {
 		padding: 1.5rem;
 		padding-left: calc(var(--rail-w) + 2rem);
@@ -91,9 +69,9 @@ h3 {
 	width: 100%;
 	padding: 0.8rem 1rem;
 	border: 1px solid transparent;
-	border-radius: 12px;
+	border-radius: var(--radius-sm);
 	background: var(--accent);
-	color: #fff;
+	color: var(--accent-fg);
 	font-weight: 600;
 	font-size: 1rem;
 	cursor: pointer;
@@ -132,12 +110,12 @@ h3 {
 	padding: 0.75rem 0.85rem;
 	background: var(--bg);
 	border: 1px solid var(--border);
-	border-radius: 10px;
+	border-radius: var(--radius-sm);
 	color: var(--text);
 	font-size: 1rem;
 }
 .input:focus {
-	outline: 2px solid var(--accent);
+	outline: var(--ring);
 	outline-offset: -1px;
 }
 
@@ -157,15 +135,14 @@ h3 {
 	flex: 1;
 }
 .pill {
-	font:
-		600 0.75rem 'Inter',
-		sans-serif;
+	font-weight: 600;
+	font-size: 0.75rem;
 	letter-spacing: 0.04em;
 	background: var(--surface-2);
 	border: 1px solid var(--border);
 	color: var(--muted);
 	padding: 0.2rem 0.55rem;
-	border-radius: 999px;
+	border-radius: var(--radius-pill);
 }
 
 /* Mobile top header */

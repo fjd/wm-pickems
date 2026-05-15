@@ -53,7 +53,7 @@
 		padding: 0.7rem 1.4rem;
 		font-size: 0.95rem;
 		font-weight: 600;
-		border-radius: 10px;
+		border-radius: var(--radius-sm);
 		margin: 0 0.6rem;
 	}
 	.rail a.active {

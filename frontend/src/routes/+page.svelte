@@ -112,7 +112,7 @@
 		place-items: center;
 		width: 38px;
 		height: 38px;
-		border-radius: 10px;
+		border-radius: var(--radius-sm);
 		background: var(--surface-2);
 		color: var(--accent);
 		flex: none;
