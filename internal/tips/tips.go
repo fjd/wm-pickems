@@ -12,14 +12,16 @@ import (
 
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+
+	"github.com/floholz/wm-pickems/internal/clock"
 )
 
 func matchKickoff(m *core.Record) time.Time {
 	return m.GetDateTime("kickoff").Time()
 }
 
-func locked(m *core.Record) bool {
-	return !time.Now().UTC().Before(matchKickoff(m))
+func locked(app core.App, m *core.Record) bool {
+	return !clock.Now(app).Before(matchKickoff(m))
 }
 
 // validateAndDerive applies lock + validation and sets the derived advancer.
@@ -28,7 +30,7 @@ func validateAndDerive(app core.App, tip *core.Record) error {
 	if err != nil {
 		return apis.NewBadRequestError("unknown match", nil)
 	}
-	if locked(match) {
+	if locked(app, match) {
 		return apis.NewBadRequestError("this match is locked (kickoff passed)", nil)
 	}
 
@@ -111,7 +113,7 @@ func Register(app core.App, se *core.ServeEvent) {
 		return e.Next()
 	})
 	app.OnRecordDelete("tips").BindFunc(func(e *core.RecordEvent) error {
-		if m, err := e.App.FindRecordById("matches", e.Record.GetString("match")); err == nil && locked(m) {
+		if m, err := e.App.FindRecordById("matches", e.Record.GetString("match")); err == nil && locked(e.App, m) {
 			return apis.NewBadRequestError("this match is locked", nil)
 		}
 		return e.Next()
@@ -125,7 +127,7 @@ func Register(app core.App, se *core.ServeEvent) {
 		if err != nil {
 			return apis.NewNotFoundError("match not found", nil)
 		}
-		if !locked(match) {
+		if !locked(app, match) {
 			// Not started: never reveal others' picks.
 			return e.JSON(http.StatusOK, map[string]any{"locked": false, "tips": []any{}})
 		}

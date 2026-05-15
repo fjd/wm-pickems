@@ -2,6 +2,7 @@
 	import { tipsStore, isLocked, type Match } from '$lib/tips.svelte';
 	import TipCard from '$lib/components/TipCard.svelte';
 	import { collapseOnScroll } from '$lib/actions';
+	import { serverClock } from '$lib/serverclock.svelte';
 	import { LocateFixed } from '@lucide/svelte';
 
 	let tab = $state<'upcoming' | 'group' | 'ko' | 'all'>('upcoming');
@@ -22,7 +23,7 @@
 	// "Now" = the next match not yet kicked off (or the last one if the
 	// tournament is over) within the current filter.
 	let nowId = $derived.by(() => {
-		const now = Date.now();
+		const now = serverClock.now();
 		const next = filtered.find(
 			(m) => new Date(m.kickoff).getTime() >= now
 		);

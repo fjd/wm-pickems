@@ -13,6 +13,7 @@ import (
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 	"github.com/pocketbase/pocketbase/tools/hook"
 
+	"github.com/floholz/wm-pickems/internal/dev"
 	"github.com/floholz/wm-pickems/internal/forecast"
 	"github.com/floholz/wm-pickems/internal/leagues"
 	"github.com/floholz/wm-pickems/internal/scoring"
@@ -43,6 +44,7 @@ func main() {
 		tips.Register(e.App, e)
 		forecast.Register(e.App, e)
 		scoring.Register(e.App, e)
+		dev.Register(e.App, e)
 		return e.Next()
 	})
 

@@ -6,8 +6,15 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import UserMenu from '$lib/components/UserMenu.svelte';
 	import NavLinks from '$lib/components/NavLinks.svelte';
+	import { serverClock } from '$lib/serverclock.svelte';
 
 	let { children } = $props();
+
+	// Pull the (possibly simulated) server clock once so lock checks and the
+	// dev-tools link are correct app-wide.
+	$effect(() => {
+		if (auth.isAuthed && !serverClock.loaded) serverClock.refresh();
+	});
 
 	const publicRoutes = ['/login', '/register'];
 	let path = $derived($page.url.pathname);

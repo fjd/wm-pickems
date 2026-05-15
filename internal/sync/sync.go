@@ -163,6 +163,13 @@ func ip(v *int) int {
 	return *v
 }
 
+// ApplyResult is the exported entry point (used by the dev simulator) that
+// writes a result onto a match record using the same logic as live sync /
+// manual override.
+func ApplyResult(rec *core.Record, status string, ftH, ftA, etH, etA, penH, penA *int) {
+	applyResult(rec, status, ftH, ftA, etH, etA, penH, penA)
+}
+
 // applyResult writes scores/status onto a match record and, for knockout
 // matches, derives the advancer (ET > penalties > regulation).
 func applyResult(rec *core.Record, status string, ftH, ftA, etH, etA, penH, penA *int) {

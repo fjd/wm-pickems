@@ -1,5 +1,6 @@
 import { pb } from './pb';
 import { auth } from './auth.svelte';
+import { serverClock } from './serverclock.svelte';
 
 export interface Team {
 	id: string;
@@ -64,7 +65,8 @@ class TipsStore {
 			pb.collection('matches').getFullList({ sort: 'kickoff' }),
 			pb
 				.collection('tips')
-				.getFullList({ filter: `user = "${auth.user?.id}"` })
+				.getFullList({ filter: `user = "${auth.user?.id}"` }),
+			serverClock.refresh()
 		]);
 		const tmap: Record<string, Team> = {};
 		for (const t of teams)
@@ -137,7 +139,7 @@ class TipsStore {
 export const tipsStore = new TipsStore();
 
 export function isLocked(m: Match): boolean {
-	return Date.now() >= new Date(m.kickoff).getTime();
+	return serverClock.now() >= new Date(m.kickoff).getTime();
 }
 export function teamsResolved(m: Match): boolean {
 	return !!m.homeTeam && !!m.awayTeam;

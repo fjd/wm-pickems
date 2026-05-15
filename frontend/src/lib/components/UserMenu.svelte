@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { auth } from '$lib/auth.svelte';
+	import { serverClock } from '$lib/serverclock.svelte';
 	import Avatar from './Avatar.svelte';
-	import { LogOut, ChevronDown } from '@lucide/svelte';
+	import { LogOut, ChevronDown, FlaskConical } from '@lucide/svelte';
 
 	let {
 		align = 'right' as 'right' | 'left',
@@ -48,6 +49,11 @@
 				</div>
 			</div>
 			<!-- "Connect Google" goes here once OAuth is wired. -->
+			{#if serverClock.dev}
+				<a class="item" href="/dev" onclick={() => (open = false)}>
+					<FlaskConical size={17} /> Dev tools
+				</a>
+			{/if}
 			<button class="item" onclick={() => auth.logout()}>
 				<LogOut size={17} /> Log out
 			</button>

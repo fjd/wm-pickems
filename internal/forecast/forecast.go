@@ -11,6 +11,8 @@ import (
 
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+
+	"github.com/floholz/wm-pickems/internal/clock"
 )
 
 // tournamentStart returns the earliest match kickoff (the global Forecast
@@ -28,7 +30,7 @@ func locked(app core.App) bool {
 	if err != nil {
 		return false
 	}
-	return !time.Now().UTC().Before(ts)
+	return !clock.Now(app).Before(ts)
 }
 
 // groupTeams returns letter -> set(teamId) from tournament_groups.
