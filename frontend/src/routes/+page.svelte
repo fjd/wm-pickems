@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { auth } from '$lib/auth.svelte';
 	import { api, type LeagueSummary } from '$lib/api';
-	import { Telescope, Target, Trophy, Users, ChevronRight } from '@lucide/svelte';
+	import { Telescope, Volleyball, Trophy, Users, ChevronRight } from '@lucide/svelte';
 
 	let leagues = $state<LeagueSummary[]>([]);
 	let loaded = $state(false);
@@ -24,7 +24,7 @@
 		},
 		{
 			href: '/tips',
-			icon: Target,
+			icon: Volleyball,
 			title: 'Tip the upcoming matches',
 			sub: 'Score predictions, editable until kickoff'
 		},
