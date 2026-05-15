@@ -25,7 +25,7 @@ export function koKey(m: { num: number; stage: string }): string {
 	return m.num > 0 ? String(m.num) : m.stage;
 }
 
-class ForecastStore {
+export class ForecastStore {
 	loaded = $state(false);
 	locked = $state(false);
 	tournamentStart = $state<string>('');
@@ -37,6 +37,8 @@ class ForecastStore {
 
 	// Editable forecast.
 	recId: string | undefined;
+	readOnly = $state(false); // true when viewing a friend's forecast
+	viewName = $state(''); // friend's display name (read-only mode)
 	groupOrder = $state<Record<string, string[]>>({}); // letter -> [id x4]
 	thirds = $state<Record<string, string>>({}); // matchNum -> teamId
 	bracket = $state<Record<string, string>>({}); // koKey -> winner teamId
@@ -56,13 +58,12 @@ class ForecastStore {
 		}[]
 	>([]);
 
-	async load() {
-		const [structure, teams, mine, matches] = await Promise.all([
+	// Loads structure/teams/results (shared by the editor and the read-only
+	// friend viewer).
+	private async loadBase() {
+		const [structure, teams, matches] = await Promise.all([
 			pb.send('/api/forecast/structure', { method: 'GET' }),
 			pb.collection('teams').getFullList({ sort: 'name' }),
-			pb
-				.collection('forecasts')
-				.getFullList({ filter: `user = "${auth.user?.id}"` }),
 			pb.collection('matches').getFullList({ sort: 'kickoff' })
 		]);
 		this.results = (matches as unknown[]).map((m) => {
@@ -95,10 +96,15 @@ class ForecastStore {
 		this.thirdTable = structure.thirdTable ?? {};
 		this.tournamentStart = structure.tournamentStart;
 		this.locked = structure.locked;
+	}
 
-		const f = mine[0];
-		this.recId = f?.id;
-		// Default group order = the group's team list until the user reorders.
+	// Sets the editable prediction from a forecast-like record (or undefined),
+	// defaulting each group's order to its team list.
+	private applyForecast(f?: {
+		groupOrder?: Record<string, string[]>;
+		thirdQualifiers?: Record<string, string>;
+		bracket?: Record<string, string>;
+	}) {
 		const order: Record<string, string[]> = {};
 		for (const g of this.groups)
 			order[g.letter] = f?.groupOrder?.[g.letter]?.length
@@ -107,6 +113,29 @@ class ForecastStore {
 		this.groupOrder = order;
 		this.thirds = f?.thirdQualifiers ?? {};
 		this.bracket = f?.bracket ?? {};
+	}
+
+	async load() {
+		await this.loadBase();
+		const mine = await pb
+			.collection('forecasts')
+			.getFullList({ filter: `user = "${auth.user?.id}"` });
+		this.recId = mine[0]?.id;
+		this.readOnly = false;
+		this.applyForecast(mine[0] as never);
+		this.loaded = true;
+	}
+
+	// Read-only: load a friend's forecast (shared-league gated server-side).
+	async loadView(userId: string) {
+		await this.loadBase();
+		const r = await pb.send(`/api/forecast/of/${userId}`, {
+			method: 'GET'
+		});
+		this.readOnly = true;
+		this.viewName = r.name ?? '';
+		this.recId = undefined;
+		this.applyForecast(r.forecast ?? undefined);
 		this.loaded = true;
 	}
 

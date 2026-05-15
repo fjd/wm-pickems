@@ -2,7 +2,13 @@
 	import { page } from '$app/stores';
 	import { api, type LeaderboardRow } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
-	import { Eye, EyeOff, Copy, ChevronDown } from '@lucide/svelte';
+	import {
+		Eye,
+		EyeOff,
+		Copy,
+		ChevronDown,
+		Telescope
+	} from '@lucide/svelte';
 
 	interface Cfg {
 		match: {
@@ -148,6 +154,14 @@
 						<td class="player">
 							<div class="pwrap">
 								<span class="pname">{r.name}</span>
+								<a
+									class="fclink"
+									href={`/forecast/${r.userId}`}
+									title="View {r.name}'s forecast"
+									onclick={(e) => e.stopPropagation()}
+								>
+									<Telescope size={15} />
+								</a>
 								<ChevronDown size={14} class="rx" />
 							</div>
 						</td>
@@ -375,6 +389,15 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	.fclink {
+		display: inline-grid;
+		place-items: center;
+		color: var(--muted);
+		flex: none;
+	}
+	.fclink:hover {
+		color: var(--accent);
 	}
 	:global(.lb .rx) {
 		color: var(--muted);

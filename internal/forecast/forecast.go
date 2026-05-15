@@ -107,6 +107,24 @@ type ThirdSlot struct {
 	Allowed  []string `json:"allowed"` // group letters eligible (fallback only)
 }
 
+// sharesLeague reports whether users a and b are both members of at least
+// one common League.
+func sharesLeague(app core.App, a, b string) bool {
+	mine, err := app.FindRecordsByFilter("league_members",
+		"user = {:u}", "", 0, 0, map[string]any{"u": a})
+	if err != nil {
+		return false
+	}
+	for _, m := range mine {
+		if _, err := app.FindFirstRecordByFilter("league_members",
+			"league = {:l} && user = {:u}",
+			map[string]any{"l": m.GetString("league"), "u": b}); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
 // Register wires the Forecast validation hooks and the structure endpoint.
 func Register(app core.App, se *core.ServeEvent) {
 	app.OnRecordCreate("forecasts").BindFunc(func(e *core.RecordEvent) error {
@@ -121,6 +139,39 @@ func Register(app core.App, se *core.ServeEvent) {
 		}
 		return e.Next()
 	})
+
+	// GET /api/forecast/of/{userId} — a friend's Forecast. Visible to anyone
+	// who shares a League with them (no lock gate: in a friends group you
+	// want to see picks right away). Not registered on the forecasts table,
+	// which stays own-only.
+	se.Router.GET("/api/forecast/of/{userId}", func(e *core.RequestEvent) error {
+		uid := e.Request.PathValue("userId")
+		if uid != e.Auth.Id && !sharesLeague(app, e.Auth.Id, uid) {
+			return apis.NewForbiddenError("not in a league with this player", nil)
+		}
+		u, err := app.FindRecordById("users", uid)
+		if err != nil {
+			return apis.NewNotFoundError("user not found", nil)
+		}
+		out := map[string]any{"userId": uid, "name": u.GetString("name")}
+		fc, err := app.FindFirstRecordByFilter("forecasts",
+			"user = {:u}", map[string]any{"u": uid})
+		if err != nil {
+			out["forecast"] = nil
+			return e.JSON(http.StatusOK, out)
+		}
+		var order, bracket map[string]any
+		var thirds map[string]any
+		_ = fc.UnmarshalJSONField("groupOrder", &order)
+		_ = fc.UnmarshalJSONField("thirdQualifiers", &thirds)
+		_ = fc.UnmarshalJSONField("bracket", &bracket)
+		out["forecast"] = map[string]any{
+			"groupOrder":      order,
+			"thirdQualifiers": thirds,
+			"bracket":         bracket,
+		}
+		return e.JSON(http.StatusOK, out)
+	}).Bind(apis.RequireAuth())
 
 	// GET /api/forecast/structure — everything the builder needs: groups with
 	// their teams, the knockout match skeleton with placeholder labels, the
