@@ -19,6 +19,23 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /wm-pickems .
 
 # ---- Stage 3: minimal runtime ----
 FROM alpine:3.20
+
+# OCI image metadata. VERSION/REVISION/CREATED are injected by CI
+# (docker/build-push-action build-args); they default to dev values for
+# local builds. org.opencontainers.image.source links the GHCR package
+# back to this repository.
+ARG VERSION=dev
+ARG REVISION=unknown
+ARG CREATED=
+LABEL org.opencontainers.image.title="wm-pickems" \
+      org.opencontainers.image.description="World Cup 2026 prediction game" \
+      org.opencontainers.image.url="https://github.com/floholz/wm-pickems" \
+      org.opencontainers.image.source="https://github.com/floholz/wm-pickems" \
+      org.opencontainers.image.licenses="GPL-3.0-only" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}" \
+      org.opencontainers.image.created="${CREATED}"
+
 RUN apk add --no-cache ca-certificates tzdata wget \
 	&& adduser -D -u 10001 app \
 	&& mkdir -p /pb_data \
