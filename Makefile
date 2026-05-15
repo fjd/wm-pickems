@@ -1,4 +1,4 @@
-.PHONY: help install dev-frontend dev-backend build-frontend build run docker clean
+.PHONY: help install dev-frontend dev-backend build-frontend build run docker clean test
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-16s %s\n", $$1, $$2}'
@@ -20,6 +20,9 @@ build: build-frontend ## Build the single binary (frontend embedded)
 
 run: build ## Build then run the single binary
 	./wm-pickems serve --http=127.0.0.1:8090 --dir=./pb_data
+
+test: ## Run Go tests
+	go test ./...
 
 docker: ## Build the production Docker image
 	docker build -t wm-pickems:latest .

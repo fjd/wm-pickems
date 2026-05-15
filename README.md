@@ -33,4 +33,11 @@ cp .env.example .env   # set API_FOOTBALL_KEY etc.
 docker compose up --build
 ```
 
-App + API are served from one origin on port `8090`.
+App + API are served from one origin on port `8090`. Full operational guide
+(env, superuser, results override, backup, TLS): see [DEPLOY.md](DEPLOY.md).
+
+## Test
+
+```sh
+make test    # Go scoring engine unit tests
+```

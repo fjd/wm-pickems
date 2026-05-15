@@ -19,10 +19,15 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /wm-pickems .
 
 # ---- Stage 3: minimal runtime ----
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 app
+RUN apk add --no-cache ca-certificates tzdata wget \
+	&& adduser -D -u 10001 app \
+	&& mkdir -p /pb_data \
+	&& chown -R app:app /pb_data
 COPY --from=backend /wm-pickems /usr/local/bin/wm-pickems
 USER app
 EXPOSE 8090
 VOLUME ["/pb_data"]
+HEALTHCHECK --interval=30s --timeout=4s --start-period=10s \
+	CMD wget -qO- http://127.0.0.1:8090/api/health >/dev/null 2>&1 || exit 1
 ENTRYPOINT ["wm-pickems"]
 CMD ["serve", "--http=0.0.0.0:8090", "--dir=/pb_data"]

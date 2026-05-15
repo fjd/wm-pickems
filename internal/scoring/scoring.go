@@ -91,54 +91,84 @@ func (c tipComponents) points() int {
 	return c.Tendency + c.Exact + c.TotalGoals + c.GoalDiff + c.OtBonus + c.Advancer
 }
 
-func scoreTip(cfg Config, match, tip *core.Record) tipComponents {
-	var r tipComponents
-	aH, aA := match.GetInt("ftHome"), match.GetInt("ftAway")
-	pH, pA := tip.GetInt("ftHome"), tip.GetInt("ftAway")
+// MatchResult / TipPrediction are the plain inputs to the pure scorer, so the
+// rules are unit-testable without a database.
+type MatchResult struct {
+	Stage    string
+	FtH, FtA int
+	EtH, EtA int
+	Advancer string
+}
+type TipPrediction struct {
+	FtH, FtA int
+	EtH, EtA int
+	Advancer string
+}
 
-	if sign(pH-pA) == sign(aH-aA) {
+// scoreValues is the pure scoring core (see scoring_test.go).
+func scoreValues(cfg Config, m MatchResult, p TipPrediction) tipComponents {
+	var r tipComponents
+	if sign(p.FtH-p.FtA) == sign(m.FtH-m.FtA) {
 		r.Tendency = cfg.Match.Tendency
 	}
-	if pH == aH && pA == aA {
+	if p.FtH == m.FtH && p.FtA == m.FtA {
 		r.Exact = cfg.Match.Exact
 	}
-	if pH+pA == aH+aA {
+	if p.FtH+p.FtA == m.FtH+m.FtA {
 		r.TotalGoals = cfg.Match.TotalGoals
 	}
-	if pH-pA == aH-aA {
+	if p.FtH-p.FtA == m.FtH-m.FtA {
 		r.GoalDiff = cfg.Match.GoalDiff
 	}
-	d := (pH - pA) - (aH - aA)
-	if d < 0 {
-		d = -d
+	if d := (p.FtH - p.FtA) - (m.FtH - m.FtA); d < 0 {
+		r.GdDev = -d
+	} else {
+		r.GdDev = d
 	}
-	r.GdDev = d
 
-	if match.GetString("stage") == "group" {
+	if m.Stage == "group" {
 		return r
 	}
 
-	// Knockout extras.
-	if cfg.Match.KoOtBonus && aH == aA && pH == pA {
-		// Game went to extra time and the user predicted a 90' draw.
-		meH, meA := match.GetInt("etHome"), match.GetInt("etAway")
-		teH, teA := tip.GetInt("etHome"), tip.GetInt("etAway")
-		if meH != 0 || meA != 0 { // ET result present
-			if teH == meH && teA == meA {
+	// Knockout: ET bonus only if the game went to ET (drawn at 90') and the
+	// user also predicted a 90' draw.
+	if cfg.Match.KoOtBonus && m.FtH == m.FtA && p.FtH == p.FtA {
+		if m.EtH != 0 || m.EtA != 0 {
+			if p.EtH == m.EtH && p.EtA == m.EtA {
 				r.OtBonus += cfg.Match.Exact
 			}
-			if teH+teA == meH+meA {
+			if p.EtH+p.EtA == m.EtH+m.EtA {
 				r.OtBonus += cfg.Match.TotalGoals
 			}
-			if teH-teA == meH-meA {
+			if p.EtH-p.EtA == m.EtH-m.EtA {
 				r.OtBonus += cfg.Match.GoalDiff
 			}
 		}
 	}
-	if a := match.GetString("advancer"); a != "" && a == tip.GetString("advancer") {
+	if m.Advancer != "" && m.Advancer == p.Advancer {
 		r.Advancer = cfg.Match.Advancer
 	}
 	return r
+}
+
+func scoreTip(cfg Config, match, tip *core.Record) tipComponents {
+	return scoreValues(cfg,
+		MatchResult{
+			Stage:    match.GetString("stage"),
+			FtH:      match.GetInt("ftHome"),
+			FtA:      match.GetInt("ftAway"),
+			EtH:      match.GetInt("etHome"),
+			EtA:      match.GetInt("etAway"),
+			Advancer: match.GetString("advancer"),
+		},
+		TipPrediction{
+			FtH:      tip.GetInt("ftHome"),
+			FtA:      tip.GetInt("ftAway"),
+			EtH:      tip.GetInt("etHome"),
+			EtA:      tip.GetInt("etAway"),
+			Advancer: tip.GetString("advancer"),
+		},
+	)
 }
 
 // ---- Group standings (final, from finalized group matches) ----
