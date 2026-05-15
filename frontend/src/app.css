@@ -214,6 +214,8 @@ h3 {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.3rem;
+	white-space: nowrap;
+	flex: none;
 	font-weight: 700;
 	font-size: 0.68rem;
 	letter-spacing: 0.1em;
