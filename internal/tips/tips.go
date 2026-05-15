@@ -130,6 +130,22 @@ func Register(app core.App, se *core.ServeEvent) {
 		return e.Next()
 	})
 
+	// GET /api/tips/scores — the signed-in user's points per match under the
+	// default scoring config (for the per-match "+N pt" badge).
+	se.Router.GET("/api/tips/scores", func(e *core.RequestEvent) error {
+		out := map[string]int{}
+		def, err := app.FindFirstRecordByFilter("scoring_configs", "isDefault = true")
+		if err == nil {
+			rows, _ := app.FindRecordsByFilter("match_scores",
+				"user = {:u} && config = {:c}", "", 0, 0,
+				map[string]any{"u": e.Auth.Id, "c": def.Id})
+			for _, r := range rows {
+				out[r.GetString("match")] = r.GetInt("points")
+			}
+		}
+		return e.JSON(http.StatusOK, map[string]any{"scores": out})
+	}).Bind(apis.RequireAuth())
+
 	// GET /api/tips/others/{matchId} — other members' Tips, but only after
 	// kickoff and only for users who share at least one League with you.
 	se.Router.GET("/api/tips/others/{matchId}", func(e *core.RequestEvent) error {

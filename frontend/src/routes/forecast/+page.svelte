@@ -1,7 +1,14 @@
 <script lang="ts">
 	import { forecastStore as fs, koKey, type KOMatch } from '$lib/forecast.svelte';
 	import Flag from '$lib/components/Flag.svelte';
-	import { ChevronUp, ChevronDown, Lock, Check, Trophy } from '@lucide/svelte';
+	import {
+		ChevronUp,
+		ChevronDown,
+		Lock,
+		Check,
+		X,
+		Trophy
+	} from '@lucide/svelte';
 	import { collapseOnScroll } from '$lib/actions';
 
 	let section = $state<'groups' | 'thirds' | 'bracket'>('groups');
@@ -66,6 +73,7 @@
 	let champion = $derived(
 		finalMatch ? fs.bracket[koKey(finalMatch)] : ''
 	);
+	let actualThirds = $derived(fs.actualBestThirds());
 
 	function tname(id: string) {
 		return fs.team(id)?.name ?? '';
@@ -131,12 +139,16 @@
 			<section class="card grp">
 				<h3>Group {g.letter}</h3>
 				{#each fs.groupOrder[g.letter] as id, i (id)}
-					<div class="trow">
+					{@const ao = fs.actualOrder(g.letter)}
+					{@const correct = ao ? ao[i] === id : null}
+					<div class="trow" class:rwin={correct === true} class:rmiss={correct === false}>
 						<span class="pos">{i + 1}</span>
 						<Flag iso2={fs.team(id)?.iso2 ?? ''} code={fs.team(id)?.fifaCode ?? ''} />
 						<span class="nm">{tname(id)}</span>
 						<span class="tag">
-							{#if i < 2}<span class="pill ok">advances</span>
+							{#if correct === true}<span class="ind ok"><Check size={15} /></span>
+							{:else if correct === false}<span class="ind no"><X size={15} /></span>
+							{:else if i < 2}<span class="pill ok">advances</span>
 							{:else if i === 2}<span class="pill">3rd</span>{/if}
 						</span>
 						{#if !fs.locked}
@@ -163,6 +175,7 @@
 			{#each fs.groups as g (g.letter)}
 				{@const tid = fs.groupThird(g.letter)}
 				{@const on = !!fs.thirds[g.letter]}
+				{@const adv = actualThirds ? actualThirds.has(tid) : null}
 				<label class="trow" class:on>
 					<input
 						type="checkbox"
@@ -174,6 +187,10 @@
 					<span class="gl">{g.letter}</span>
 					<Flag iso2={fs.team(tid)?.iso2 ?? ''} code={fs.team(tid)?.fifaCode ?? ''} />
 					<span class="nm">{tname(tid) || '—'}</span>
+					<span class="spacer"></span>
+					{#if on && adv === true}<span class="ind ok"><Check size={15} /></span>
+					{:else if on && adv === false}<span class="ind no"><X size={15} /></span>
+					{:else if adv === true}<span class="ind dim"><Check size={14} /></span>{/if}
 				</label>
 			{/each}
 		</section>
@@ -196,7 +213,14 @@
 				{@const H = sideLabel(m, 'home')}
 				{@const A = sideLabel(m, 'away')}
 				{@const w = fs.bracket[koKey(m)]}
-				<div class="bm card">
+				{@const actAdv =
+					m.num > 0
+						? fs.advancerOf(m.num)
+						: (fs.results.find(
+								(r) => r.stage === m.stage && r.finished
+							)?.advancer ?? '')}
+				{@const bok = actAdv ? w === actAdv : null}
+				<div class="bm card" class:rwin={bok === true} class:rmiss={bok === false}>
 					<button
 						class="bteam"
 						class:win={w && w === H.id}
@@ -216,6 +240,8 @@
 						{#if A.team}<Flag iso2={A.team.iso2} code={A.team.fifaCode} />{/if}
 						<span class="bn" class:ph={!A.id}>{A.name}</span>
 					</button>
+					{#if bok === true}<span class="ind ok"><Check size={15} /></span>
+					{:else if bok === false}<span class="ind no"><X size={15} /></span>{/if}
 				</div>
 			{/each}
 		{/each}
@@ -505,5 +531,31 @@
 	}
 	.trow .nm {
 		font-weight: 600;
+	}
+	.ind {
+		display: inline-grid;
+		place-items: center;
+	}
+	.ind.ok {
+		color: var(--success);
+	}
+	.ind.no {
+		color: var(--danger);
+	}
+	.ind.dim {
+		color: var(--muted);
+		opacity: 0.7;
+	}
+	.trow.rwin,
+	.bm.rwin {
+		border-color: color-mix(in srgb, var(--success) 45%, var(--border));
+	}
+	.trow.rmiss,
+	.bm.rmiss {
+		border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+	}
+	.bm.rwin,
+	.bm.rmiss {
+		border-style: solid;
 	}
 </style>

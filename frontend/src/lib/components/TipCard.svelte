@@ -18,6 +18,12 @@
 	let away = $derived(tipsStore.team(match.awayTeam));
 	let existing = $derived(tipsStore.tips[match.id]);
 	let isKO = $derived(match.stage !== 'group');
+	let played = $derived(match.status === 'finished' || !!match.finalizedAt);
+	let live = $derived(match.status === 'live');
+	let pts = $derived(tipsStore.scores[match.id]);
+	let advancedName = $derived(
+		isKO && match.advancer ? (tipsStore.team(match.advancer)?.name ?? '') : ''
+	);
 
 	let open = $state(false);
 
@@ -102,10 +108,14 @@
 		}
 	}
 
-	// Friends' picks (only available after kickoff).
+	// Friends' picks (only available after kickoff) — toggles open/closed.
 	let friends = $state<FriendTip[] | null>(null);
 	let friendsBusy = $state(false);
-	async function loadFriends() {
+	async function toggleFriends() {
+		if (friends !== null) {
+			friends = null;
+			return;
+		}
 		friendsBusy = true;
 		try {
 			friends = await tipsStore.friends(match.id);
@@ -137,8 +147,10 @@
 				<Flag iso2={H.iso2} code={H.code} /> <span class="tn">{H.name}</span>
 			</span>
 			<span class="score digits">
-				{#if existing}
-					<b>{existing.ftHome}</b><span class="cln">:</span><b>{existing.ftAway}</b>
+				{#if played || live}
+					<b>{match.ftHome}</b><span class="cln">:</span><b>{match.ftAway}</b>
+				{:else if existing}
+					<span class="pred">{existing.ftHome}<span class="cln">:</span>{existing.ftAway}</span>
 				{:else}
 					<span class="muted">–:–</span>
 				{/if}
@@ -154,7 +166,16 @@
 					: match.roundLabel} · {kickoff}</span
 			>
 			<span class="spacer"></span>
-			{#if locked}
+			{#if played}
+				<span class="pill done">FT</span>
+				{#if pts !== undefined}
+					<span class="pill ptag" class:ok={pts > 0}
+						>{pts > 0 ? '+' : ''}{pts} pt</span
+					>
+				{/if}
+			{:else if live}
+				<span class="pill livep"><span class="dot"></span> Live</span>
+			{:else if locked}
 				<span class="pill"><Lock size={12} /> locked</span>
 			{:else if existing}
 				<span class="pill ok"><Check size={12} /> tipped</span>
@@ -168,24 +189,41 @@
 			{#if isKO && !resolved}
 				<p class="muted">Opens once the matchup is decided.</p>
 			{:else if locked}
+				{#if played && advancedName}
+					<p class="resline muted">
+						Result <b>{match.ftHome}:{match.ftAway}</b> · advanced:
+						<b>{advancedName}</b>
+					</p>
+				{/if}
 				{#if existing}
-					<div class="ro">
-						Your tip: <b>{existing.ftHome}:{existing.ftAway}</b>
+					<div class="yourtip" class:scored={played}>
+						<span class="ylabel">Your tip</span>
+						<span class="yscore digits"
+							>{existing.ftHome}<span class="cln">:</span>{existing.ftAway}</span
+						>
 						{#if isKO && existing.advancer}
-							· advances:
-							<b>{tipsStore.team(existing.advancer)?.name ?? '—'}</b>
+							<span class="yadv"
+								>→ {tipsStore.team(existing.advancer)?.name ?? '—'}</span
+							>
+						{/if}
+						<span class="spacer"></span>
+						{#if played && pts !== undefined}
+							<span class="ypts" class:ok={pts > 0}
+								>{pts > 0 ? '+' : ''}{pts} pt</span
+							>
 						{/if}
 					</div>
 				{:else}
-					<p class="muted">No tip — this match is locked.</p>
+					<p class="muted">No tip — this match was locked.</p>
 				{/if}
 				<button
-					class="btn secondary"
-					onclick={loadFriends}
+					class="btn secondary friendsbtn"
+					class:on={friends !== null}
+					onclick={toggleFriends}
 					disabled={friendsBusy}
 				>
 					<Users size={16} />
-					{friends ? 'Friends’ picks' : 'Show friends’ picks'}
+					{friends !== null ? 'Hide friends’ picks' : 'Show friends’ picks'}
 				</button>
 				{#if friends}
 					{#if friends.length === 0}
@@ -375,8 +413,88 @@
 		text-align: center;
 		margin: 0.5rem 0;
 	}
-	.ro {
-		margin: 0.5rem 0 0.8rem;
+	.pill.done {
+		color: var(--muted);
+	}
+	.pill.ptag {
+		color: var(--muted);
+	}
+	.pill.ptag.ok {
+		color: var(--accent-fg);
+		background: var(--accent);
+		border-color: var(--accent);
+	}
+	.pill.livep {
+		color: var(--bg);
+		background: var(--live);
+		border-color: var(--live);
+	}
+	.pill.livep .dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--bg);
+		animation: pulse 1.1s ease-in-out infinite;
+	}
+	@keyframes pulse {
+		50% {
+			opacity: 0.25;
+		}
+	}
+	.score .pred {
+		color: var(--muted);
+		font-size: 0.95rem;
+	}
+	.resline {
+		margin: 0.4rem 0 0.7rem;
+		font-size: 0.9rem;
+	}
+	.yourtip {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.7rem 0.85rem;
+		margin: 0.2rem 0 0.85rem;
+		background: var(--surface-2);
+		border: 1px solid var(--border);
+		border-left: 3px solid var(--accent);
+		border-radius: var(--radius-sm);
+	}
+	.yourtip.scored {
+		border-left-color: var(--gold);
+	}
+	.ylabel {
+		font-size: 0.7rem;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
+	.yscore {
+		font-size: 1.25rem;
+		font-weight: 800;
+	}
+	.yadv {
+		font-size: 0.85rem;
+		color: var(--muted);
+	}
+	.ypts {
+		font-family: var(--font-mono);
+		font-weight: 700;
+		font-size: 0.85rem;
+		padding: 0.15rem 0.5rem;
+		border-radius: var(--radius-pill);
+		border: 1px solid var(--border);
+		color: var(--muted);
+	}
+	.ypts.ok {
+		color: var(--accent-fg);
+		background: var(--accent);
+		border-color: var(--accent);
+	}
+	.friendsbtn.on {
+		border-color: var(--accent);
+		color: var(--accent);
 	}
 	.friends {
 		width: 100%;

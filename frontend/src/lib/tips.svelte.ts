@@ -57,17 +57,27 @@ class TipsStore {
 	teams = $state<Record<string, Team>>({});
 	matches = $state<Match[]>([]);
 	tips = $state<Record<string, Tip>>({}); // keyed by matchId
+	scores = $state<Record<string, number>>({}); // matchId -> points (default cfg)
+	tournamentGroups = $state<Record<string, string[]>>({}); // letter -> teamIds
 	loaded = $state(false);
 
 	async load() {
-		const [teams, matches, mine] = await Promise.all([
+		const [teams, matches, mine, tgroups] = await Promise.all([
 			pb.collection('teams').getFullList({ sort: 'name' }),
 			pb.collection('matches').getFullList({ sort: 'kickoff' }),
 			pb
 				.collection('tips')
 				.getFullList({ filter: `user = "${auth.user?.id}"` }),
-			serverClock.refresh()
+			pb.collection('tournament_groups').getFullList({ sort: 'letter' }),
+			serverClock.refresh(),
+			pb
+				.send('/api/tips/scores', { method: 'GET' })
+				.then((r) => (this.scores = r.scores ?? {}))
+				.catch(() => {})
 		]);
+		const gmap: Record<string, string[]> = {};
+		for (const g of tgroups) gmap[g.letter] = g.teams ?? [];
+		this.tournamentGroups = gmap;
 		const tmap: Record<string, Team> = {};
 		for (const t of teams)
 			tmap[t.id] = {

@@ -26,22 +26,30 @@
 
 	// Live group tables from finished group matches.
 	let groups = $derived.by(() => {
+		const blank = (id: string): Standing => ({
+			id,
+			p: 0,
+			w: 0,
+			d: 0,
+			l: 0,
+			gf: 0,
+			ga: 0,
+			pts: 0
+		});
 		const byG: Record<string, Record<string, Standing>> = {};
+		// Seed every group with all its teams so the table is always full.
+		for (const [letter, ids] of Object.entries(
+			tipsStore.tournamentGroups
+		)) {
+			byG[letter] = {};
+			for (const id of ids) byG[letter][id] = blank(id);
+		}
 		for (const m of tipsStore.matches) {
 			if (m.stage !== 'group' || !played(m)) continue;
 			const g = m.groupLetter;
 			(byG[g] ||= {});
 			for (const id of [m.homeTeam, m.awayTeam])
-				byG[g][id] ||= {
-					id,
-					p: 0,
-					w: 0,
-					d: 0,
-					l: 0,
-					gf: 0,
-					ga: 0,
-					pts: 0
-				};
+				byG[g][id] ||= blank(id);
 			const H = byG[g][m.homeTeam];
 			const A = byG[g][m.awayTeam];
 			H.p++;

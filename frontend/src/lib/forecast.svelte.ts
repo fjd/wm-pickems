@@ -39,14 +39,45 @@ class ForecastStore {
 	thirds = $state<Record<string, string>>({}); // matchNum -> teamId
 	bracket = $state<Record<string, string>>({}); // koKey -> winner teamId
 
+	// Actual results, for post-stage correctness indicators.
+	results = $state<
+		{
+			stage: string;
+			groupLetter: string;
+			num: number;
+			homeTeam: string;
+			awayTeam: string;
+			ftHome: number;
+			ftAway: number;
+			advancer: string;
+			finished: boolean;
+		}[]
+	>([]);
+
 	async load() {
-		const [structure, teams, mine] = await Promise.all([
+		const [structure, teams, mine, matches] = await Promise.all([
 			pb.send('/api/forecast/structure', { method: 'GET' }),
 			pb.collection('teams').getFullList({ sort: 'name' }),
 			pb
 				.collection('forecasts')
-				.getFullList({ filter: `user = "${auth.user?.id}"` })
+				.getFullList({ filter: `user = "${auth.user?.id}"` }),
+			pb.collection('matches').getFullList({ sort: 'kickoff' })
 		]);
+		this.results = (matches as unknown[]).map((m) => {
+			const r = m as Record<string, unknown>;
+			return {
+				stage: r.stage as string,
+				groupLetter: r.groupLetter as string,
+				num: r.num as number,
+				homeTeam: r.homeTeam as string,
+				awayTeam: r.awayTeam as string,
+				ftHome: r.ftHome as number,
+				ftAway: r.ftAway as number,
+				advancer: r.advancer as string,
+				finished:
+					r.status === 'finished' || !!(r.finalizedAt as string)
+			};
+		});
 		const tmap: Record<string, Team> = {};
 		for (const t of teams)
 			tmap[t.id] = {
@@ -78,6 +109,73 @@ class ForecastStore {
 
 	team(id: string) {
 		return this.teams[id];
+	}
+
+	/** True once every group match is finished. */
+	get groupStageDone(): boolean {
+		const g = this.results.filter((r) => r.stage === 'group');
+		return g.length > 0 && g.every((r) => r.finished);
+	}
+
+	// Standings (pts, gd, gf) for one group's finished matches.
+	private standing(letter: string) {
+		const t: Record<
+			string,
+			{ id: string; pts: number; gd: number; gf: number; p: number }
+		> = {};
+		for (const id of this.groups.find((x) => x.letter === letter)?.teams ??
+			[])
+			t[id] = { id, pts: 0, gd: 0, gf: 0, p: 0 };
+		for (const m of this.results) {
+			if (m.stage !== 'group' || m.groupLetter !== letter || !m.finished)
+				continue;
+			const H = t[m.homeTeam],
+				A = t[m.awayTeam];
+			if (!H || !A) continue;
+			H.p++;
+			A.p++;
+			H.gf += m.ftHome;
+			A.gf += m.ftAway;
+			H.gd += m.ftHome - m.ftAway;
+			A.gd += m.ftAway - m.ftHome;
+			if (m.ftHome > m.ftAway) H.pts += 3;
+			else if (m.ftHome < m.ftAway) A.pts += 3;
+			else {
+				H.pts++;
+				A.pts++;
+			}
+		}
+		return Object.values(t);
+	}
+
+	/** Actual final 1st→4th of a group, or null until it's complete. */
+	actualOrder(letter: string): string[] | null {
+		const rows = this.standing(letter);
+		if (rows.length < 4 || rows.some((r) => r.p < 3)) return null;
+		rows.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+		return rows.map((r) => r.id);
+	}
+
+	/** The 8 teams that actually qualify as best thirds, or null until the
+	 *  whole group stage is done. */
+	actualBestThirds(): Set<string> | null {
+		if (!this.groupStageDone) return null;
+		const thirds: { id: string; pts: number; gd: number; gf: number }[] =
+			[];
+		for (const g of this.groups) {
+			const rows = this.standing(g.letter).sort(
+				(a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf
+			);
+			if (rows[2]) thirds.push(rows[2]);
+		}
+		thirds.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+		return new Set(thirds.slice(0, 8).map((t) => t.id));
+	}
+
+	/** Actual advancer of a knockout match number, '' if not finished. */
+	advancerOf(num: number): string {
+		const m = this.results.find((r) => r.num === num);
+		return m && m.finished ? m.advancer : '';
 	}
 
 	move(letter: string, idx: number, dir: -1 | 1) {
