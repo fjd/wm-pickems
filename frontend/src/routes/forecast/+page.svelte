@@ -78,6 +78,8 @@
 	function tname(id: string) {
 		return fs.team(id)?.name ?? '';
 	}
+	const ord = (n: number) =>
+		n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`;
 
 	const lockDate = $derived(
 		fs.tournamentStart
@@ -141,13 +143,16 @@
 				{#each fs.groupOrder[g.letter] as id, i (id)}
 					{@const ao = fs.actualOrder(g.letter)}
 					{@const correct = ao ? ao[i] === id : null}
+					{@const apos = ao ? ao.indexOf(id) + 1 : 0}
 					<div class="trow" class:rwin={correct === true} class:rmiss={correct === false}>
 						<span class="pos">{i + 1}</span>
 						<Flag iso2={fs.team(id)?.iso2 ?? ''} code={fs.team(id)?.fifaCode ?? ''} />
 						<span class="nm">{tname(id)}</span>
 						<span class="tag">
 							{#if correct === true}<span class="ind ok"><Check size={15} /></span>
-							{:else if correct === false}<span class="ind no"><X size={15} /></span>
+							{:else if correct === false}
+								<span class="apos">finished {ord(apos)}</span>
+								<span class="ind no"><X size={15} /></span>
 							{:else if i < 2}<span class="pill ok">advances</span>
 							{:else if i === 2}<span class="pill">3rd</span>{/if}
 						</span>
@@ -541,6 +546,18 @@
 	}
 	.ind.no {
 		color: var(--danger);
+	}
+	.tag {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	.apos {
+		font-size: 0.72rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--muted);
 	}
 	.ind.dim {
 		color: var(--muted);
