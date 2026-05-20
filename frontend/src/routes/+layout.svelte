@@ -6,6 +6,8 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import UserMenu from '$lib/components/UserMenu.svelte';
 	import NavLinks from '$lib/components/NavLinks.svelte';
+	import PwaInstallButton from '$lib/components/PwaInstallButton.svelte';
+	import PwaInstallBanner from '$lib/components/PwaInstallBanner.svelte';
 	import { serverClock } from '$lib/serverclock.svelte';
 
 	let { children } = $props();
@@ -48,10 +50,11 @@
 </script>
 
 {#if chrome}
-	<!-- Mobile: top header (logo / user menu) -->
+	<!-- Mobile: top header (logo / install / user menu) -->
 	<header class="topbar">
 		<Logo />
 		<div class="spacer"></div>
+		<PwaInstallButton />
 		<UserMenu align="right" />
 	</header>
 
@@ -68,5 +71,8 @@
 {/if}
 
 <div class="app-shell" class:with-chrome={chrome}>
+	{#if chrome}
+		<PwaInstallBanner />
+	{/if}
 	{@render children()}
 </div>
