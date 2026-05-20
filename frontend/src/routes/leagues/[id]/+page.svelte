@@ -100,31 +100,33 @@
 	<p class="kicker">League</p>
 	<h1>{league.name}</h1>
 
-	<section class="card invite">
-		<div class="irow">
-			<div class="ic">
-				<div class="muted small">Invite code</div>
-				<div class="code" class:masked={!revealed}>
-					{revealed ? invite : '•'.repeat(invite.length || 6)}
+	{#if invite && invite !== 'GLOBAL'}
+		<section class="card invite">
+			<div class="irow">
+				<div class="ic">
+					<div class="muted small">Invite code</div>
+					<div class="code" class:masked={!revealed}>
+						{revealed ? invite : '•'.repeat(invite.length || 6)}
+					</div>
 				</div>
+				<div class="spacer"></div>
+				<button
+					class="btn secondary eye"
+					aria-label={revealed ? 'Hide code' : 'Reveal code'}
+					onclick={() => (revealed = !revealed)}
+				>
+					{#if revealed}<EyeOff size={18} />{:else}<Eye size={18} />{/if}
+				</button>
+				<button class="btn secondary copy" onclick={copyInvite}>
+					<Copy size={16} /> Copy
+				</button>
 			</div>
-			<div class="spacer"></div>
-			<button
-				class="btn secondary eye"
-				aria-label={revealed ? 'Hide code' : 'Reveal code'}
-				onclick={() => (revealed = !revealed)}
-			>
-				{#if revealed}<EyeOff size={18} />{:else}<Eye size={18} />{/if}
+			<button class="btn share" onclick={shareInvite}>
+				<Share2 size={16} />
+				{linkCopied ? 'Link copied!' : 'Share invite link'}
 			</button>
-			<button class="btn secondary copy" onclick={copyInvite}>
-				<Copy size={16} /> Copy
-			</button>
-		</div>
-		<button class="btn share" onclick={shareInvite}>
-			<Share2 size={16} />
-			{linkCopied ? 'Link copied!' : 'Share invite link'}
-		</button>
-	</section>
+		</section>
+	{/if}
 
 	<section class="card">
 		<div class="tabs">

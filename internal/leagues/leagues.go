@@ -7,6 +7,7 @@ package leagues
 import (
 	"crypto/rand"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 
@@ -18,6 +19,10 @@ import (
 )
 
 const codeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no ambiguous chars
+
+// GlobalInviteCode is the fixed invite code of the auto-managed "Global" league
+// that every registered user belongs to.
+const GlobalInviteCode = "GLOBAL"
 
 func newInviteCode(n int) string {
 	b := make([]byte, n)
@@ -36,6 +41,18 @@ func bad(e *core.RequestEvent, code int, msg string) error {
 // Register wires the League endpoints. Most require an authenticated user;
 // the invite-preview route below is intentionally public.
 func Register(app core.App, se *core.ServeEvent) {
+	// Auto-managed "Global" league: ensure it exists, backfill existing users,
+	// and add every new user as a member when their account is created.
+	if err := backfillGlobal(app); err != nil {
+		log.Printf("[leagues] global backfill failed: %v", err)
+	}
+	app.OnRecordAfterCreateSuccess("users").BindFunc(func(e *core.RecordEvent) error {
+		if err := ensureGlobalMember(e.App, e.Record.Id); err != nil {
+			log.Printf("[leagues] auto-join global failed for %s: %v", e.Record.Id, err)
+		}
+		return e.Next()
+	})
+
 	// Public: resolve an invite code to a league name for the invite landing
 	// page. Possessing the code is the capability (it's an invite link); only
 	// id + name are exposed, nothing member- or score-related.
@@ -199,4 +216,60 @@ func addMember(app core.App, leagueID, userID, role string) error {
 	rec.Set("user", userID)
 	rec.Set("role", role)
 	return app.Save(rec)
+}
+
+// ensureGlobal idempotently creates the "Global" league (owner left empty so
+// no one can update/delete it via REST). Returns the league id.
+func ensureGlobal(app core.App) (string, error) {
+	if rec, err := app.FindFirstRecordByFilter("leagues",
+		"inviteCode = {:c}", map[string]any{"c": GlobalInviteCode}); err == nil {
+		return rec.Id, nil
+	}
+	col, err := app.FindCollectionByNameOrId("leagues")
+	if err != nil {
+		return "", err
+	}
+	def, _ := app.FindFirstRecordByFilter("scoring_configs", "isDefault = true")
+	rec := core.NewRecord(col)
+	rec.Set("name", "Global")
+	rec.Set("inviteCode", GlobalInviteCode)
+	if def != nil {
+		rec.Set("scoringConfig", def.Id)
+	}
+	if err := app.Save(rec); err != nil {
+		return "", err
+	}
+	return rec.Id, nil
+}
+
+// ensureGlobalMember adds the user to the Global league if not already a member.
+func ensureGlobalMember(app core.App, userID string) error {
+	leagueID, err := ensureGlobal(app)
+	if err != nil {
+		return err
+	}
+	if existing, _ := app.FindFirstRecordByFilter("league_members",
+		"league = {:l} && user = {:u}",
+		map[string]any{"l": leagueID, "u": userID}); existing != nil {
+		return nil
+	}
+	return addMember(app, leagueID, userID, "member")
+}
+
+// backfillGlobal ensures every existing user is a member of the Global league.
+// Cheap on subsequent boots: the per-user membership check short-circuits.
+func backfillGlobal(app core.App) error {
+	if _, err := ensureGlobal(app); err != nil {
+		return err
+	}
+	users, err := app.FindRecordsByFilter("users", "id != ''", "", 0, 0)
+	if err != nil {
+		return err
+	}
+	for _, u := range users {
+		if err := ensureGlobalMember(app, u.Id); err != nil {
+			return err
+		}
+	}
+	return nil
 }
