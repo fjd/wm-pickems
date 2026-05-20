@@ -29,6 +29,11 @@ type Row struct {
 // agreed tiebreakers: points → #exact → #correct winners → smaller aggregate
 // goal-difference deviation → fewer tips submitted → earliest last edit.
 // Users who never submitted a tip are sorted to the bottom regardless.
+//
+// Note: the sort order below is hardcoded — the scoring_configs.tiebreakers
+// list is consumed only by the frontend legend for display. Keep the two in
+// sync when changing tiebreakers (update this function, the seeded default
+// in internal/seed, and add a migration for existing DBs).
 func Leaderboard(app core.App, leagueID string) (map[string]any, error) {
 	league, err := app.FindRecordById("leagues", leagueID)
 	if err != nil {

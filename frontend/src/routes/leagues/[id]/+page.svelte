@@ -33,6 +33,7 @@
 		exactScores: 'Most exact scores',
 		correctWinners: 'Most correct winners',
 		goalDiffDeviation: 'Smallest goal-difference error vs. results',
+		fewestTips: 'Fewest tips submitted',
 		earliestEdit: 'Earliest last edit (submitted first)'
 	};
 	const roundLabel: Record<string, string> = {
