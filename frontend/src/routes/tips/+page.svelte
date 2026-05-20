@@ -38,9 +38,44 @@
 			?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
-	// Group by calendar day for readable scanning.
-	let days = $derived(
-		Object.entries(
+	// Groups tab: by group letter (A..L). Knockout tab: by stage (R32→FINAL).
+	// All tab: by calendar day.
+	const stageOrder = ['R32', 'R16', 'QF', 'SF', '3RD', 'FINAL'];
+	const stageLabel: Record<string, string> = {
+		R32: 'Round of 32',
+		R16: 'Round of 16',
+		QF: 'Quarter-finals',
+		SF: 'Semi-finals',
+		'3RD': 'Third place',
+		FINAL: 'Final'
+	};
+	let days = $derived.by(() => {
+		const byKickoff = (a: Match, b: Match) =>
+			new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
+		if (tab === 'group') {
+			const byGroup: Record<string, Match[]> = {};
+			for (const m of filtered) (byGroup[m.groupLetter] ||= []).push(m);
+			return Object.keys(byGroup)
+				.sort()
+				.map(
+					(l) =>
+						[`Group ${l}`, byGroup[l].sort(byKickoff)] as [string, Match[]]
+				);
+		}
+		if (tab === 'ko') {
+			const byStage: Record<string, Match[]> = {};
+			for (const m of filtered) (byStage[m.stage] ||= []).push(m);
+			return stageOrder
+				.filter((s) => byStage[s])
+				.map(
+					(s) =>
+						[stageLabel[s] ?? s, byStage[s].sort(byKickoff)] as [
+							string,
+							Match[]
+						]
+				);
+		}
+		return Object.entries(
 			filtered.reduce<Record<string, Match[]>>((acc, m) => {
 				const d = new Date(m.kickoff).toLocaleDateString(undefined, {
 					weekday: 'long',
@@ -50,8 +85,8 @@
 				(acc[d] ||= []).push(m);
 				return acc;
 			}, {})
-		)
-	);
+		);
+	});
 
 	let nowDayIndex = $derived(
 		days.findIndex(([, ms]) => ms.some((m) => m.id === nowId))
