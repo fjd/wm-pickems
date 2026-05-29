@@ -5,12 +5,13 @@ import (
 	m "github.com/pocketbase/pocketbase/migrations"
 )
 
-// Add a single `role` marker to users (member | admin | bot) plus `botKind`
-// (which bot, e.g. "claude"). The field is left empty for existing/new users —
-// empty is treated as a plain member everywhere — and is only meant to be set
-// from the PocketBase admin dashboard. A request hook in internal/users
-// prevents non-superusers from changing it via the public API, so the marker
-// (and any future admin-only feature gated on it) can be trusted.
+// Add a single `role` marker to users (admin | bot) plus `botKind` (which bot,
+// e.g. "claude"). The field is nullable and left empty for normal members — an
+// empty role IS a plain member everywhere, so there is no "member" value to
+// assign and no need to migrate existing users. It is only meant to be set from
+// the PocketBase admin dashboard. A request hook in internal/users prevents
+// non-superusers from changing it via the public API, so the marker (and any
+// future admin-only feature gated on it) can be trusted.
 func init() {
 	m.Register(func(app core.App) error {
 		users, err := app.FindCollectionByNameOrId("users")
@@ -21,7 +22,7 @@ func init() {
 			users.Fields.Add(&core.SelectField{
 				Name:      "role",
 				MaxSelect: 1,
-				Values:    []string{"member", "admin", "bot"},
+				Values:    []string{"admin", "bot"},
 			})
 		}
 		if users.Fields.GetByName("botKind") == nil {

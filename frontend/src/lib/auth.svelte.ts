@@ -8,7 +8,7 @@ class Auth {
 		name: string;
 		email: string;
 		avatarUrl: string | null;
-		role: string; // "member" | "admin" | "bot" (empty => member)
+		role: string; // "admin" | "bot"; empty => normal member
 	} | null>(null);
 
 	constructor() {

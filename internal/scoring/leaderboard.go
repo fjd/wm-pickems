@@ -12,7 +12,7 @@ import (
 type Row struct {
 	UserID         string `json:"userId"`
 	Name           string `json:"name"`
-	Role           string `json:"role"` // "member" | "admin" | "bot" (empty => member)
+	Role           string `json:"role"` // "admin" | "bot"; empty => normal member
 	Total          int    `json:"total"`
 	TipsPoints     int    `json:"tipsPoints"`
 	ForecastPoints int    `json:"forecastPoints"`
