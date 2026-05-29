@@ -8,7 +8,7 @@
 services:
   claude:
     build: .
-    image: wm-pickems-bot:latest
+    image: wm-pickems/bot:latest
     container_name: wmp_bot_claude
     restart: unless-stopped
     env_file: claude.env # BOT_EMAIL, BOT_PASSWORD, ANTHROPIC_API_KEY, WMP_BASE_URL, ...
@@ -18,7 +18,7 @@ services:
 
   # Add more bots later — same image, different env file:
   # chatgpt:
-  #   image: wm-pickems-bot:latest
+  #   image: wm-pickems/bot:latest
   #   container_name: wmp_bot_chatgpt
   #   restart: unless-stopped
   #   env_file: chatgpt.env

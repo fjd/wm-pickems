@@ -44,16 +44,27 @@ One image, **one container per bot** — the same image runs every bot; each con
 
 ```sh
 # Build (context is this bots/ directory — separate module from the app)
-docker build -t wm-pickems-bot:latest .
+docker build -t wm-pickems/bot:latest .
 
 # Run one bot, continuously
 docker run -d --name wmp_bot_claude --restart unless-stopped \
-  --env-file claude.env wm-pickems-bot:latest
+  --env-file claude.env wm-pickems/bot:latest
 ```
 
 `claude.env` holds the same variables as `.env.example`. For a second bot later, run another container with its own env file off the same image.
 
 A Compose starting point is in `docker-compose.example.yml` (copy to `docker-compose.yml`, add a per-bot env file, `docker compose up -d`). If the app runs in its own Compose project, put the bot(s) on a shared Docker network and point `WMP_BASE_URL` at the app's container name.
+
+### Releasing (CI)
+
+The bot has its **own** release tags, independent of the app. Pushing a `bot-v*` tag triggers `.github/workflows/docker-publish-bot.yml`, which builds and pushes to GHCR:
+
+```sh
+git tag bot-v0.1.0 && git push origin bot-v0.1.0
+# -> ghcr.io/floholz/wm-pickems/bot : 0.1.0, 0, latest
+```
+
+The package is private by default; flip visibility in GHCR if you want public pulls. (`ci-bot.yml` build/vet/tests the module on every push/PR that touches `bots/`.)
 
 ## Configuration
 
