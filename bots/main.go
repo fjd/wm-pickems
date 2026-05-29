@@ -1,19 +1,21 @@
 // Command wm-pickems-bot is a standalone side project: it logs in to a
-// wm-pickems deployment as a bot user (Claude, for v1) and submits a Forecast
-// and per-match Tips through the public REST API — playing by the same
-// server-side locks as any human. Run it once (cron) or with --loop.
+// wm-pickems deployment as a bot user and submits a Forecast and per-match
+// Tips through the public REST API — playing by the same server-side locks as
+// any human. Run it once (cron) or with --loop.
 //
 // Configuration is via environment:
 //
 //	WMP_BASE_URL    base URL of the app   (default http://127.0.0.1:8090)
 //	BOT_EMAIL       the bot account's email      (required)
 //	BOT_PASSWORD    the bot account's password   (required)
-//	ANTHROPIC_API_KEY   Anthropic API key        (required; read by the SDK)
-//	CLAUDE_MODEL    model id              (default claude-opus-4-8)
+//	BOT_KIND        strategy: algo (default) | claude
+//	ANTHROPIC_API_KEY   Anthropic API key   (required for BOT_KIND=claude)
+//	CLAUDE_MODEL    model id (claude only) (default claude-opus-4-8)
 //	BOT_LEAGUE_CODE optional invite code to auto-join on start
 //
 // Provision the bot once in the PocketBase admin: create the user, set
-// role=bot / botKind=claude, and add it to your leagues (or set BOT_LEAGUE_CODE).
+// role=bot / botKind to match BOT_KIND, and add it to your leagues (or set
+// BOT_LEAGUE_CODE).
 package main
 
 import (
@@ -41,7 +43,7 @@ func loadConfig() (config, error) {
 		baseURL:    envOr("WMP_BASE_URL", "http://127.0.0.1:8090"),
 		email:      os.Getenv("BOT_EMAIL"),
 		password:   os.Getenv("BOT_PASSWORD"),
-		kind:       strings.ToLower(envOr("BOT_KIND", "claude")),
+		kind:       strings.ToLower(envOr("BOT_KIND", "algo")),
 		model:      envOr("CLAUDE_MODEL", "claude-opus-4-8"),
 		leagueCode: os.Getenv("BOT_LEAGUE_CODE"),
 	}

@@ -13,8 +13,8 @@ No bypass anywhere — the bot competes on equal footing. It's a separate Go mod
 
 The prediction "brain" is selected by `BOT_KIND`; everything else (auth, the bracket resolver, the submit flow) is shared:
 
-- **`claude`** (default) — asks Claude (Anthropic API) for predictions. Needs `ANTHROPIC_API_KEY`. See _How it works_ below.
-- **`algo`** — a deterministic, API-free **rating model**. Each team gets a strength rating from a small embedded table (`algo.go`, keyed by FIFA code, neutral default for unknowns). Group order = by rating; best-8 thirds = the highest-rated third-placed teams; the bracket = higher rating advances (ties → home); scorelines = expected goals from the rating gap (`round(1.4 ± gap/120)`, group games may draw, knockouts coerced decisive). Same inputs → same output: a stable "house" baseline. No API key required. Tweak the ratings table to change its opinion.
+- **`algo`** (default) — a deterministic, API-free **rating model**. Each team gets a strength rating from a small embedded table (`algo.go`, keyed by FIFA code, neutral default for unknowns). Group order = by rating; best-8 thirds = the highest-rated third-placed teams; the bracket = higher rating advances (ties → home); scorelines = expected goals from the rating gap (`round(1.4 ± gap/120)`, group games may draw, knockouts coerced decisive). Same inputs → same output: a stable "house" baseline. No API key required. Tweak the ratings table to change its opinion.
+- **`claude`** — asks Claude (Anthropic API) for predictions. Needs `ANTHROPIC_API_KEY`. See _How it works_ below.
 
 ## How it works
 
@@ -75,7 +75,7 @@ The package is private by default; flip visibility in GHCR if you want public pu
 
 ## Configuration
 
-See `.env.example`. Defaults: `WMP_BASE_URL=http://127.0.0.1:8090`, `BOT_KIND=claude`, `CLAUDE_MODEL=claude-opus-4-8`. The container additionally defaults its command to `--loop --interval=1h`.
+See `.env.example`. Defaults: `WMP_BASE_URL=http://127.0.0.1:8090`, `BOT_KIND=algo` (no API key needed), `CLAUDE_MODEL=claude-opus-4-8` (only used when `BOT_KIND=claude`). The container additionally defaults its command to `--loop --interval=1h`.
 
 ## Tests
 
