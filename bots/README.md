@@ -64,7 +64,7 @@ git tag bot-v0.1.0 && git push origin bot-v0.1.0
 # -> ghcr.io/floholz/wm-pickems/bot : 0.1.0, 0, latest
 ```
 
-The package is private by default; flip visibility in GHCR if you want public pulls. (`ci-bot.yml` build/vet/tests the module on every push/PR that touches `bots/`.)
+The package is private by default; flip visibility in GHCR if you want public pulls.
 
 ## Configuration
 
