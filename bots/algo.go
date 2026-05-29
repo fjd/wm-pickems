@@ -101,18 +101,19 @@ func (a *AlgoBrain) PredictTips(_ context.Context, targets []tipTarget) (map[str
 }
 
 const (
-	algoBase     = 1.3   // expected goals for an evenly-matched side
-	algoAmp      = 1.6   // max goal swing from a large rating gap (saturating)
-	algoScale    = 300.0 // rating points that produce a sizeable swing
-	algoMaxGoals = 5
+	algoBase     = 1.25  // expected goals for an evenly-matched side
+	algoStep     = 160.0 // rating points ≈ one extra/fewer goal
+	algoMaxGoals = 7     // safety bound only — not a realism cap
 )
 
-// expectedGoals maps a rating gap to a goal tally with a *saturating* curve:
-// round(base + amp·tanh(gap/scale)). tanh keeps blowouts realistic — equal
-// teams → 1, a moderate edge → 2, and even a huge gap tops out around 3 rather
-// than running away to 5-6. The opponent's tally uses the negated gap.
+// expectedGoals maps a rating gap to a goal tally: round(base + gap/step). It's
+// linear and deliberately *not* capped low — a genuine mismatch can read 4-5+,
+// which is realistic for some group games. It no longer blows up on every game
+// because the ratings table now covers the whole field (so most gaps are
+// modest); only a top side vs a real minnow produces a rout. The opponent's
+// tally uses the negated gap.
 func expectedGoals(forRating, oppRating int) int {
-	g := int(math.Round(algoBase + algoAmp*math.Tanh(float64(forRating-oppRating)/algoScale)))
+	g := int(math.Round(algoBase + float64(forRating-oppRating)/algoStep))
 	return max(0, min(g, algoMaxGoals))
 }
 
