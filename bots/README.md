@@ -1,6 +1,6 @@
 # wm-pickems bots
 
-A standalone side project that plays [wm-pickems](../) as a bot. v1 ships **Claude** — it logs in as a bot user and submits a tournament **Forecast** and per-match **Tips** through the public REST API, playing by the exact same server-side locks as a human:
+A standalone side project that plays [wm-pickems](../) as a bot. It logs in as a bot user and submits a tournament **Forecast** and per-match **Tips** through the public REST API, playing by the exact same server-side locks as a human:
 
 - can't tip after kickoff,
 - can't tip a knockout match before both teams are resolved,
@@ -8,6 +8,13 @@ A standalone side project that plays [wm-pickems](../) as a bot. v1 ships **Clau
 - can't see anyone else's tips before kickoff.
 
 No bypass anywhere — the bot competes on equal footing. It's a separate Go module with no dependency on the main app: just an HTTP client + the Anthropic SDK.
+
+## Strategies (`BOT_KIND`)
+
+The prediction "brain" is selected by `BOT_KIND`; everything else (auth, the bracket resolver, the submit flow) is shared:
+
+- **`claude`** (default) — asks Claude (Anthropic API) for predictions. Needs `ANTHROPIC_API_KEY`. See _How it works_ below.
+- **`algo`** — a deterministic, API-free **rating model**. Each team gets a strength rating from a small embedded table (`algo.go`, keyed by FIFA code, neutral default for unknowns). Group order = by rating; best-8 thirds = the highest-rated third-placed teams; the bracket = higher rating advances (ties → home); scorelines = expected goals from the rating gap (`round(1.4 ± gap/120)`, group games may draw, knockouts coerced decisive). Same inputs → same output: a stable "house" baseline. No API key required. Tweak the ratings table to change its opinion.
 
 ## How it works
 
@@ -21,8 +28,8 @@ The large, unchanging tournament reference (teams, groups, knockout skeleton) is
 
 ## Setup
 
-1. In the PocketBase admin, create the bot's user account, set `role=bot` and `botKind=claude`, and add it to your league(s) — or set `BOT_LEAGUE_CODE`.
-2. Copy `.env.example` and fill in `BOT_EMAIL`, `BOT_PASSWORD`, `ANTHROPIC_API_KEY`, and `WMP_BASE_URL`.
+1. In the PocketBase admin, create the bot's user account, set `role=bot` and `botKind` (`claude` or `algo`), and add it to your league(s) — or set `BOT_LEAGUE_CODE`.
+2. Copy `.env.example` and fill in `BOT_EMAIL`, `BOT_PASSWORD`, `WMP_BASE_URL`, and `BOT_KIND`. For `claude` also set `ANTHROPIC_API_KEY`; `algo` needs no key.
 
 ## Run
 
@@ -68,7 +75,7 @@ The package is private by default; flip visibility in GHCR if you want public pu
 
 ## Configuration
 
-See `.env.example`. Defaults: `WMP_BASE_URL=http://127.0.0.1:8090`, `CLAUDE_MODEL=claude-opus-4-8`. The container additionally defaults its command to `--loop --interval=1h`.
+See `.env.example`. Defaults: `WMP_BASE_URL=http://127.0.0.1:8090`, `BOT_KIND=claude`, `CLAUDE_MODEL=claude-opus-4-8`. The container additionally defaults its command to `--loop --interval=1h`.
 
 ## Tests
 
@@ -76,8 +83,8 @@ See `.env.example`. Defaults: `WMP_BASE_URL=http://127.0.0.1:8090`, `CLAUDE_MODE
 go test ./...
 ```
 
-`bracket_test.go` checks the resolver port (bracket winners are always valid participants; W/L feeder labels resolve; the Annex C third-place lookup works).
+`bracket_test.go` checks the resolver port (bracket winners are always valid participants; W/L feeder labels resolve; the Annex C third-place lookup works). `algo_test.go` checks the rating model (group order, winner selection, scorelines).
 
 ## Future
 
-ChatGPT and an algorithmic bot drop in as alternative "brains" (`brain.go`); the client and bracket logic are shared. Showing each bot's reasoning in the app UI is a planned follow-up (would add an optional `rationale` field on tips).
+ChatGPT drops in as a third `Predictor` (`predictor.go`) alongside `claude` and `algo`; the client and bracket logic are shared. Showing each bot's reasoning in the app UI is a planned follow-up (would add an optional `rationale` field on tips).

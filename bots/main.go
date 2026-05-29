@@ -31,6 +31,7 @@ type config struct {
 	baseURL    string
 	email      string
 	password   string
+	kind       string // "claude" (default) | "algo"
 	model      string
 	leagueCode string
 }
@@ -40,14 +41,22 @@ func loadConfig() (config, error) {
 		baseURL:    envOr("WMP_BASE_URL", "http://127.0.0.1:8090"),
 		email:      os.Getenv("BOT_EMAIL"),
 		password:   os.Getenv("BOT_PASSWORD"),
+		kind:       strings.ToLower(envOr("BOT_KIND", "claude")),
 		model:      envOr("CLAUDE_MODEL", "claude-opus-4-8"),
 		leagueCode: os.Getenv("BOT_LEAGUE_CODE"),
 	}
 	if c.email == "" || c.password == "" {
 		return c, fmt.Errorf("BOT_EMAIL and BOT_PASSWORD are required")
 	}
-	if os.Getenv("ANTHROPIC_API_KEY") == "" {
-		return c, fmt.Errorf("ANTHROPIC_API_KEY is required")
+	switch c.kind {
+	case "claude":
+		if os.Getenv("ANTHROPIC_API_KEY") == "" {
+			return c, fmt.Errorf("ANTHROPIC_API_KEY is required for BOT_KIND=claude")
+		}
+	case "algo":
+		// No API key needed — fully deterministic.
+	default:
+		return c, fmt.Errorf("unknown BOT_KIND %q (want claude or algo)", c.kind)
 	}
 	return c, nil
 }
@@ -117,12 +126,20 @@ func runOnce(cfg config) error {
 		return fmt.Errorf("structure: %w", err)
 	}
 
-	brain := NewBrain(cfg.model, buildReference(teams, structure))
+	var predictor Predictor
+	switch cfg.kind {
+	case "algo":
+		predictor = NewAlgoBrain(teams)
+		log.Printf("strategy: algorithmic (rating-based)")
+	default:
+		predictor = NewBrain(cfg.model, buildReference(teams, structure))
+		log.Printf("strategy: claude (%s)", cfg.model)
+	}
 
-	if err := ensureForecast(ctx, c, brain, structure, teamName); err != nil {
+	if err := ensureForecast(ctx, c, predictor, structure, teamName); err != nil {
 		log.Printf("forecast: %v", err)
 	}
-	if err := submitTips(ctx, c, brain, matches, teamName); err != nil {
+	if err := submitTips(ctx, c, predictor, matches, teamName); err != nil {
 		log.Printf("tips: %v", err)
 	}
 	return nil
@@ -159,7 +176,7 @@ func buildReference(teams []Team, s *Structure) string {
 	return sb.String()
 }
 
-func ensureForecast(ctx context.Context, c *Client, brain *Brain, s *Structure, teamName map[string]string) error {
+func ensureForecast(ctx context.Context, c *Client, pred Predictor, s *Structure, teamName map[string]string) error {
 	id, err := c.MyForecast(ctx)
 	if err != nil {
 		return err
@@ -184,7 +201,7 @@ func ensureForecast(ctx context.Context, c *Client, brain *Brain, s *Structure, 
 		picks = append(picks, groupPick{Letter: g.Letter, Teams: teamsND})
 	}
 
-	rawOrder, rawThirds, err := brain.PredictGroups(ctx, picks)
+	rawOrder, rawThirds, err := pred.PredictGroups(ctx, picks)
 	if err != nil {
 		return fmt.Errorf("predict groups: %w", err)
 	}
@@ -193,7 +210,7 @@ func ensureForecast(ctx context.Context, c *Client, brain *Brain, s *Structure, 
 	log.Printf("forecast: groups ordered, %d best-thirds chosen", len(thirds))
 
 	bracket, err := BuildForecast(ctx, s, order, thirds,
-		func(id string) string { return teamName[id] }, brain.PredictWinners)
+		func(id string) string { return teamName[id] }, pred.PredictWinners)
 	if err != nil {
 		return fmt.Errorf("build bracket: %w", err)
 	}
@@ -274,7 +291,7 @@ func chooseThirds(order map[string][]string, raw []string) map[string]string {
 
 const tipBatch = 40
 
-func submitTips(ctx context.Context, c *Client, brain *Brain, matches []Match, teamName map[string]string) error {
+func submitTips(ctx context.Context, c *Client, pred Predictor, matches []Match, teamName map[string]string) error {
 	now, err := c.Now(ctx)
 	if err != nil {
 		return fmt.Errorf("now: %w", err)
@@ -302,7 +319,10 @@ func submitTips(ctx context.Context, c *Client, brain *Brain, matches []Match, t
 		}
 		home, away := labelFor(m.HomeTeam, m.HomeLabel, teamName), labelFor(m.AwayTeam, m.AwayLabel, teamName)
 		targets = append(targets, tipTarget{
-			MatchID: m.ID, Stage: m.Stage, Home: home, Away: away, Kickoff: m.Kickoff,
+			MatchID: m.ID, Stage: m.Stage,
+			Home: home, Away: away,
+			HomeID: m.HomeTeam, AwayID: m.AwayTeam,
+			Kickoff: m.Kickoff,
 		})
 	}
 	if len(targets) == 0 {
@@ -315,7 +335,7 @@ func submitTips(ctx context.Context, c *Client, brain *Brain, matches []Match, t
 	for start := 0; start < len(targets); start += tipBatch {
 		end := min(start+tipBatch, len(targets))
 		batch := targets[start:end]
-		scores, err := brain.PredictTips(ctx, batch)
+		scores, err := pred.PredictTips(ctx, batch)
 		if err != nil {
 			return fmt.Errorf("predict tips: %w", err)
 		}

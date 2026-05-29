@@ -173,8 +173,10 @@ Respond with ONLY a JSON object mapping each match number to "home" or "away":
 type tipTarget struct {
 	MatchID string
 	Stage   string
-	Home    string
+	Home    string // display name (or placeholder label)
 	Away    string
+	HomeID  string // resolved team id (always set for tippable matches)
+	AwayID  string
 	Kickoff string
 }
 
