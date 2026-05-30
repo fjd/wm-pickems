@@ -7,6 +7,7 @@ services:
     ports:
       - "${HTTP_PORT:-8090}:8090"
     environment:
+      - WMP_DEV=${WMP_DEV:-}
       - API_FOOTBALL_KEY=${API_FOOTBALL_KEY:-}
       - PB_ADMIN_EMAIL=${PB_ADMIN_EMAIL:-}
       - PB_ADMIN_PASSWORD=${PB_ADMIN_PASSWORD:-}
@@ -14,6 +15,12 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
     volumes:
       - pb_data:/pb_data
+    networks: [wmpickems]
 
 volumes:
   pb_data:
+
+networks:
+    wmpickems:
+        name: wmpickems
+        driver: bridge
