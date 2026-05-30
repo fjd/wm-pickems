@@ -15,16 +15,18 @@ import (
 // cached system prompt so every prediction call reuses it as a prompt-cache
 // prefix — only the per-call task in the user turn varies.
 type Brain struct {
-	client anthropic.Client
-	model  string
-	system string // static reference, identical across all calls (cache prefix)
+	client  anthropic.Client
+	model   string
+	system  string // static reference, identical across all calls (cache prefix)
+	results string // results-so-far summary, fed into tip prompts (the feedback loop)
 }
 
-func NewBrain(model, reference string) *Brain {
+func NewBrain(model, reference, results string) *Brain {
 	return &Brain{
-		client: anthropic.NewClient(), // reads ANTHROPIC_API_KEY
-		model:  model,
-		system: reference,
+		client:  anthropic.NewClient(), // reads ANTHROPIC_API_KEY
+		model:   model,
+		system:  reference,
+		results: results,
 	}
 }
 
@@ -189,6 +191,11 @@ func (b *Brain) PredictTips(ctx context.Context, targets []tipTarget) (map[strin
 	sort.Slice(targets, func(i, j int) bool { return targets[i].MatchID < targets[j].MatchID })
 
 	var sb strings.Builder
+	if b.results != "" {
+		sb.WriteString("Results so far this tournament — factor these in (form, surprises) and revise your view as needed:\n")
+		sb.WriteString(b.results)
+		sb.WriteString("\n\n")
+	}
 	sb.WriteString("Predict the final score of each upcoming match. ")
 	sb.WriteString("For group matches a draw is allowed. For knockout matches pick a DECISIVE 90-minute score (the two scores must differ — the higher score is the team that advances).\n\n")
 	for _, t := range targets {

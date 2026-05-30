@@ -124,6 +124,17 @@ type Match struct {
 	AwayTeam    string `json:"awayTeam"`
 	Kickoff     string `json:"kickoff"`
 	Status      string `json:"status"`
+	// Result fields — populated once a match is finished (the feedback signal).
+	FtHome      int    `json:"ftHome"`
+	FtAway      int    `json:"ftAway"`
+	EtHome      int    `json:"etHome"`
+	EtAway      int    `json:"etAway"`
+	FinalizedAt string `json:"finalizedAt"`
+}
+
+// Finished reports whether the match has a usable result.
+func (m Match) Finished() bool {
+	return m.Status == "finished" && m.HomeTeam != "" && m.AwayTeam != ""
 }
 
 func (c *Client) Teams(ctx context.Context) ([]Team, error) {
@@ -176,8 +187,11 @@ func (c *Client) Structure(ctx context.Context) (*Structure, error) {
 // ---- the bot's own predictions ----
 
 type Tip struct {
-	ID    string `json:"id"`
-	Match string `json:"match"`
+	ID      string `json:"id"`
+	Match   string `json:"match"`
+	FtHome  int    `json:"ftHome"`
+	FtAway  int    `json:"ftAway"`
+	Updated string `json:"updated"`
 }
 
 func (c *Client) MyTips(ctx context.Context) ([]Tip, error) {
@@ -197,6 +211,15 @@ func (c *Client) CreateTip(ctx context.Context, matchID string, ftHome, ftAway i
 	return c.do(ctx, http.MethodPost, "/api/collections/tips/records", map[string]any{
 		"user":   c.UserID,
 		"match":  matchID,
+		"ftHome": ftHome,
+		"ftAway": ftAway,
+	}, nil)
+}
+
+// UpdateTip revises an existing tip's scoreline (allowed while the match is
+// still open — same lock the server enforces for humans).
+func (c *Client) UpdateTip(ctx context.Context, tipID string, ftHome, ftAway int) error {
+	return c.do(ctx, http.MethodPatch, "/api/collections/tips/records/"+tipID, map[string]any{
 		"ftHome": ftHome,
 		"ftAway": ftAway,
 	}, nil)

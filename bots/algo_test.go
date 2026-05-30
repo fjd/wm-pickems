@@ -5,15 +5,19 @@ import (
 	"testing"
 )
 
-func testAlgo() *AlgoBrain {
-	return NewAlgoBrain([]Team{
-		{ID: "arg", FifaCode: "ARG"}, // 2140
-		{ID: "bra", FifaCode: "BRA"}, // 2075
-		{ID: "usa", FifaCode: "USA"}, // 1860
+func testTeams() []Team {
+	return []Team{
+		{ID: "arg", FifaCode: "ARG"}, // 2100
+		{ID: "bra", FifaCode: "BRA"}, // 2040
+		{ID: "usa", FifaCode: "USA"}, // 1800
 		{ID: "nzl", FifaCode: "NZL"}, // 1600
 		{ID: "xx1", FifaCode: "ZZ1"}, // default 1500
 		{ID: "xx2", FifaCode: "ZZ2"}, // default 1500
-	})
+	}
+}
+
+func testAlgo() *AlgoBrain {
+	return NewAlgoBrain(testTeams(), nil)
 }
 
 func TestAlgoGroupsOrderByRating(t *testing.T) {
@@ -44,6 +48,38 @@ func TestAlgoWinnerHigherRated(t *testing.T) {
 	}
 	if got[2] != "xx1" {
 		t.Errorf("match 2 winner = %q, want xx1 (home on a tie)", got[2])
+	}
+}
+
+func TestAlgoEloFeedback(t *testing.T) {
+	base := NewAlgoBrain(testTeams(), nil)
+
+	// Two big NZL wins over ARG: the loser drops, the (over-performing) winner
+	// rises, and the gap narrows sharply — the bot learns from results. Elo is
+	// conservative, so a single huge gap need not fully invert in two games.
+	results := []Match{
+		{Status: "finished", HomeTeam: "nzl", AwayTeam: "arg", FtHome: 3, FtAway: 0, Kickoff: "2026-06-12 15:00:00.000Z", FinalizedAt: "2026-06-12 17:00:00.000Z"},
+		{Status: "finished", HomeTeam: "arg", AwayTeam: "nzl", FtHome: 0, FtAway: 2, Kickoff: "2026-06-16 15:00:00.000Z", FinalizedAt: "2026-06-16 17:00:00.000Z"},
+	}
+	learned := NewAlgoBrain(testTeams(), results)
+	if learned.rat("nzl") <= base.rat("nzl") {
+		t.Errorf("NZL rating did not rise after wins: %d -> %d", base.rat("nzl"), learned.rat("nzl"))
+	}
+	if learned.rat("arg") >= base.rat("arg") {
+		t.Errorf("ARG rating did not fall after losses: %d -> %d", base.rat("arg"), learned.rat("arg"))
+	}
+	if gOld, gNew := base.rat("arg")-base.rat("nzl"), learned.rat("arg")-learned.rat("nzl"); gNew >= gOld {
+		t.Errorf("gap did not narrow: %d -> %d", gOld, gNew)
+	}
+
+	// On an even pair, a single win flips the predicted winner.
+	flip := []Match{
+		{Status: "finished", HomeTeam: "xx2", AwayTeam: "xx1", FtHome: 1, FtAway: 0, Kickoff: "2026-06-12 15:00:00.000Z", FinalizedAt: "2026-06-12 17:00:00.000Z"},
+	}
+	learned2 := NewAlgoBrain(testTeams(), flip)
+	ms := []matchup{{Num: 1, Home: nameID{ID: "xx1"}, Away: nameID{ID: "xx2"}}}
+	if got, _ := learned2.PredictWinners(context.Background(), "R16", ms); got[1] != "xx2" {
+		t.Errorf("after xx2 beat xx1, winner = %q, want xx2", got[1])
 	}
 }
 

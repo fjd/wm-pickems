@@ -15,12 +15,80 @@ type AlgoBrain struct {
 	rating map[string]int // teamId -> rating
 }
 
-func NewAlgoBrain(teams []Team) *AlgoBrain {
+// NewAlgoBrain seeds ratings from the static table, then applies Elo updates
+// from every finished match — the feedback loop. After a few results the
+// ratings (and therefore the tips) reflect what actually happened, not just the
+// pre-tournament table.
+func NewAlgoBrain(teams []Team, finished []Match) *AlgoBrain {
 	r := make(map[string]int, len(teams))
 	for _, t := range teams {
 		r[t.ID] = ratingFor(t.FifaCode)
 	}
+	applyElo(r, finished)
 	return &AlgoBrain{rating: r}
+}
+
+// eloK is the update step. A short tournament wants fairly responsive ratings,
+// so this is on the higher side.
+const eloK = 40.0
+
+// applyElo nudges team ratings toward what results showed, in chronological
+// order, using a goal-difference-weighted Elo update (the standard
+// World-Football-Elo shape).
+func applyElo(r map[string]int, finished []Match) {
+	ms := append([]Match(nil), finished...)
+	sort.SliceStable(ms, func(i, j int) bool { return ms[i].Kickoff < ms[j].Kickoff })
+	for _, m := range ms {
+		if !m.Finished() {
+			continue
+		}
+		hs, as := referenceScore(m)
+		ra, rb := float64(r[m.HomeTeam]), float64(r[m.AwayTeam])
+		expHome := 1.0 / (1.0 + math.Pow(10, (rb-ra)/400.0))
+		delta := int(math.Round(eloK * goalMultiplier(absInt(hs-as)) * (outcome(hs, as) - expHome)))
+		r[m.HomeTeam] += delta
+		r[m.AwayTeam] -= delta
+	}
+}
+
+// referenceScore is the after-extra-time score when ET was played, else the 90'
+// score. A penalty shootout (level after ET) reads as a draw for rating
+// purposes.
+func referenceScore(m Match) (int, int) {
+	if m.EtHome > 0 || m.EtAway > 0 {
+		return m.EtHome, m.EtAway
+	}
+	return m.FtHome, m.FtAway
+}
+
+func outcome(home, away int) float64 {
+	switch {
+	case home > away:
+		return 1
+	case away > home:
+		return 0
+	default:
+		return 0.5
+	}
+}
+
+// goalMultiplier weights bigger wins more (eloratings.net convention).
+func goalMultiplier(margin int) float64 {
+	switch {
+	case margin <= 1:
+		return 1
+	case margin == 2:
+		return 1.5
+	default:
+		return float64(11+margin) / 8.0
+	}
+}
+
+func absInt(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 func (a *AlgoBrain) rat(id string) int {

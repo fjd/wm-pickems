@@ -128,14 +128,23 @@ func runOnce(cfg config) error {
 		return fmt.Errorf("structure: %w", err)
 	}
 
+	// Finished matches are the feedback signal: the algo Elo-adjusts its
+	// ratings from them, Claude gets them as prompt context.
+	var finished []Match
+	for _, m := range matches {
+		if m.Finished() {
+			finished = append(finished, m)
+		}
+	}
+
 	var predictor Predictor
 	switch cfg.kind {
 	case "algo":
-		predictor = NewAlgoBrain(teams)
-		log.Printf("strategy: algorithmic (rating-based)")
+		predictor = NewAlgoBrain(teams, finished)
+		log.Printf("strategy: algorithmic (rating-based), %d result(s) applied", len(finished))
 	default:
-		predictor = NewBrain(cfg.model, buildReference(teams, structure))
-		log.Printf("strategy: claude (%s)", cfg.model)
+		predictor = NewBrain(cfg.model, buildReference(teams, structure), buildResultsText(finished, teamName))
+		log.Printf("strategy: claude (%s), %d result(s) in context", cfg.model, len(finished))
 	}
 
 	if err := ensureForecast(ctx, c, predictor, structure, teamName); err != nil {
@@ -302,38 +311,55 @@ func submitTips(ctx context.Context, c *Client, pred Predictor, matches []Match,
 	if err != nil {
 		return fmt.Errorf("my tips: %w", err)
 	}
-	tipped := map[string]bool{}
+	tipByMatch := make(map[string]Tip, len(existing))
+	var lastTipped time.Time
 	for _, t := range existing {
-		tipped[t.Match] = true
+		tipByMatch[t.Match] = t
+		if u, ok := kickoffTime(t.Updated); ok && u.After(lastTipped) {
+			lastTipped = u
+		}
 	}
+	// "New info" = a result has been finalized since we last tipped. When false,
+	// already-tipped matches are left alone (no churn / no needless API calls);
+	// only brand-new open matches get an initial tip.
+	var lastResult time.Time
+	for _, m := range matches {
+		if !m.Finished() {
+			continue
+		}
+		if f, ok := kickoffTime(m.FinalizedAt); ok && f.After(lastResult) {
+			lastResult = f
+		}
+	}
+	hasNewInfo := lastResult.After(lastTipped)
 
 	var targets []tipTarget
 	for _, m := range matches {
-		if tipped[m.ID] {
-			continue
-		}
 		ko, ok := kickoffTime(m.Kickoff)
 		if !ok || !now.Before(ko) {
-			continue // already locked (or unparseable)
+			continue // already locked (or unparseable) — can't tip/edit
 		}
 		if m.Stage != "group" && (m.HomeTeam == "" || m.AwayTeam == "") {
 			continue // knockout matchup not resolved yet
 		}
-		home, away := labelFor(m.HomeTeam, m.HomeLabel, teamName), labelFor(m.AwayTeam, m.AwayLabel, teamName)
+		if _, already := tipByMatch[m.ID]; already && !hasNewInfo {
+			continue // already tipped and nothing new to reconsider
+		}
 		targets = append(targets, tipTarget{
 			MatchID: m.ID, Stage: m.Stage,
-			Home: home, Away: away,
+			Home:   labelFor(m.HomeTeam, m.HomeLabel, teamName),
+			Away:   labelFor(m.AwayTeam, m.AwayLabel, teamName),
 			HomeID: m.HomeTeam, AwayID: m.AwayTeam,
 			Kickoff: m.Kickoff,
 		})
 	}
 	if len(targets) == 0 {
-		log.Printf("tips: nothing new to tip")
+		log.Printf("tips: nothing to do")
 		return nil
 	}
-	log.Printf("tips: predicting %d match(es)", len(targets))
+	log.Printf("tips: evaluating %d open match(es) (new results since last tip: %v)", len(targets), hasNewInfo)
 
-	created := 0
+	created, updated := 0, 0
 	for start := 0; start < len(targets); start += tipBatch {
 		end := min(start+tipBatch, len(targets))
 		batch := targets[start:end]
@@ -346,15 +372,45 @@ func submitTips(ctx context.Context, c *Client, pred Predictor, matches []Match,
 			if !ok {
 				continue
 			}
-			if err := c.CreateTip(ctx, t.MatchID, s.Home, s.Away); err != nil {
-				log.Printf("tip %s: %v", t.MatchID, err)
-				continue
+			if ex, exists := tipByMatch[t.MatchID]; exists {
+				if ex.FtHome == s.Home && ex.FtAway == s.Away {
+					continue // prediction unchanged
+				}
+				if err := c.UpdateTip(ctx, ex.ID, s.Home, s.Away); err != nil {
+					log.Printf("update tip %s: %v", t.MatchID, err)
+					continue
+				}
+				updated++
+			} else {
+				if err := c.CreateTip(ctx, t.MatchID, s.Home, s.Away); err != nil {
+					log.Printf("tip %s: %v", t.MatchID, err)
+					continue
+				}
+				created++
 			}
-			created++
 		}
 	}
-	log.Printf("tips: created %d", created)
+	log.Printf("tips: created %d, revised %d", created, updated)
 	return nil
+}
+
+// buildResultsText is the Claude bot's feedback context: a compact, chronological
+// list of finished matches ("Brazil 2-1 Serbia"). Empty before any result.
+func buildResultsText(finished []Match, teamName map[string]string) string {
+	if len(finished) == 0 {
+		return ""
+	}
+	ms := append([]Match(nil), finished...)
+	sort.SliceStable(ms, func(i, j int) bool { return ms[i].Kickoff < ms[j].Kickoff })
+	var sb strings.Builder
+	for _, m := range ms {
+		h, a := m.FtHome, m.FtAway
+		if m.EtHome > 0 || m.EtAway > 0 {
+			h, a = m.EtHome, m.EtAway
+		}
+		fmt.Fprintf(&sb, "%s %d-%d %s\n", teamName[m.HomeTeam], h, a, teamName[m.AwayTeam])
+	}
+	return sb.String()
 }
 
 // labelFor names a side:: the resolved team name if known, else the placeholder

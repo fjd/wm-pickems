@@ -13,7 +13,7 @@ No bypass anywhere — the bot competes on equal footing. It's a separate Go mod
 
 The prediction "brain" is selected by `BOT_KIND`; everything else (auth, the bracket resolver, the submit flow) is shared:
 
-- **`algo`** (default) — a deterministic, API-free **rating model**. Each team gets a strength rating from a small embedded table (`algo.go`, keyed by FIFA code, neutral default for unknowns). Group order = by rating; best-8 thirds = the highest-rated third-placed teams; the bracket = higher rating advances (ties → home); scorelines = expected goals from the rating gap (`round(1.25 + gap/160)`, uncapped so a genuine mismatch can read 4–5+; group games may draw, knockouts coerced decisive). Same inputs → same output: a stable "house" baseline. No API key required. Tweak the ratings table to change its opinion.
+- **`algo`** (default) — a deterministic, API-free **rating model**. Each team gets a strength rating from a small embedded table (`algo.go`, keyed by FIFA code, neutral default for unknowns). Group order = by rating; best-8 thirds = the highest-rated third-placed teams; the bracket = higher rating advances (ties → home); scorelines = expected goals from the rating gap (`round(1.25 + gap/160)`, uncapped so a genuine mismatch can read 4–5+; group games may draw, knockouts coerced decisive). It also **learns**: results Elo-adjust the ratings (see _Feedback loop_). No API key required. Tweak the ratings table to change its starting opinion.
 - **`claude`** — asks Claude (Anthropic API) for predictions. Needs `ANTHROPIC_API_KEY`. See _How it works_ below.
 
 ## How it works
@@ -23,6 +23,15 @@ The prediction "brain" is selected by `BOT_KIND`; everything else (auth, the bra
 3. **Tips** (every run, idempotent): finds every match that's still open (kickoff in the future, matchup resolved) and not already tipped, then asks Claude for a scoreline — a decisive 90' result for knockouts so the server derives the advancer. Skips matches it has already tipped.
 
 It reads the server clock from `/api/now`, so it also works against the `WMP_DEV=1` simulator — you can advance the virtual clock and watch Claude play a whole tournament before June 2026.
+
+## Feedback loop
+
+Every run the bot pulls in finished results and revises, like a human would:
+
+- **algo** Elo-adjusts its ratings from every result (goal-difference-weighted), so an over-performing team climbs and its upcoming tips shift accordingly; a flop drops.
+- **claude** gets the results so far as prompt context and re-reasons.
+
+It then reconciles **every still-open match**: creating missing tips and **updating** ones whose prediction has changed (editing a tip before kickoff is allowed — same as a human). To avoid churn and needless API calls, already-tipped matches are only re-evaluated when a new result has come in since the bot last tipped. The **Forecast is one-shot** and never revised (it locks at the first kickoff, before any results exist).
 
 The large, unchanging tournament reference (teams, groups, knockout skeleton) is sent as a **cached system prompt**, so every prediction call after the first reuses it as a prompt-cache prefix.
 
