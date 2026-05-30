@@ -21,6 +21,7 @@ export interface LeagueSummary {
 export interface LeaderboardRow {
 	userId: string;
 	name: string;
+	avatar?: string; // file name in the users.avatar field; empty/absent => none
 	role?: string; // "admin" | "bot"; empty/absent => normal member
 	total: number;
 	tipsPoints: number;

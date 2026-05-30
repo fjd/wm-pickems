@@ -12,7 +12,8 @@ import (
 type Row struct {
 	UserID         string `json:"userId"`
 	Name           string `json:"name"`
-	Role           string `json:"role"` // "admin" | "bot"; empty => normal member
+	Avatar         string `json:"avatar"` // file name in the users.avatar field; "" => none
+	Role           string `json:"role"`   // "admin" | "bot"; empty => normal member
 	Total          int    `json:"total"`
 	TipsPoints     int    `json:"tipsPoints"`
 	ForecastPoints int    `json:"forecastPoints"`
@@ -60,7 +61,7 @@ func Leaderboard(app core.App, leagueID string) (map[string]any, error) {
 		if err != nil {
 			continue
 		}
-		row := Row{UserID: uid, Name: u.GetString("name"), Role: u.GetString("role")}
+		row := Row{UserID: uid, Name: u.GetString("name"), Avatar: u.GetString("avatar"), Role: u.GetString("role")}
 
 		ms, _ := app.FindRecordsByFilter("match_scores",
 			"user = {:u} && config = {:c}", "", 0, 0,

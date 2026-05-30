@@ -2,6 +2,8 @@
 	import { page } from '$app/stores';
 	import { api, type LeaderboardRow } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
+	import { pb } from '$lib/pb';
+	import Avatar from '$lib/components/Avatar.svelte';
 	import {
 		Eye,
 		EyeOff,
@@ -170,6 +172,14 @@
 		[...rows].sort((a, b) => b[tab] - a[tab])
 	);
 	let fcView = $derived(tab === 'forecastPoints');
+
+	// Build the avatar URL the same way auth.svelte does — a users.avatar file
+	// resolves to /api/files/users/{id}/{filename} (same origin).
+	function avatarUrl(r: LeaderboardRow): string | null {
+		return r.avatar
+			? pb.files.getURL({ id: r.userId, collectionName: 'users' }, r.avatar)
+			: null;
+	}
 
 	function copyInvite() {
 		navigator.clipboard?.writeText(invite);
@@ -351,6 +361,7 @@
 						<td class="rank">{i + 1}</td>
 						<td class="player">
 							<div class="pwrap">
+								<Avatar name={r.name} src={avatarUrl(r)} size={28} />
 								<span class="pname">{r.name}</span>
 								{#if r.role === 'bot'}
 									<span class="rolepill" title="Bot player"><Bot size={11} /> Bot</span>
