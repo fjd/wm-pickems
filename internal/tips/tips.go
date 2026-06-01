@@ -187,6 +187,7 @@ func Register(app core.App, se *core.ServeEvent) {
 				"etAway":    t.GetInt("etAway"),
 				"penWinner": t.GetString("penWinner"),
 				"advancer":  t.GetString("advancer"),
+				"rationale": t.GetString("rationale"),
 			})
 		}
 		return e.JSON(http.StatusOK, map[string]any{"locked": true, "tips": rows})

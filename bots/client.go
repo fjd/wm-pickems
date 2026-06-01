@@ -207,21 +207,23 @@ func (c *Client) MyTips(ctx context.Context) ([]Tip, error) {
 // CreateTip submits a per-match prediction. For group games only ftHome/ftAway
 // are needed; for knockouts the bot predicts a decisive 90' score so the server
 // derives the advancer (no extra-time handling in v1).
-func (c *Client) CreateTip(ctx context.Context, matchID string, ftHome, ftAway int) error {
+func (c *Client) CreateTip(ctx context.Context, matchID string, ftHome, ftAway int, rationale string) error {
 	return c.do(ctx, http.MethodPost, "/api/collections/tips/records", map[string]any{
-		"user":   c.UserID,
-		"match":  matchID,
-		"ftHome": ftHome,
-		"ftAway": ftAway,
+		"user":      c.UserID,
+		"match":     matchID,
+		"ftHome":    ftHome,
+		"ftAway":    ftAway,
+		"rationale": rationale,
 	}, nil)
 }
 
 // UpdateTip revises an existing tip's scoreline (allowed while the match is
 // still open — same lock the server enforces for humans).
-func (c *Client) UpdateTip(ctx context.Context, tipID string, ftHome, ftAway int) error {
+func (c *Client) UpdateTip(ctx context.Context, tipID string, ftHome, ftAway int, rationale string) error {
 	return c.do(ctx, http.MethodPatch, "/api/collections/tips/records/"+tipID, map[string]any{
-		"ftHome": ftHome,
-		"ftAway": ftAway,
+		"ftHome":    ftHome,
+		"ftAway":    ftAway,
+		"rationale": rationale,
 	}, nil)
 }
 

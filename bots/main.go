@@ -493,14 +493,14 @@ func submitTips(ctx context.Context, c *Client, pred Predictor, matches []Match,
 				if ex.FtHome == s.Home && ex.FtAway == s.Away {
 					continue // prediction unchanged
 				}
-				if err := c.UpdateTip(ctx, ex.ID, s.Home, s.Away); err != nil {
+				if err := c.UpdateTip(ctx, ex.ID, s.Home, s.Away, o.Rationale); err != nil {
 					log.Warn("update tip failed", "match", t.MatchID, "err", err)
 					continue
 				}
 				updated++
 				logTip(log, "revised", t, fmt.Sprintf("%d-%d", ex.FtHome, ex.FtAway), s, "new_result", o.Rationale)
 			} else {
-				if err := c.CreateTip(ctx, t.MatchID, s.Home, s.Away); err != nil {
+				if err := c.CreateTip(ctx, t.MatchID, s.Home, s.Away, o.Rationale); err != nil {
 					log.Warn("create tip failed", "match", t.MatchID, "err", err)
 					continue
 				}
