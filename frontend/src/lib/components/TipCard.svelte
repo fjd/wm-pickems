@@ -10,7 +10,12 @@
 	import Stepper from './Stepper.svelte';
 	import { Lock, ChevronDown, Check, Users } from '@lucide/svelte';
 
-	let { match }: { match: Match } = $props();
+	// Controlled by the parent so only one card is open at a time (accordion).
+	let {
+		match,
+		open = false,
+		onToggle
+	}: { match: Match; open?: boolean; onToggle?: () => void } = $props();
 
 	let locked = $derived(isLocked(match));
 	let resolved = $derived(teamsResolved(match));
@@ -24,8 +29,6 @@
 	let advancedName = $derived(
 		isKO && match.advancer ? (tipsStore.team(match.advancer)?.name ?? '') : ''
 	);
-
-	let open = $state(false);
 
 	// Editable working copy.
 	let ftH = $state(0);
@@ -139,7 +142,7 @@
 <div class="tc card" class:locked>
 	<button
 		class="head"
-		onclick={() => (open = !open)}
+		onclick={() => onToggle?.()}
 		aria-expanded={open}
 	>
 		<div class="teams">

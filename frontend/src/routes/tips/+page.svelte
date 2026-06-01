@@ -8,6 +8,9 @@
 
 	let tab = $state<'all' | 'group' | 'ko'>('all');
 
+	// Accordion: only one match's tip inputs are open at a time.
+	let openId = $state('');
+
 	$effect(() => {
 		if (!tipsStore.loaded) tipsStore.load().catch(() => {});
 	});
@@ -137,7 +140,13 @@
 	{#each days as [day, ms], i (day)}
 		<h3 class="day" id={`day-${i}`}>{day}</h3>
 		{#each ms as m (m.id)}
-			<div class="match"><TipCard match={m} /></div>
+			<div class="match">
+				<TipCard
+					match={m}
+					open={openId === m.id}
+					onToggle={() => (openId = openId === m.id ? '' : m.id)}
+				/>
+			</div>
 		{/each}
 	{/each}
 	<div class="fabpad"></div>
