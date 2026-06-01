@@ -39,6 +39,13 @@ type openrouterCompleter struct {
 
 const openrouterURL = "https://openrouter.ai/api/v1/chat/completions"
 
+// openrouterCallTimeout bounds a single (non-streaming) request. Without it a
+// stalled provider would block on the run-level context — up to 45 min for the
+// one-shot forecast call, which has no per-batch deadline of its own. Generous
+// enough for a slow reasoning model on a full tip batch; a call that exceeds it
+// fails fast and gets logged + retried next tick instead of hanging silently.
+const openrouterCallTimeout = 8 * time.Minute
+
 func newOpenRouterCompleter(model, system string, log *slog.Logger) (*openrouterCompleter, error) {
 	key := os.Getenv("OPENROUTER_API_KEY")
 	if key == "" {
@@ -57,6 +64,8 @@ func newOpenRouterCompleter(model, system string, log *slog.Logger) (*openrouter
 
 func (o *openrouterCompleter) complete(ctx context.Context, label, task string, schema map[string]any) (string, error) {
 	start := time.Now()
+	ctx, cancel := context.WithTimeout(ctx, openrouterCallTimeout)
+	defer cancel()
 	b, err := json.Marshal(o.requestBody(task, schema))
 	if err != nil {
 		return "", err

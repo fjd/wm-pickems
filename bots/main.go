@@ -32,6 +32,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"syscall"
@@ -129,30 +130,44 @@ func main() {
 	slog.SetDefault(slog.Default().With("bot_kind", cfg.kind))
 
 	run := func(opts runOpts) {
+		// A panic in one run (e.g. a malformed bracket from a weak model's
+		// forecast) is recovered and logged with its stack so the daemon stays up
+		// and the next tick/trigger retries — instead of crashing the container.
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("run panicked — recovered; continuing", "panic", r, "stack", string(debug.Stack()))
+			}
+		}()
 		if err := runOnce(cfg, opts); err != nil {
 			slog.Error("run failed", "err", err)
 		}
 	}
-	run(runOpts{})
-	if *once || !*loop {
-		return
-	}
 
-	// In loop mode, run on the interval — or on demand via signals, so picks can
-	// be refreshed without waiting for the next tick or restarting. Send with
+	// Register signal handlers BEFORE the first run: a manual trigger sent while
+	// that (possibly slow) first run is still going is then buffered and handled
+	// once we reach the loop, rather than hitting SIGHUP's default disposition —
+	// which would terminate the process mid-run. Send with
 	// `docker compose kill -s <SIG> <service>`, `docker kill --signal=<SIG> <name>`,
 	// or `kill -<SIG> <pid>`:
 	//   SIGHUP  — run now (normal: new open matches + results-driven revisions)
 	//   SIGUSR1 — re-evaluate ALL open tips, overriding existing picks (after a brain change)
 	//   SIGUSR2 — regenerate the forecast, overriding the existing one (pre-lock only)
-	ticker := time.NewTicker(*interval)
-	defer ticker.Stop()
 	sigRun := make(chan os.Signal, 1)
 	sigReTip := make(chan os.Signal, 1)
 	sigReForecast := make(chan os.Signal, 1)
 	signal.Notify(sigRun, syscall.SIGHUP)
 	signal.Notify(sigReTip, syscall.SIGUSR1)
 	signal.Notify(sigReForecast, syscall.SIGUSR2)
+
+	run(runOpts{})
+	if *once || !*loop {
+		return
+	}
+
+	// In loop mode, run on the interval — or on demand via the signals above, so
+	// picks can be refreshed without waiting for the next tick or restarting.
+	ticker := time.NewTicker(*interval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
