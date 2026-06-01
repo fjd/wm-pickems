@@ -2,6 +2,7 @@
 	import { tipsStore, type Match } from '$lib/tips.svelte';
 	import TipCard from '$lib/components/TipCard.svelte';
 	import GroupStandings from '$lib/components/GroupStandings.svelte';
+	import { bestThirds } from '$lib/standings';
 	import { collapseOnScroll } from '$lib/actions';
 	import { serverClock } from '$lib/serverclock.svelte';
 	import { LocateFixed } from '@lucide/svelte';
@@ -11,6 +12,15 @@
 
 	// Accordion: only one match's tip inputs are open at a time.
 	let openId = $state('');
+
+	// Projected best-8 third-placed teams across all groups (empty until every
+	// group is filled) — shared by every group's standings table.
+	let thirdsAdv = $derived.by(() => {
+		const by: Record<string, Match[]> = {};
+		for (const m of tipsStore.matches)
+			if (m.stage === 'group') (by[m.groupLetter] ||= []).push(m);
+		return bestThirds(Object.values(by), tipsStore.tips);
+	});
 
 	$effect(() => {
 		if (!tipsStore.loaded) tipsStore.load().catch(() => {});
@@ -150,7 +160,7 @@
 			</div>
 		{/each}
 		{#if tab === 'group'}
-			<GroupStandings matches={ms} />
+			<GroupStandings matches={ms} bestThirds={thirdsAdv} />
 		{/if}
 	{/each}
 	<div class="fabpad"></div>

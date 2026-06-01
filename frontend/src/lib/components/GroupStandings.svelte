@@ -1,64 +1,24 @@
 <script lang="ts">
 	import { tipsStore, type Match } from '$lib/tips.svelte';
+	import { groupTable, type StandRow } from '$lib/standings';
 	import Flag from './Flag.svelte';
 	import { ChevronDown } from '@lucide/svelte';
 
 	// A projected group table: played matches count as-is, the rest use the
 	// user's saved picks. Collapsed by default; updates live as tips are saved.
-	let { matches }: { matches: Match[] } = $props();
+	// `bestThirds` (the projected best-8 third-placed team ids across all groups)
+	// is computed by the parent and empty until every group is filled.
+	let {
+		matches,
+		bestThirds
+	}: { matches: Match[]; bestThirds: Set<string> } = $props();
 	let open = $state(false);
 
-	type Row = { id: string; pts: number; gf: number; ga: number; pld: number };
-
-	let rows = $derived.by(() => {
-		const tbl: Record<string, Row> = {};
-		const ensure = (id: string) =>
-			(tbl[id] ||= { id, pts: 0, gf: 0, ga: 0, pld: 0 });
-		// Seed all four teams so the group shows in full, then fill it in.
-		for (const m of matches) {
-			if (m.homeTeam) ensure(m.homeTeam);
-			if (m.awayTeam) ensure(m.awayTeam);
-		}
-		for (const m of matches) {
-			if (!m.homeTeam || !m.awayTeam) continue;
-			const played = m.status === 'finished' || !!m.finalizedAt;
-			let h: number, a: number;
-			if (played) {
-				h = m.ftHome;
-				a = m.ftAway;
-			} else {
-				const tip = tipsStore.tips[m.id];
-				if (!tip) continue; // not played, not tipped → no contribution yet
-				h = tip.ftHome;
-				a = tip.ftAway;
-			}
-			const H = ensure(m.homeTeam);
-			const A = ensure(m.awayTeam);
-			H.pld++;
-			A.pld++;
-			H.gf += h;
-			H.ga += a;
-			A.gf += a;
-			A.ga += h;
-			if (h > a) H.pts += 3;
-			else if (a > h) A.pts += 3;
-			else {
-				H.pts++;
-				A.pts++;
-			}
-		}
-		const name = (id: string) => tipsStore.team(id)?.name ?? '';
-		return Object.values(tbl).sort(
-			(x, y) =>
-				y.pts - x.pts ||
-				y.gf - y.ga - (x.gf - x.ga) ||
-				y.gf - x.gf ||
-				name(x.id).localeCompare(name(y.id))
-		);
-	});
-
+	let rows = $derived(groupTable(matches, tipsStore.tips));
 	let counted = $derived(rows.reduce((n, r) => n + r.pld, 0));
-	const gd = (r: Row) => `${r.gf - r.ga >= 0 ? '+' : ''}${r.gf - r.ga}`;
+	const gd = (r: StandRow) => `${r.gf - r.ga >= 0 ? '+' : ''}${r.gf - r.ga}`;
+	// 1st/2nd advance directly; a 3rd-placed team advances if it's a best third.
+	const advances = (r: StandRow, i: number) => i < 2 || (i === 2 && bestThirds.has(r.id));
 </script>
 
 <div class="gs">
@@ -85,7 +45,7 @@
 				</thead>
 				<tbody>
 					{#each rows as r, i (r.id)}
-						<tr class:adv={i < 2}>
+						<tr class:adv={advances(r, i)} class:third={i === 2 && bestThirds.has(r.id)}>
 							<td class="rk">{i + 1}</td>
 							<td class="tl">
 								<span class="tm">
@@ -104,7 +64,10 @@
 				</tbody>
 			</table>
 			<p class="muted small note">
-				Your picks, with played results counted. Top 2 advance.
+				Your picks, with played results counted. Top 2 advance directly; the 8
+				best 3rd-placed teams also advance{bestThirds.size
+					? ''
+					: ' (fill every group to project these)'}.
 			</p>
 		{/if}
 	{/if}
@@ -182,6 +145,13 @@
 	}
 	tr.adv td {
 		background: color-mix(in srgb, var(--accent) 8%, transparent);
+	}
+	/* A 3rd-placed team that sneaks through as a best third — gold, not green. */
+	tr.third .rk {
+		color: var(--gold);
+	}
+	tr.third td {
+		background: color-mix(in srgb, var(--gold) 10%, transparent);
 	}
 	.note {
 		margin: 0.5rem 0 0;
