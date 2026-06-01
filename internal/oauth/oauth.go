@@ -11,11 +11,16 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// googleReady is set once during Register and read by the /api/google-available
+// endpoint so the frontend can check without exposing secrets.
+var googleReady bool
+
 // Register wires Google OAuth2 onto the users auth collection if configured.
 func Register(app core.App) {
 	id := os.Getenv("GOOGLE_CLIENT_ID")
 	secret := os.Getenv("GOOGLE_CLIENT_SECRET")
-	if id == "" || secret == "" {
+	googleReady = id != "" && secret != ""
+	if !googleReady {
 		log.Printf("[oauth] Google not configured (set GOOGLE_CLIENT_ID/SECRET)")
 		return
 	}
@@ -51,4 +56,11 @@ func Register(app core.App) {
 		return
 	}
 	log.Printf("[oauth] Google sign-in enabled")
+}
+
+// RegisterRoute adds the public /api/google-available endpoint.
+func RegisterRoute(e *core.ServeEvent) {
+	e.Router.GET("/api/google-available", func(re *core.RequestEvent) error {
+		return re.JSON(200, map[string]bool{"available": googleReady})
+	})
 }

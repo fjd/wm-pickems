@@ -22,10 +22,9 @@ class Auth {
 
 	private async checkGoogle() {
 		try {
-			const methods = await pb.collection('users').listAuthMethods();
-			this.googleAvailable = methods.oauth2.providers.some(
-				(p) => p.name === 'google'
-			);
+			const res = await fetch('/api/google-available');
+			const data = await res.json();
+			this.googleAvailable = data.available === true;
 		} catch {
 			this.googleAvailable = false;
 		}

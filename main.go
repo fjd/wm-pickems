@@ -43,6 +43,7 @@ func main() {
 			return err
 		}
 		oauth.Register(e.App)
+		oauth.RegisterRoute(e)
 		users.Register(e.App)
 		wmsync.Register(e.App, e)
 		leagues.Register(e.App, e)
