@@ -38,17 +38,17 @@ func TestBuildForecastConsistency(t *testing.T) {
 		"A": {"a1", "a2", "a3", "a4"},
 		"B": {"b1", "b2", "b3", "b4"},
 	}
-	// Deterministic picker: always the home side advances.
-	homePicker := func(_ context.Context, _ string, ms []matchup) (map[int]string, error) {
+	// Deterministic picker: always the home side advances (no rationale).
+	homePicker := func(_ context.Context, _ string, ms []matchup) (map[int]string, map[int]string, error) {
 		out := map[int]string{}
 		for _, m := range ms {
 			out[m.Num] = m.Home.ID
 		}
-		return out, nil
+		return out, nil, nil
 	}
 	ident := func(id string) string { return id }
 
-	bracket, err := BuildForecast(context.Background(), s, order, map[string]string{}, ident, homePicker)
+	bracket, _, err := BuildForecast(context.Background(), s, order, map[string]string{}, ident, homePicker)
 	if err != nil {
 		t.Fatalf("BuildForecast: %v", err)
 	}

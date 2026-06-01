@@ -43,7 +43,7 @@ type config struct {
 	kind       string // "claude" (default) | "algo"
 	model      string
 	leagueCode string
-	rationale  bool // ask the model for + log a one-line reason per prediction (claude only)
+	rationale  bool // ask the model for + persist a one-line reason per prediction (claude only)
 }
 
 func loadConfig() (config, error) {
@@ -307,7 +307,7 @@ func ensureForecast(ctx context.Context, c *Client, pred Predictor, s *Structure
 		picks = append(picks, groupPick{Letter: g.Letter, Teams: teamsND})
 	}
 
-	rawOrder, rawThirds, err := pred.PredictGroups(ctx, picks)
+	rawOrder, rawThirds, groupRationale, err := pred.PredictGroups(ctx, picks)
 	if err != nil {
 		return fmt.Errorf("predict groups: %w", err)
 	}
@@ -315,17 +315,21 @@ func ensureForecast(ctx context.Context, c *Client, pred Predictor, s *Structure
 	thirds := chooseThirds(order, rawThirds)
 	log.Info("forecast groups predicted", "best_thirds", len(thirds))
 
-	bracket, err := BuildForecast(ctx, s, order, thirds,
+	bracket, bracketRationale, err := BuildForecast(ctx, s, order, thirds,
 		func(id string) string { return teamName[id] }, pred.PredictWinners)
 	if err != nil {
 		return fmt.Errorf("build bracket: %w", err)
 	}
+	// Persisted alongside the picks (empty for brains that don't explain),
+	// keyed to mirror groupOrder/bracket: {groups:{letter:why}, bracket:{key:why}}.
+	rationale := map[string]any{"groups": groupRationale, "bracket": bracketRationale}
+
 	action := "saved"
 	if id != "" {
-		err = c.UpdateForecast(ctx, id, order, thirds, bracket)
+		err = c.UpdateForecast(ctx, id, order, thirds, bracket, rationale)
 		action = "regenerated"
 	} else {
-		err = c.SaveForecast(ctx, order, thirds, bracket)
+		err = c.SaveForecast(ctx, order, thirds, bracket, rationale)
 	}
 	if err != nil {
 		return fmt.Errorf("save: %w", err)

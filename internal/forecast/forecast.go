@@ -162,13 +162,16 @@ func Register(app core.App, se *core.ServeEvent) {
 		}
 		var order, bracket map[string]any
 		var thirds map[string]any
+		var rationale map[string]any
 		_ = fc.UnmarshalJSONField("groupOrder", &order)
 		_ = fc.UnmarshalJSONField("thirdQualifiers", &thirds)
 		_ = fc.UnmarshalJSONField("bracket", &bracket)
+		_ = fc.UnmarshalJSONField("rationale", &rationale)
 		out["forecast"] = map[string]any{
 			"groupOrder":      order,
 			"thirdQualifiers": thirds,
 			"bracket":         bracket,
+			"rationale":       rationale,
 		}
 		return e.JSON(http.StatusOK, out)
 	}).Bind(apis.RequireAuth())

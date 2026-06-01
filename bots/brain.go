@@ -184,7 +184,7 @@ type nameID struct {
 // groups' third-placed team it expects to advance. Returns ordered team ids per
 // group and the 8 chosen group letters. Output is validated against the known
 // membership; anything off is repaired by the caller.
-func (b *Brain) PredictGroups(ctx context.Context, groups []groupPick) (map[string][]string, []string, error) {
+func (b *Brain) PredictGroups(ctx context.Context, groups []groupPick) (map[string][]string, []string, map[string]string, error) {
 	var sb strings.Builder
 	sb.WriteString("Predict the FINAL group stage standings for the 2026 World Cup.\n\n")
 	sb.WriteString("For EACH group, order all four teams from 1st to 4th place. ")
@@ -209,16 +209,17 @@ func (b *Brain) PredictGroups(ctx context.Context, groups []groupPick) (map[stri
 		BestThirds []string `json:"bestThirds"`
 	}
 	if err := b.completeStructured(ctx, "groups", sb.String(), groupsSchema(b.rationale), &resp); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	order := make(map[string][]string, len(resp.Groups))
+	rationale := map[string]string{}
 	for _, g := range resp.Groups {
 		order[g.Letter] = g.TeamIDs
 		if g.Rationale != "" {
-			b.log.Info("group_pick", "group", g.Letter, "rationale", g.Rationale)
+			rationale[g.Letter] = g.Rationale
 		}
 	}
-	return order, resp.BestThirds, nil
+	return order, resp.BestThirds, rationale, nil
 }
 
 // ---- forecast/tips: pick a winner between two concrete teams ----
@@ -230,8 +231,8 @@ type matchup struct {
 }
 
 // PredictWinners asks Claude, for each resolved knockout matchup, which side
-// advances. Returns matchNum -> winning team id.
-func (b *Brain) PredictWinners(ctx context.Context, stageLabel string, ms []matchup) (map[int]string, error) {
+// advances. Returns matchNum -> winning team id, plus matchNum -> rationale.
+func (b *Brain) PredictWinners(ctx context.Context, stageLabel string, ms []matchup) (map[int]string, map[int]string, error) {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "Predict the winner of each %s knockout match (no draws — pick who advances).\n\n", stageLabel)
 	for _, m := range ms {
@@ -248,13 +249,14 @@ func (b *Brain) PredictWinners(ctx context.Context, stageLabel string, ms []matc
 		} `json:"winners"`
 	}
 	if err := b.completeStructured(ctx, "winners", sb.String(), winnersSchema(b.rationale), &resp); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	side := make(map[int]string, len(resp.Winners))
+	rationale := map[int]string{}
 	for _, w := range resp.Winners {
 		side[w.MatchNum] = strings.ToLower(strings.TrimSpace(w.Side))
 		if w.Rationale != "" {
-			b.log.Info("winner_pick", "match_num", w.MatchNum, "side", side[w.MatchNum], "rationale", w.Rationale)
+			rationale[w.MatchNum] = w.Rationale
 		}
 	}
 	out := map[int]string{}
@@ -265,7 +267,7 @@ func (b *Brain) PredictWinners(ctx context.Context, stageLabel string, ms []matc
 			out[m.Num] = m.Home.ID
 		}
 	}
-	return out, nil
+	return out, rationale, nil
 }
 
 // ---- tips: per-match scorelines ----

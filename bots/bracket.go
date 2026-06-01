@@ -153,14 +153,16 @@ func assignThirds(s *Structure, thirds map[string]string) map[int]string {
 }
 
 // pickWinners chooses, for a stage's resolved matchups, the advancing team id by
-// match number. Implemented by the Brain (one Claude call per stage).
-type pickWinners func(ctx context.Context, stageLabel string, ms []matchup) (map[int]string, error)
+// match number, plus a per-match rationale. Implemented by the Brain (one Claude
+// call per stage).
+type pickWinners func(ctx context.Context, stageLabel string, ms []matchup) (map[int]string, map[int]string, error)
 
 // BuildForecast assembles a self-consistent bracket: it walks the knockout
 // rounds in feeder order, resolves each match's two concrete participants from
 // the predicted group order + thirds + winners-so-far, asks the picker who
-// advances, and records the winner. Returns {matchNum: winnerTeamId}.
-func BuildForecast(ctx context.Context, s *Structure, order map[string][]string, thirds map[string]string, name func(id string) string, pick pickWinners) (map[string]string, error) {
+// advances, and records the winner. Returns the bracket ({bracketKey:
+// winnerTeamId}) and a rationale keyed the same way ({bracketKey: text}).
+func BuildForecast(ctx context.Context, s *Structure, order map[string][]string, thirds map[string]string, name func(id string) string, pick pickWinners) (map[string]string, map[string]string, error) {
 	// Only matches with a real number are referenced by W/L labels (R32..SF);
 	// the 3rd-place match and final carry num=0 in the data, so keying ko by
 	// num would collide them — keep just the numbered ones here.
@@ -176,6 +178,7 @@ func BuildForecast(ctx context.Context, s *Structure, order map[string][]string,
 		bracket:    map[string]string{},
 		ko:         ko,
 	}
+	rationale := map[string]string{} // bracketKey -> why this team advances
 
 	for _, stage := range stageOrder {
 		// All matches in this stage, in match-number order.
@@ -205,17 +208,20 @@ func BuildForecast(ctx context.Context, s *Structure, order map[string][]string,
 		if len(ms) == 0 {
 			continue
 		}
-		winners, err := pick(ctx, stage, ms)
+		winners, rat, err := pick(ctx, stage, ms)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for num, winner := range winners {
 			if key, ok := keyByNum[num]; ok {
 				r.bracket[key] = winner
+				if why := rat[num]; why != "" {
+					rationale[key] = why
+				}
 			}
 		}
 	}
-	return r.bracket, nil
+	return r.bracket, rationale, nil
 }
 
 // stableKey is the bracket map key for a knockout match — the same convention

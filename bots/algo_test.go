@@ -22,7 +22,7 @@ func testAlgo() *AlgoBrain {
 
 func TestAlgoGroupsOrderByRating(t *testing.T) {
 	a := testAlgo()
-	order, thirds, _ := a.PredictGroups(context.Background(), []groupPick{
+	order, thirds, _, _ := a.PredictGroups(context.Background(), []groupPick{
 		{Letter: "A", Teams: []nameID{{ID: "nzl"}, {ID: "arg"}, {ID: "usa"}, {ID: "bra"}}},
 	})
 	want := []string{"arg", "bra", "usa", "nzl"}
@@ -39,7 +39,7 @@ func TestAlgoGroupsOrderByRating(t *testing.T) {
 func TestAlgoWinnerHigherRated(t *testing.T) {
 	a := testAlgo()
 	// Stronger away team advances; equal ratings go to home.
-	got, _ := a.PredictWinners(context.Background(), "R16", []matchup{
+	got, _, _ := a.PredictWinners(context.Background(), "R16", []matchup{
 		{Num: 1, Home: nameID{ID: "nzl"}, Away: nameID{ID: "arg"}},
 		{Num: 2, Home: nameID{ID: "xx1"}, Away: nameID{ID: "xx2"}},
 	})
@@ -78,7 +78,7 @@ func TestAlgoEloFeedback(t *testing.T) {
 	}
 	learned2 := NewAlgoBrain(testTeams(), flip)
 	ms := []matchup{{Num: 1, Home: nameID{ID: "xx1"}, Away: nameID{ID: "xx2"}}}
-	if got, _ := learned2.PredictWinners(context.Background(), "R16", ms); got[1] != "xx2" {
+	if got, _, _ := learned2.PredictWinners(context.Background(), "R16", ms); got[1] != "xx2" {
 		t.Errorf("after xx2 beat xx1, winner = %q, want xx2", got[1])
 	}
 }

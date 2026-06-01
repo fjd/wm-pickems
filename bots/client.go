@@ -247,21 +247,23 @@ func (c *Client) MyForecast(ctx context.Context) (string, error) {
 // {letter: [teamId x4]}, thirdQualifiers is {letter: teamId} for the 8 chosen
 // groups, bracket is {matchNum: winnerTeamId} — the exact shapes the scoring
 // engine consumes.
-func (c *Client) SaveForecast(ctx context.Context, order map[string][]string, thirds map[string]string, bracket map[string]string) error {
+func (c *Client) SaveForecast(ctx context.Context, order map[string][]string, thirds map[string]string, bracket map[string]string, rationale map[string]any) error {
 	return c.do(ctx, http.MethodPost, "/api/collections/forecasts/records", map[string]any{
 		"user":            c.UserID,
 		"groupOrder":      order,
 		"thirdQualifiers": thirds,
 		"bracket":         bracket,
+		"rationale":       rationale,
 	}, nil)
 }
 
 // UpdateForecast overwrites an existing forecast record (used to regenerate after
 // a brain change). The server still rejects edits once the forecast has locked.
-func (c *Client) UpdateForecast(ctx context.Context, forecastID string, order map[string][]string, thirds map[string]string, bracket map[string]string) error {
+func (c *Client) UpdateForecast(ctx context.Context, forecastID string, order map[string][]string, thirds map[string]string, bracket map[string]string, rationale map[string]any) error {
 	return c.do(ctx, http.MethodPatch, "/api/collections/forecasts/records/"+forecastID, map[string]any{
 		"groupOrder":      order,
 		"thirdQualifiers": thirds,
 		"bracket":         bracket,
+		"rationale":       rationale,
 	}, nil)
 }

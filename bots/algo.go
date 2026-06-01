@@ -100,7 +100,7 @@ func (a *AlgoBrain) rat(id string) int {
 
 // PredictGroups: order each group by rating (desc), and pick the 8 groups whose
 // third-placed team is the strongest. Ties break by id/letter for determinism.
-func (a *AlgoBrain) PredictGroups(_ context.Context, groups []groupPick) (map[string][]string, []string, error) {
+func (a *AlgoBrain) PredictGroups(_ context.Context, groups []groupPick) (map[string][]string, []string, map[string]string, error) {
 	order := make(map[string][]string, len(groups))
 	type third struct {
 		letter string
@@ -133,11 +133,11 @@ func (a *AlgoBrain) PredictGroups(_ context.Context, groups []groupPick) (map[st
 	for i := 0; i < len(thirds) && i < 8; i++ {
 		best = append(best, thirds[i].letter)
 	}
-	return order, best, nil
+	return order, best, nil, nil // no rationale — deterministic model
 }
 
 // PredictWinners: the higher-rated team advances; a tie goes to the home side.
-func (a *AlgoBrain) PredictWinners(_ context.Context, _ string, ms []matchup) (map[int]string, error) {
+func (a *AlgoBrain) PredictWinners(_ context.Context, _ string, ms []matchup) (map[int]string, map[int]string, error) {
 	out := make(map[int]string, len(ms))
 	for _, m := range ms {
 		if a.rat(m.Away.ID) > a.rat(m.Home.ID) {
@@ -146,7 +146,7 @@ func (a *AlgoBrain) PredictWinners(_ context.Context, _ string, ms []matchup) (m
 			out[m.Num] = m.Home.ID
 		}
 	}
-	return out, nil
+	return out, nil, nil // no rationale — deterministic model
 }
 
 // PredictTips: expected goals from the rating gap. Group games may draw;
