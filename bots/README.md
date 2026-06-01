@@ -86,6 +86,10 @@ The package is private by default; flip visibility in GHCR if you want public pu
 
 See `.env.example`. Defaults: `WMP_BASE_URL=http://127.0.0.1:8090`, `BOT_KIND=algo` (no API key needed), `CLAUDE_MODEL=claude-opus-4-8` (only used when `BOT_KIND=claude`). The container additionally defaults its command to `--loop --interval=1h`.
 
+### Logging
+
+Structured logging via `log/slog` to **stdout**. Set `LOG_FORMAT=json` in containers for shipper-friendly structured logs (Grafana Alloy/Promtail → Loki), or leave the default `text` for readable local output. Notable events: `ai_call` (per Anthropic call — model, input/output/cache token counts, duration; `cache_read=0` across a run means the cached prompt prefix isn't hitting), `tip` (created/revised with old→new scoreline and trigger), and the per-run `run_id` that ties a run's lines together. The `algo` strategy emits no `ai_call` events (it makes no API calls).
+
 ## Tests
 
 ```sh

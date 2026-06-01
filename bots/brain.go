@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
 )
@@ -19,21 +21,24 @@ type Brain struct {
 	model   string
 	system  string // static reference, identical across all calls (cache prefix)
 	results string // results-so-far summary, fed into tip prompts (the feedback loop)
+	log     *slog.Logger
 }
 
-func NewBrain(model, reference, results string) *Brain {
+func NewBrain(model, reference, results string, log *slog.Logger) *Brain {
 	return &Brain{
 		client:  anthropic.NewClient(), // reads ANTHROPIC_API_KEY
 		model:   model,
 		system:  reference,
 		results: results,
+		log:     log,
 	}
 }
 
 // complete runs one streamed request with adaptive thinking and a cached system
 // prompt, returning the concatenated final text. Streaming avoids HTTP timeouts
 // on larger outputs and lets thinking run without a fixed budget.
-func (b *Brain) complete(ctx context.Context, task string) (string, error) {
+func (b *Brain) complete(ctx context.Context, label, task string) (string, error) {
+	start := time.Now()
 	stream := b.client.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(b.model),
 		MaxTokens: 32000,
@@ -59,6 +64,15 @@ func (b *Brain) complete(ctx context.Context, task string) (string, error) {
 			sb.WriteString(t.Text)
 		}
 	}
+	b.log.Info("ai_call",
+		"task", label,
+		"model", b.model,
+		"in", msg.Usage.InputTokens,
+		"out", msg.Usage.OutputTokens,
+		"cache_read", msg.Usage.CacheReadInputTokens,
+		"cache_create", msg.Usage.CacheCreationInputTokens,
+		"dur_ms", time.Since(start).Milliseconds(),
+	)
 	return sb.String(), nil
 }
 
@@ -66,8 +80,8 @@ func (b *Brain) complete(ctx context.Context, task string) (string, error) {
 // occasionally wraps the JSON in a ```fence``` or adds a sentence of preamble,
 // so we extract the first complete JSON object rather than trusting the whole
 // reply to be valid JSON.
-func (b *Brain) completeJSON(ctx context.Context, task string, out any) error {
-	raw, err := b.complete(ctx, task)
+func (b *Brain) completeJSON(ctx context.Context, label, task string, out any) error {
+	raw, err := b.complete(ctx, label, task)
 	if err != nil {
 		return err
 	}
@@ -152,7 +166,7 @@ Use the exact team ids given above, each group ordered best-to-worst.`)
 		Groups     map[string][]string `json:"groups"`
 		BestThirds []string            `json:"bestThirds"`
 	}
-	if err := b.completeJSON(ctx, sb.String(), &resp); err != nil {
+	if err := b.completeJSON(ctx, "groups", sb.String(), &resp); err != nil {
 		return nil, nil, err
 	}
 	return resp.Groups, resp.BestThirds, nil
@@ -182,7 +196,7 @@ Output ONLY the JSON object — begin your reply with { and end with }, no pream
 	var resp struct {
 		Winners map[string]string `json:"winners"`
 	}
-	if err := b.completeJSON(ctx, sb.String(), &resp); err != nil {
+	if err := b.completeJSON(ctx, "winners", sb.String(), &resp); err != nil {
 		return nil, err
 	}
 	out := map[int]string{}
@@ -239,7 +253,7 @@ Output ONLY the JSON object — begin your reply with { and end with }, no pream
 	var resp struct {
 		Tips map[string][]int `json:"tips"`
 	}
-	if err := b.completeJSON(ctx, sb.String(), &resp); err != nil {
+	if err := b.completeJSON(ctx, "tips", sb.String(), &resp); err != nil {
 		return nil, err
 	}
 	out := map[string]Scoreline{}

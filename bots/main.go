@@ -22,7 +22,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"sort"
 	"strings"
@@ -70,19 +70,37 @@ func envOr(key, def string) string {
 	return def
 }
 
+// setupLogger configures the global slog logger from LOG_FORMAT: "text"
+// (default, human-readable for local dev) or "json" (structured, for log
+// shippers like Grafana Alloy/Loki). Everything is written to stdout.
+func setupLogger() {
+	var h slog.Handler
+	if strings.ToLower(os.Getenv("LOG_FORMAT")) == "json" {
+		h = slog.NewJSONHandler(os.Stdout, nil)
+	} else {
+		h = slog.NewTextHandler(os.Stdout, nil)
+	}
+	slog.SetDefault(slog.New(h))
+}
+
 func main() {
 	loop := flag.Bool("loop", false, "keep running on an interval instead of once")
 	interval := flag.Duration("interval", time.Hour, "interval between runs in --loop mode")
 	flag.Parse()
 
+	setupLogger()
+
 	cfg, err := loadConfig()
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("config", "err", err)
+		os.Exit(1)
 	}
+	// bot_kind is process-constant — attach it to every line.
+	slog.SetDefault(slog.Default().With("bot_kind", cfg.kind))
 
 	run := func() {
 		if err := runOnce(cfg); err != nil {
-			log.Printf("run error: %v", err)
+			slog.Error("run failed", "err", err)
 		}
 	}
 	run()
@@ -98,15 +116,19 @@ func runOnce(cfg config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
+	// run_id correlates every event from this run; bot_kind is already on the default logger.
+	runID := time.Now().UTC().Format("20060102T150405.000Z")
+	log := slog.With("run_id", runID)
+
 	c := NewClient(cfg.baseURL)
 	if err := c.Login(ctx, cfg.email, cfg.password); err != nil {
 		return fmt.Errorf("login: %w", err)
 	}
-	log.Printf("logged in as bot user %s", c.UserID)
+	log.Info("logged in", "user_id", c.UserID)
 
 	if cfg.leagueCode != "" {
 		if err := c.JoinLeague(ctx, cfg.leagueCode); err != nil {
-			log.Printf("join league %q: %v", cfg.leagueCode, err)
+			log.Warn("join league failed", "code", cfg.leagueCode, "err", err)
 		}
 	}
 
@@ -141,17 +163,17 @@ func runOnce(cfg config) error {
 	switch cfg.kind {
 	case "algo":
 		predictor = NewAlgoBrain(teams, finished)
-		log.Printf("strategy: algorithmic (rating-based), %d result(s) applied", len(finished))
+		log.Info("strategy selected", "strategy", "algo", "results_applied", len(finished))
 	default:
-		predictor = NewBrain(cfg.model, buildReference(teams, structure), buildResultsText(finished, teamName))
-		log.Printf("strategy: claude (%s), %d result(s) in context", cfg.model, len(finished))
+		predictor = NewBrain(cfg.model, buildReference(teams, structure), buildResultsText(finished, teamName), log)
+		log.Info("strategy selected", "strategy", "claude", "model", cfg.model, "results_in_context", len(finished))
 	}
 
-	if err := ensureForecast(ctx, c, predictor, structure, teamName); err != nil {
-		log.Printf("forecast: %v", err)
+	if err := ensureForecast(ctx, c, predictor, structure, teamName, log); err != nil {
+		log.Error("forecast failed", "err", err)
 	}
-	if err := submitTips(ctx, c, predictor, matches, teamName); err != nil {
-		log.Printf("tips: %v", err)
+	if err := submitTips(ctx, c, predictor, matches, teamName, log); err != nil {
+		log.Error("tips failed", "err", err)
 	}
 	return nil
 }
@@ -187,7 +209,7 @@ func buildReference(teams []Team, s *Structure) string {
 	return sb.String()
 }
 
-func ensureForecast(ctx context.Context, c *Client, pred Predictor, s *Structure, teamName map[string]string) error {
+func ensureForecast(ctx context.Context, c *Client, pred Predictor, s *Structure, teamName map[string]string, log *slog.Logger) error {
 	id, err := c.MyForecast(ctx)
 	if err != nil {
 		return err
@@ -196,7 +218,7 @@ func ensureForecast(ctx context.Context, c *Client, pred Predictor, s *Structure
 		return nil // already forecast; one-time only
 	}
 	if s.Locked {
-		log.Printf("forecast locked (tournament started) and none submitted — skipping")
+		log.Warn("forecast locked, none submitted — skipping")
 		return nil
 	}
 
@@ -218,7 +240,7 @@ func ensureForecast(ctx context.Context, c *Client, pred Predictor, s *Structure
 	}
 	order := repairOrder(member, rawOrder)
 	thirds := chooseThirds(order, rawThirds)
-	log.Printf("forecast: groups ordered, %d best-thirds chosen", len(thirds))
+	log.Info("forecast groups predicted", "best_thirds", len(thirds))
 
 	bracket, err := BuildForecast(ctx, s, order, thirds,
 		func(id string) string { return teamName[id] }, pred.PredictWinners)
@@ -228,7 +250,7 @@ func ensureForecast(ctx context.Context, c *Client, pred Predictor, s *Structure
 	if err := c.SaveForecast(ctx, order, thirds, bracket); err != nil {
 		return fmt.Errorf("save: %w", err)
 	}
-	log.Printf("forecast saved (%d bracket picks)", len(bracket))
+	log.Info("forecast saved", "bracket_picks", len(bracket))
 	return nil
 }
 
@@ -302,7 +324,7 @@ func chooseThirds(order map[string][]string, raw []string) map[string]string {
 
 const tipBatch = 40
 
-func submitTips(ctx context.Context, c *Client, pred Predictor, matches []Match, teamName map[string]string) error {
+func submitTips(ctx context.Context, c *Client, pred Predictor, matches []Match, teamName map[string]string, log *slog.Logger) error {
 	now, err := c.Now(ctx)
 	if err != nil {
 		return fmt.Errorf("now: %w", err)
@@ -354,10 +376,10 @@ func submitTips(ctx context.Context, c *Client, pred Predictor, matches []Match,
 		})
 	}
 	if len(targets) == 0 {
-		log.Printf("tips: nothing to do")
+		log.Info("tips: nothing to do")
 		return nil
 	}
-	log.Printf("tips: evaluating %d open match(es) (new results since last tip: %v)", len(targets), hasNewInfo)
+	log.Info("tips: evaluating open matches", "count", len(targets), "has_new_info", hasNewInfo)
 
 	created, updated := 0, 0
 	for start := 0; start < len(targets); start += tipBatch {
@@ -377,20 +399,37 @@ func submitTips(ctx context.Context, c *Client, pred Predictor, matches []Match,
 					continue // prediction unchanged
 				}
 				if err := c.UpdateTip(ctx, ex.ID, s.Home, s.Away); err != nil {
-					log.Printf("update tip %s: %v", t.MatchID, err)
+					log.Warn("update tip failed", "match", t.MatchID, "err", err)
 					continue
 				}
 				updated++
+				log.Info("tip",
+					"action", "revised",
+					"match", t.MatchID,
+					"home_team", t.Home,
+					"away_team", t.Away,
+					"old", fmt.Sprintf("%d-%d", ex.FtHome, ex.FtAway),
+					"new", fmt.Sprintf("%d-%d", s.Home, s.Away),
+					"trigger", "new_result",
+				)
 			} else {
 				if err := c.CreateTip(ctx, t.MatchID, s.Home, s.Away); err != nil {
-					log.Printf("tip %s: %v", t.MatchID, err)
+					log.Warn("create tip failed", "match", t.MatchID, "err", err)
 					continue
 				}
 				created++
+				log.Info("tip",
+					"action", "created",
+					"match", t.MatchID,
+					"home_team", t.Home,
+					"away_team", t.Away,
+					"new", fmt.Sprintf("%d-%d", s.Home, s.Away),
+					"trigger", "first_tip",
+				)
 			}
 		}
 	}
-	log.Printf("tips: created %d, revised %d", created, updated)
+	log.Info("tips submitted", "created", created, "revised", updated)
 	return nil
 }
 
