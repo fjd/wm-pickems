@@ -17,6 +17,8 @@ The prediction "brain" is selected by `BOT_KIND`; everything else (auth, the bra
 - **`claude`** — asks Claude via the **native Anthropic API** for predictions. Needs `ANTHROPIC_API_KEY`. Best-ergonomics path: prompt caching on the system prefix + adaptive thinking. See _How it works_ below.
 - **`openrouter`** — asks any provider through **[OpenRouter](https://openrouter.ai)**, the one-key gateway fronting Claude, GPT, Gemini, and more. Needs `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` (e.g. `openai/gpt-5.1`, `google/gemini-2.5-pro`, `anthropic/claude-opus-4-8`). The point: run many model bots off a single key and balance instead of one account per vendor. Shares all of `claude`'s prompt/schema/forecast logic — only the transport differs (an OpenAI-compatible request with strict `json_schema` structured outputs, honored by the Tier-1 providers Claude/GPT/Gemini).
 
+  **Any OpenRouter model is a drop-in** — just set `OPENROUTER_MODEL` to its slug (Qwen, Llama, Mistral, DeepSeek, Grok, Kimi, …); no code change, no model list to edit. The structured-output strategy is chosen at runtime by what the model actually does (see the tiers below), not from a hardcoded table — so a model the code has never seen still works. The only requirements are config: the model must be allowed on your key, pass your data-policy settings, and support at least JSON mode.
+
 ## How it works
 
 1. **Auth** — logs in via `users/auth-with-password`.
@@ -45,7 +47,7 @@ Both LLM strategies share one `Brain` (`brain.go`) that owns everything provider
 
 So adding a provider is just a different completer; the prompts, schemas, and downstream repair logic (`repairOrder`/`chooseThirds`/`selectTip`) are identical and act as a safety net regardless of which model answers.
 
-**Structured-output tiers.** The Tier-1 providers (Claude, GPT, Gemini) honor strict `json_schema`, so the reply parses directly. The spottier providers (DeepSeek, Grok, Kimi) don't reliably support it — so when a strict attempt fails (an HTTP error, or a reply that won't parse), the OpenRouter transport **degrades** to plain JSON mode with the schema moved into the prompt, and retries once. The downgrade is sticky per run (once a model proves it can't do strict schema, later calls skip straight to JSON mode), and `extractJSON` unwraps any code-fenced/prose-wrapped reply before parsing.
+**Structured-output tiers** (descriptive, not enforced — there is no model→tier table in the code; the tier is discovered per run by what the model does). Models like Claude, GPT, Gemini, and Grok honor strict `json_schema`, so the reply parses directly. Spottier ones like DeepSeek and Kimi don't reliably support it — so when a strict attempt fails (an HTTP error, or a reply that won't parse), the OpenRouter transport **degrades** to plain JSON mode with the schema moved into the prompt, and retries once. The downgrade is sticky per run (once a model proves it can't do strict schema, later calls skip straight to JSON mode), and `extractJSON` unwraps any code-fenced/prose-wrapped reply before parsing. A brand-new model you've never run lands in whichever tier it earns on its first call — no code change either way.
 
 `CLAUDE_MODEL` (claude only) accepts any chat model (default `claude-opus-4-8`). Opus 4.6+/Sonnet 4.6 run with adaptive thinking; `claude-haiku-4-5` has no adaptive thinking, so it runs with thinking omitted — handy as a cheaper/faster model for dev. `OPENROUTER_MODEL` (openrouter only, required) is an OpenRouter model id like `openai/gpt-5.1` or `google/gemini-2.5-pro`.
 
