@@ -1,7 +1,8 @@
 // Command wm-pickems-bot is a standalone side project: it logs in to a
 // wm-pickems deployment as a bot user and submits a Forecast and per-match
 // Tips through the public REST API — playing by the same server-side locks as
-// any human. Run it once (cron) or with --loop.
+// any human. Run it once (cron) or with --loop; in --loop mode, SIGUSR1 triggers
+// an immediate run, and --once forces a single pass (overrides --loop).
 //
 // Configuration is via environment:
 //
@@ -26,8 +27,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -96,7 +99,8 @@ func setupLogger() {
 }
 
 func main() {
-	loop := flag.Bool("loop", false, "keep running on an interval instead of once")
+	loop := flag.Bool("loop", false, "keep running on an interval instead of a single pass")
+	once := flag.Bool("once", false, "do a single pass and exit, even if --loop is set (handy to override the container default)")
 	interval := flag.Duration("interval", time.Hour, "interval between runs in --loop mode")
 	flag.Parse()
 
@@ -116,11 +120,25 @@ func main() {
 		}
 	}
 	run()
-	if !*loop {
+	if *once || !*loop {
 		return
 	}
-	for range time.Tick(*interval) {
-		run()
+
+	// In loop mode, run on the interval — or immediately on SIGUSR1, so a run can
+	// be triggered on demand without waiting for the next tick or restarting
+	// (e.g. `docker compose kill -s SIGUSR1 <service>` or `kill -USR1 <pid>`).
+	ticker := time.NewTicker(*interval)
+	defer ticker.Stop()
+	trigger := make(chan os.Signal, 1)
+	signal.Notify(trigger, syscall.SIGUSR1)
+	for {
+		select {
+		case <-ticker.C:
+			run()
+		case <-trigger:
+			slog.Info("manual trigger (SIGUSR1) — running now")
+			run()
+		}
 	}
 }
 

@@ -45,6 +45,26 @@ The large, unchanging tournament reference (teams, groups, knockout skeleton) is
 ```sh
 go run .            # one pass: ensure the Forecast exists, tip all open matches
 go run . --loop --interval 1h   # keep running on a schedule
+go run . --once     # single pass, even if --loop is set (overrides the container default)
+```
+
+### Triggering a run manually
+
+A no-flag invocation is already a single run, so the simplest one-off is just `go run .` (or `./wm-pickems-bot`).
+
+For a bot that's **already running in `--loop`** (the container default), send it `SIGUSR1` to run immediately instead of waiting for the next tick — it reuses the live process and its env:
+
+```sh
+kill -USR1 <pid>                               # bare process
+docker kill --signal=SIGUSR1 wmp_bot_claude    # docker run
+docker compose kill -s SIGUSR1 bot-claude      # compose service
+```
+
+A fresh one-off against the deployment without touching the running loop (`--once` overrides the image's `--loop` default):
+
+```sh
+docker compose run --rm bot-claude --once
+docker run --rm --env-file claude.env wm-pickems/bot:latest --once
 ```
 
 Or build and run via cron / a systemd timer:

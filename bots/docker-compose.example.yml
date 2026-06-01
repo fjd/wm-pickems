@@ -7,12 +7,12 @@
 
 services:
   # The algorithmic bot — same image, BOT_KIND=algo, no API key needed.
-  algo:
+  elo:
     build: .
     image: wm-pickems/bot:latest
-    container_name: wmp_bot_algo
+    container_name: wmp_bot_elo
     restart: unless-stopped
-    env_file: algo.env # BOT_EMAIL, BOT_PASSWORD, BOT_KIND=algo, WMP_BASE_URL, ...
+    env_file: .elo.env # BOT_EMAIL, BOT_PASSWORD, BOT_KIND=algo, WMP_BASE_URL, ...
     command: ["--loop", "--interval=1m"]
     networks: [wmpickems]
 
@@ -20,10 +20,10 @@ services:
     image: wm-pickems/bot:latest
     container_name: wmp_bot_claude
     restart: unless-stopped
-    env_file: claude.env # BOT_EMAIL, BOT_PASSWORD, ANTHROPIC_API_KEY, WMP_BASE_URL, ...
+    env_file: .claude.env # BOT_EMAIL, BOT_PASSWORD, ANTHROPIC_API_KEY, WMP_BASE_URL, ...
+    command: ["--loop", "--interval=1m"]
     networks: [wmpickems]
-    command: ["--loop", "--interval=3m"]
-    depends_on: [algo]
+    depends_on: [elo]
 
   # Add more bots later — same image, different env file:
   # chatgpt:
