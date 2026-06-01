@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { api, type LeagueSummary } from '$lib/api';
 	import { goto } from '$app/navigation';
+	import { t } from '$lib/i18n.svelte';
 	import { Users } from '@lucide/svelte';
 
 	let leagues = $state<LeagueSummary[]>([]);
@@ -32,7 +33,7 @@
 			newName = '';
 			goto(`/leagues/${r.id}`);
 		} catch {
-			error = 'Could not create league.';
+			error = t('errors.couldNotCreateLeague');
 		} finally {
 			busy = false;
 		}
@@ -47,28 +48,28 @@
 			joinCode = '';
 			goto(`/leagues/${r.id}`);
 		} catch {
-			error = 'Invalid invite code.';
+			error = t('errors.invalidInviteCode');
 		} finally {
 			busy = false;
 		}
 	}
 </script>
 
-<p class="kicker">Play your friends</p>
-<h1>Leagues</h1>
-<p class="muted">Private competitions — your predictions vs. your friends'.</p>
+<p class="kicker">{t('leagues.kicker')}</p>
+<h1>{t('leagues.title')}</h1>
+<p class="muted">{t('leagues.subtitle')}</p>
 
 <section class="card">
-	<h3>Your leagues</h3>
+	<h3>{t('leagues.yourLeagues')}</h3>
 	{#if !loaded}
-		<p class="muted">Loading…</p>
+		<p class="muted">{t('common.loading')}</p>
 	{:else if leagues.length === 0}
-		<p class="muted">None yet — create one or join with a code.</p>
+		<p class="muted">{t('leagues.noneYet')}</p>
 	{:else}
 		{#each leagues as l (l.id)}
 			<a class="lrow" href={`/leagues/${l.id}`}>
 				<span>{l.name}</span>
-				{#if l.role === 'owner'}<span class="pill">owner</span>{/if}
+				{#if l.role === 'owner'}<span class="pill">{t('common.owner')}</span>{/if}
 				<span class="spacer"></span>
 				<span class="cnt"><Users size={15} /> {l.members}</span>
 			</a>
@@ -77,27 +78,27 @@
 </section>
 
 <section class="card">
-	<h3>Create a league</h3>
+	<h3>{t('leagues.createLeague')}</h3>
 	<form onsubmit={create}>
 		<div class="field">
-			<input class="input" placeholder="League name" bind:value={newName} required />
+			<input class="input" placeholder={t('leagues.leagueNamePlaceholder')} bind:value={newName} required />
 		</div>
-		<button class="btn" disabled={busy || !newName.trim()}>Create</button>
+		<button class="btn" disabled={busy || !newName.trim()}>{t('common.create')}</button>
 	</form>
 </section>
 
 <section class="card">
-	<h3>Join a league</h3>
+	<h3>{t('leagues.joinLeague')}</h3>
 	<form onsubmit={join}>
 		<div class="field">
 			<input
 				class="input code"
-				placeholder="INVITE CODE"
+				placeholder={t('leagues.inviteCodePlaceholder')}
 				bind:value={joinCode}
 				required
 			/>
 		</div>
-		<button class="btn secondary" disabled={busy || !joinCode.trim()}>Join</button>
+		<button class="btn secondary" disabled={busy || !joinCode.trim()}>{t('common.join')}</button>
 	</form>
 </section>
 

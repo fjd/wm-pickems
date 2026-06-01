@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { auth } from '$lib/auth.svelte';
 	import { serverClock } from '$lib/serverclock.svelte';
+	import { t } from '$lib/i18n.svelte';
 	import Avatar from './Avatar.svelte';
 	import { LogOut, ChevronDown, FlaskConical, Settings, Shield } from '@lucide/svelte';
 
@@ -49,20 +50,20 @@
 				</div>
 			</a>
 			<a class="item" href="/settings" onclick={() => (open = false)}>
-				<Settings size={17} /> Settings
+				<Settings size={17} /> {t('userMenu.settings')}
 			</a>
 			{#if serverClock.dev}
 				<a class="item" href="/dev" onclick={() => (open = false)}>
-					<FlaskConical size={17} /> Dev tools
+					<FlaskConical size={17} /> {t('userMenu.devTools')}
 				</a>
 			{/if}
 			{#if auth.isAdmin}
 				<a class="item" href="/_/" onclick={() => (open = false)}>
-					<Shield size={17} /> Admin dashboard
+					<Shield size={17} /> {t('userMenu.adminDashboard')}
 				</a>
 			{/if}
 			<button class="item" onclick={() => auth.logout()}>
-				<LogOut size={17} /> Log out
+				<LogOut size={17} /> {t('userMenu.logOut')}
 			</button>
 		</div>
 	{/if}

@@ -2,6 +2,7 @@
 	import { pb } from '$lib/pb';
 	import { serverClock } from '$lib/serverclock.svelte';
 	import { api, type LeagueSummary } from '$lib/api';
+	import { t, locale } from '$lib/i18n.svelte';
 
 	let when = $state('');
 	let busy = $state(false);
@@ -85,36 +86,33 @@
 	}
 </script>
 
-<p class="kicker">Test harness</p>
-<h1>Dev tools</h1>
+<p class="kicker">{t('dev.testHarness')}</p>
+<h1>{t('dev.title')}</h1>
 
 {#if !serverClock.loaded}
 	<p class="muted">…</p>
 {:else if !serverClock.dev}
 	<section class="card">
 		<p class="muted">
-			Disabled. Start the server with <code>WMP_DEV=1</code> to simulate the
-			tournament.
+			{@html t('dev.disabled')}
 		</p>
 	</section>
 {:else}
 	<section class="card">
 		<div class="state">
-			<span class="kicker">Simulated clock</span>
+			<span class="kicker">{t('dev.simulatedClock')}</span>
 			<b class="digits"
 				>{serverClock.simulated
-					? new Date(serverClock.now()).toLocaleString()
-					: 'live (real time)'}</b
+					? new Date(serverClock.now()).toLocaleString(locale.lang)
+					: t('dev.liveRealTime')}</b
 			>
 		</div>
 	</section>
 
 	<section class="card">
-		<h3>Advance to</h3>
+		<h3>{t('dev.advanceTo')}</h3>
 		<p class="muted small">
-			Matches before this moment are simulated (finished, or <b>live</b> if
-			mid-match); later ones reset. Locks, friends'-tips and the Forecast
-			deadline follow this clock.
+			{@html t('dev.advanceDesc')}
 		</p>
 		<div class="field">
 			<input class="input" type="datetime-local" bind:value={when} />
@@ -122,7 +120,7 @@
 		<button
 			class="btn"
 			disabled={busy || !when}
-			onclick={() => advance(when)}>Advance</button
+			onclick={() => advance(when)}>{t('dev.advance')}</button
 		>
 
 		<div class="presets">
@@ -137,14 +135,12 @@
 	</section>
 
 	<section class="card">
-		<h3>Generate bot players</h3>
+		<h3>{t('dev.generateBots')}</h3>
 		<p class="muted small">
-			Each bot gets a full random Forecast and a Tip on every match, and
-			joins the chosen league (or all your leagues) — instant leaderboard
-			competition.
+			{t('dev.botsDesc')}
 		</p>
 		<div class="field">
-			<label for="bc">How many</label>
+			<label for="bc">{t('dev.howMany')}</label>
 			<input
 				id="bc"
 				class="input"
@@ -155,26 +151,26 @@
 			/>
 		</div>
 		<div class="field">
-			<label for="bl">League</label>
+			<label for="bl">{t('dev.league')}</label>
 			<select id="bl" class="input" bind:value={botLeague}>
-				<option value="">All my leagues</option>
+				<option value="">{t('dev.allMyLeagues')}</option>
 				{#each leagues as l (l.id)}
 					<option value={l.id}>{l.name}</option>
 				{/each}
 			</select>
 		</div>
 		<button class="btn" disabled={busy} onclick={genBots}>
-			Generate {botCount} bot{botCount === 1 ? '' : 's'}
+			{t('dev.generate', { count: botCount, plural: botCount === 1 ? '' : 's' })}
 		</button>
 	</section>
 
 	<section class="card">
-		<h3>Reset</h3>
+		<h3>{t('dev.reset')}</h3>
 		<p class="muted small">
-			Clear all results and the simulated clock (back to real time).
+			{t('dev.resetDesc')}
 		</p>
 		<button class="btn secondary" disabled={busy} onclick={reset}
-			>Reset everything</button
+			>{t('dev.resetEverything')}</button
 		>
 	</section>
 

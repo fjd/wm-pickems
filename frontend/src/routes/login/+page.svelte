@@ -2,13 +2,13 @@
 	import { auth } from '$lib/auth.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { t } from '$lib/i18n.svelte';
 
 	let identity = $state('');
 	let password = $state('');
 	let error = $state('');
 	let busy = $state(false);
 
-	// After signing in, resume an invite if one was carried in the URL.
 	let invite = $derived($page.url.searchParams.get('invite'));
 	function dest() {
 		return invite ? `/join/${invite}` : '/';
@@ -25,7 +25,7 @@
 			await auth.login(identity, password);
 			goto(dest());
 		} catch {
-			error = 'Invalid email or password.';
+			error = t('errors.invalidCredentials');
 		} finally {
 			busy = false;
 		}
@@ -39,7 +39,7 @@
 			goto(dest());
 		} catch (e: unknown) {
 			error =
-				(e as { message?: string })?.message ?? 'Google sign-in failed.';
+				(e as { message?: string })?.message ?? t('errors.googleFailed');
 		} finally {
 			busy = false;
 		}
@@ -47,12 +47,12 @@
 </script>
 
 <div class="auth">
-	<h1>WM Tips</h1>
-	<p class="muted">Predict the World Cup. Beat your friends.</p>
+	<h1>{t('auth.wmTips')}</h1>
+	<p class="muted">{t('auth.tagline')}</p>
 
 	<form class="card" onsubmit={submit}>
 		<div class="field">
-			<label for="id">Email</label>
+			<label for="id">{t('auth.email')}</label>
 			<input
 				id="id"
 				class="input"
@@ -64,8 +64,8 @@
 		</div>
 		<div class="field">
 			<div class="lblrow">
-				<label for="pw">Password</label>
-				<a class="forgot" href="/forgot-password">Forgot password?</a>
+				<label for="pw">{t('auth.password')}</label>
+				<a class="forgot" href="/forgot-password">{t('auth.forgotPassword')}</a>
 			</div>
 			<input
 				id="pw"
@@ -77,14 +77,14 @@
 			/>
 		</div>
 		{#if error}<p class="error">{error}</p>{/if}
-		<button class="btn" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-		<div class="sep"><span>or</span></div>
+		<button class="btn" disabled={busy}>{busy ? t('auth.signingIn') : t('auth.signIn')}</button>
+		<div class="sep"><span>{t('auth.or')}</span></div>
 		<button
 			type="button"
 			class="gsi"
 			disabled={busy}
 			onclick={google}
-			aria-label="Continue with Google"
+			aria-label={t('auth.continueWithGoogle')}
 		>
 			<svg class="gsi-logo" viewBox="0 0 48 48" aria-hidden="true">
 				<path
@@ -104,10 +104,10 @@
 					d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
 				/>
 			</svg>
-			<span class="gsi-text">Continue with Google</span>
+			<span class="gsi-text">{t('auth.continueWithGoogle')}</span>
 		</button>
 		<p class="muted switch">
-			No account? <a href={registerHref}>Create one</a>
+			{t('auth.noAccount')} <a href={registerHref}>{t('auth.createOne')}</a>
 		</p>
 	</form>
 </div>
@@ -161,10 +161,6 @@
 		background: var(--border);
 	}
 
-	/* Google "Sign in with Google" button — light theme, per Google's
-	   Identity branding guidelines. Colors, logo, font and capitalization
-	   must not be altered. https://developers.google.com/identity/branding-guidelines
-	   (Roboto is imported at the top of this stylesheet.) */
 	.gsi {
 		display: flex;
 		align-items: center;
@@ -186,7 +182,6 @@
 		transition: background-color 0.15s ease, border-color 0.15s ease;
 	}
 	.gsi:hover:not(:disabled) {
-		/* Google light-theme hover state layer: #303030 @ ~8% over white */
 		background: #f7f8f8;
 		border-color: #747775;
 		box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3);

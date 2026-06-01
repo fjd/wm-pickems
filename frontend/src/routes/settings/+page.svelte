@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { auth } from '$lib/auth.svelte';
-	import { goto } from '$app/navigation';
+	import { t, locale } from '$lib/i18n.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import { SUPPORTED_LANGS, type Lang } from '$lib/translations/index';
 
-	const MAX_AVATAR_BYTES = 5 * 1024 * 1024; // PocketBase users-avatar default
+	const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
 	let name = $state(auth.user?.name ?? '');
 	let avatarFile = $state<File | null>(null);
@@ -17,6 +18,11 @@
 	let resetSent = $state(false);
 	let resetError = $state('');
 
+	const languages: { code: Lang; label: string }[] = [
+		{ code: 'en', label: 'English' },
+		{ code: 'de', label: 'Deutsch' }
+	];
+
 	async function sendReset() {
 		if (!auth.user?.email) return;
 		resetError = '';
@@ -28,13 +34,12 @@
 		} catch (err: unknown) {
 			resetError =
 				(err as { message?: string })?.message ??
-				'Could not send reset email.';
+				t('errors.resetEmailFailed');
 		} finally {
 			resetBusy = false;
 		}
 	}
 
-	// Revoke the object URL when it's replaced or the page unmounts.
 	$effect(() => {
 		const url = previewUrl;
 		return () => {
@@ -46,11 +51,11 @@
 		const file = (e.target as HTMLInputElement).files?.[0];
 		if (!file) return;
 		if (!file.type.startsWith('image/')) {
-			error = 'Please choose an image file.';
+			error = t('errors.chooseImage');
 			return;
 		}
 		if (file.size > MAX_AVATAR_BYTES) {
-			error = 'Image must be 5 MB or smaller.';
+			error = t('errors.imageTooLarge');
 			return;
 		}
 		error = '';
@@ -65,7 +70,7 @@
 		saved = false;
 		const trimmed = name.trim();
 		if (trimmed.length < 1 || trimmed.length > 48) {
-			error = 'Display name must be between 1 and 48 characters.';
+			error = t('errors.nameLength');
 			return;
 		}
 		busy = true;
@@ -78,7 +83,7 @@
 		} catch (err: unknown) {
 			error =
 				(err as { message?: string })?.message ??
-				'Could not save changes.';
+				t('errors.saveFailed');
 		} finally {
 			busy = false;
 		}
@@ -86,8 +91,22 @@
 </script>
 
 <div class="settings">
-	<h1>Settings</h1>
-	<p class="muted">Manage how you appear to friends.</p>
+	<h1>{t('settings.title')}</h1>
+	<p class="muted">{t('settings.subtitle')}</p>
+
+	<section class="card">
+		<h3>{t('settings.language')}</h3>
+		<div class="lang-options">
+			{#each languages as l (l.code)}
+				<button
+					class="btn {locale.lang === l.code ? '' : 'secondary'}"
+					onclick={() => locale.set(l.code)}
+				>
+					{l.label}
+				</button>
+			{/each}
+		</div>
+	</section>
 
 	<form class="card" onsubmit={submit}>
 		<div class="avatar-row">
@@ -103,9 +122,9 @@
 					onclick={() => fileInput.click()}
 					disabled={busy}
 				>
-					Change photo
+					{t('settings.changePhoto')}
 				</button>
-				<p class="muted hint">PNG or JPG, up to 5 MB.</p>
+				<p class="muted hint">{t('settings.photoHint')}</p>
 			</div>
 			<input
 				bind:this={fileInput}
@@ -117,7 +136,7 @@
 		</div>
 
 		<div class="field">
-			<label for="dn">Display name</label>
+			<label for="dn">{t('settings.displayName')}</label>
 			<input
 				id="dn"
 				class="input"
@@ -129,20 +148,19 @@
 		</div>
 
 		{#if error}<p class="error">{error}</p>{/if}
-		{#if saved}<p class="ok">Saved.</p>{/if}
+		{#if saved}<p class="ok">{t('settings.saved')}</p>{/if}
 
-		<button class="btn" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
+		<button class="btn" disabled={busy}>{busy ? t('common.saving') : t('settings.saveChanges')}</button>
 	</form>
 
 	<section class="card">
-		<h3>Password</h3>
+		<h3>{t('settings.passwordSection')}</h3>
 		<p class="muted small">
-			We'll email a reset link to <strong>{auth.user?.email ?? ''}</strong>.
-			Click it to choose a new password.
+			{@html t('settings.passwordResetDesc', { email: auth.user?.email ?? '' })}
 		</p>
 		{#if resetError}<p class="error">{resetError}</p>{/if}
 		{#if resetSent}
-			<p class="ok">Reset email sent — check your inbox.</p>
+			<p class="ok">{t('settings.resetSent')}</p>
 		{/if}
 		<button
 			type="button"
@@ -150,11 +168,11 @@
 			onclick={sendReset}
 			disabled={resetBusy || resetSent}
 		>
-			{resetBusy ? 'Sending…' : resetSent ? 'Sent' : 'Send reset link'}
+			{resetBusy ? t('settings.sending') : resetSent ? t('settings.sent') : t('settings.sendResetLink')}
 		</button>
 	</section>
 
-	<p class="muted switch"><a href="/">Back</a></p>
+	<p class="muted switch"><a href="/">{t('common.back')}</a></p>
 </div>
 
 <style>
@@ -168,6 +186,10 @@
 	}
 	.muted {
 		margin: 0.25rem 0 1.5rem;
+	}
+	.lang-options {
+		display: flex;
+		gap: 0.5rem;
 	}
 	.avatar-row {
 		display: flex;

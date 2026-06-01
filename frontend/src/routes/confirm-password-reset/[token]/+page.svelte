@@ -2,6 +2,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { t } from '$lib/i18n.svelte';
 
 	let token = $derived($page.params.token ?? '');
 	let password = $state('');
@@ -14,25 +15,23 @@
 		e.preventDefault();
 		error = '';
 		if (password.length < 8) {
-			error = 'Password must be at least 8 characters.';
+			error = t('errors.passwordTooShort');
 			return;
 		}
 		if (password !== confirm) {
-			error = 'Passwords do not match.';
+			error = t('errors.passwordsNoMatch');
 			return;
 		}
 		busy = true;
 		try {
 			await auth.confirmPasswordReset(token, password, confirm);
 			done = true;
-			// PocketBase invalidates the session after a reset — make sure
-			// nothing stale lingers, then send the user to sign in fresh.
 			auth.logout();
 			setTimeout(() => goto('/login'), 1200);
 		} catch (err: unknown) {
 			error =
 				(err as { message?: string })?.message ??
-				'This reset link is invalid or has expired.';
+				t('errors.resetLinkInvalid');
 		} finally {
 			busy = false;
 		}
@@ -40,17 +39,17 @@
 </script>
 
 <div class="auth">
-	<h1>Choose a new password</h1>
-	<p class="muted">Enter and confirm your new password.</p>
+	<h1>{t('auth.confirmPassword')}</h1>
+	<p class="muted">{t('auth.tagline')}</p>
 
 	{#if done}
 		<div class="card">
-			<p class="ok">Password updated — taking you to sign in…</p>
+			<p class="ok">{t('errors.passwordUpdated')}</p>
 		</div>
 	{:else}
 		<form class="card" onsubmit={submit}>
 			<div class="field">
-				<label for="pw">New password</label>
+				<label for="pw">{t('auth.newPassword')}</label>
 				<input
 					id="pw"
 					class="input"
@@ -62,7 +61,7 @@
 				/>
 			</div>
 			<div class="field">
-				<label for="pw2">Confirm new password</label>
+				<label for="pw2">{t('auth.confirmPassword')}</label>
 				<input
 					id="pw2"
 					class="input"
@@ -75,9 +74,9 @@
 			</div>
 			{#if error}<p class="error">{error}</p>{/if}
 			<button class="btn" disabled={busy || !token}>
-				{busy ? 'Updating…' : 'Update password'}
+				{busy ? t('common.saving') : t('auth.signIn')}
 			</button>
-			<p class="muted switch"><a href="/login">Back to sign in</a></p>
+			<p class="muted switch"><a href="/login">{t('auth.backToSignIn')}</a></p>
 		</form>
 	{/if}
 </div>

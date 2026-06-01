@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Minus, Plus } from '@lucide/svelte';
+	import { t } from '$lib/i18n.svelte';
 
 	let {
 		value = $bindable(0),
@@ -16,11 +17,11 @@
 </script>
 
 <div class="stepper" class:disabled>
-	<button type="button" aria-label="decrease" onclick={() => bump(-1)} {disabled}>
+	<button type="button" aria-label={t('tipCard.decrease')} onclick={() => bump(-1)} {disabled}>
 		<Minus size={16} />
 	</button>
 	<span class="val">{value}</span>
-	<button type="button" aria-label="increase" onclick={() => bump(1)} {disabled}>
+	<button type="button" aria-label={t('tipCard.increase')} onclick={() => bump(1)} {disabled}>
 		<Plus size={16} />
 	</button>
 </div>

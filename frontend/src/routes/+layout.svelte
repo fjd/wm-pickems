@@ -9,6 +9,7 @@
 	import PwaInstallButton from '$lib/components/PwaInstallButton.svelte';
 	import PwaInstallBanner from '$lib/components/PwaInstallBanner.svelte';
 	import { serverClock } from '$lib/serverclock.svelte';
+	import { locale } from '$lib/i18n.svelte';
 
 	let { children } = $props();
 
@@ -16,6 +17,10 @@
 	// dev-tools link are correct app-wide.
 	$effect(() => {
 		if (auth.isAuthed && !serverClock.loaded) serverClock.refresh();
+	});
+
+	$effect(() => {
+		document.documentElement.lang = locale.lang;
 	});
 
 	// Signed-out-only pages — visible to anonymous users; signed-in users

@@ -1,20 +1,21 @@
 <script lang="ts">
 	import { pwa } from '$lib/pwa.svelte';
+	import { t } from '$lib/i18n.svelte';
 	import { Download, X, Share } from '@lucide/svelte';
 </script>
 
 {#if pwa.bannerOpen}
-	<div class="banner" role="region" aria-label="Install app">
+	<div class="banner" role="region" aria-label={t('pwa.installApp')}>
 		<div class="inner">
 			<Download size={18} class="ico" />
 			<div class="msg">
-				<strong>Install App</strong>
-				<span class="muted small">Faster launch, full-screen, no browser bar.</span>
+				<strong>{t('pwa.installApp')}</strong>
+				<span class="muted small">{t('pwa.installDesc')}</span>
 			</div>
-			<button class="btn install" onclick={() => pwa.install()}>Install</button>
+			<button class="btn install" onclick={() => pwa.install()}>{t('common.install')}</button>
 			<button
 				class="x"
-				aria-label="Dismiss"
+				aria-label={t('common.dismiss')}
 				onclick={() => pwa.dismissBanner()}
 			>
 				<X size={16} />
@@ -27,19 +28,19 @@
 	<button
 		type="button"
 		class="ios-backdrop"
-		aria-label="Close"
+		aria-label={t('common.close')}
 		onclick={() => pwa.closeIosHelp()}
 	></button>
-	<div class="ios-sheet" role="dialog" aria-label="Install instructions">
-		<h3>Add WM Tips to your Home Screen</h3>
+	<div class="ios-sheet" role="dialog" aria-label={t('pwa.installInstructions')}>
+		<h3>{t('pwa.addToHomeScreen')}</h3>
 		<ol>
 			<li>
-				Tap the <span class="kbd"><Share size={14} /> Share</span> button in the Safari toolbar.
+				{@html t('pwa.iosStep1', { iconSize: '14' })}
 			</li>
-			<li>Scroll down and choose <strong>Add to Home Screen</strong>.</li>
-			<li>Tap <strong>Add</strong> in the top-right.</li>
+			<li>{@html t('pwa.iosStep2')}</li>
+			<li>{@html t('pwa.iosStep3')}</li>
 		</ol>
-		<button class="btn" onclick={() => pwa.closeIosHelp()}>Got it</button>
+		<button class="btn" onclick={() => pwa.closeIosHelp()}>{t('common.gotIt')}</button>
 	</div>
 {/if}
 
@@ -94,7 +95,6 @@
 		background: var(--surface-2);
 	}
 
-	/* iOS coaching sheet — a small bottom-anchored card with steps. */
 	.ios-backdrop {
 		position: fixed;
 		inset: 0;
@@ -140,7 +140,6 @@
 		font-size: 0.85em;
 	}
 
-	/* Mobile-only — desktop users don't see either surface. */
 	@media (min-width: 900px) {
 		.banner,
 		.ios-backdrop,

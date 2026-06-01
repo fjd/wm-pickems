@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { navItems, isActive } from '$lib/nav';
+	import { t } from '$lib/i18n.svelte';
 
 	let { variant = 'tab' as 'tab' | 'rail' } = $props();
 	let path = $derived($page.url.pathname);
@@ -11,7 +12,7 @@
 		{@const Icon = it.icon}
 		<a href={it.href} class:active={isActive(it.href, path)}>
 			<Icon size={variant === 'rail' ? 20 : 22} />
-			<span>{it.label}</span>
+			<span>{t('nav.' + it.key)}</span>
 		</a>
 	{/each}
 </div>

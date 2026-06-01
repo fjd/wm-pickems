@@ -3,6 +3,7 @@
 	import { api, type LeaderboardRow, type BotSummary } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import { pb } from '$lib/pb';
+	import { t } from '$lib/i18n.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import {
 		Eye,
@@ -47,14 +48,18 @@
 		fewestTips: 'Fewest tips submitted',
 		earliestEdit: 'Earliest last edit (submitted first)'
 	};
-	const roundLabel: Record<string, string> = {
-		R32: 'Round of 32',
-		R16: 'Round of 16',
-		QF: 'Quarter-final',
-		SF: 'Semi-final',
-		FINAL: 'Final',
-		CHAMPION: 'Champion'
-	};
+
+	function roundLbl(k: string): string {
+		const map: Record<string, string> = {
+			R32: 'stages.R32s',
+			R16: 'stages.R16s',
+			QF: 'stages.QFs',
+			SF: 'stages.SFs',
+			FINAL: 'stages.final',
+			CHAMPION: 'stages.champion'
+		};
+		return map[k] ? t(map[k]) : k;
+	}
 
 	let revealed = $state(false);
 	let openRow = $state<string | null>(null);
@@ -96,7 +101,7 @@
 				isOwner = me?.role === 'owner';
 				isPrivate = me?.private ?? false;
 			})
-			.catch(() => (error = 'Could not load this league.'))
+			.catch(() => (error = t('errors.couldNotLoadLeague')))
 			.finally(() => (loaded = true));
 	});
 
@@ -134,7 +139,7 @@
 			availableBots = availableBots.filter((x) => x.userId !== b.userId);
 			await refreshRows();
 		} catch {
-			mgmtError = `Could not add ${b.name}.`;
+			mgmtError = t('errors.couldNotAddBot', { name: b.name });
 		} finally {
 			botBusy = null;
 		}
@@ -157,7 +162,7 @@
 			league = { ...league, name };
 			exitEdit();
 		} catch {
-			mgmtError = 'Could not rename the league.';
+			mgmtError = t('errors.couldNotRenameLeague');
 		} finally {
 			mgmtBusy = false;
 		}
@@ -170,7 +175,7 @@
 			await api.setCodePrivacy(league.id, next);
 			isPrivate = next;
 		} catch {
-			mgmtError = 'Could not update visibility.';
+			mgmtError = t('errors.couldNotUpdateVisibility');
 		} finally {
 			mgmtBusy = false;
 		}
@@ -185,14 +190,14 @@
 			confirmRegen = false;
 			revealed = true;
 		} catch {
-			mgmtError = 'Could not regenerate the code.';
+			mgmtError = t('errors.couldNotRegenerateCode');
 		} finally {
 			mgmtBusy = false;
 		}
 	}
 	async function removeMember(userId: string, name: string) {
 		if (!league) return;
-		if (!confirm(`Remove ${name} from this league?`)) return;
+		if (!confirm(t('errors.removeMember', { name }))) return;
 		mgmtBusy = true;
 		mgmtError = '';
 		try {
@@ -201,7 +206,7 @@
 			// A removed bot becomes available to add again.
 			await loadBots();
 		} catch {
-			mgmtError = 'Could not remove the member.';
+			mgmtError = t('errors.couldNotRemoveMember');
 		} finally {
 			mgmtBusy = false;
 		}
@@ -235,22 +240,22 @@
 	}
 </script>
 
-<a href="/leagues" class="muted back">← Leagues</a>
+<a href="/leagues" class="muted back">{t('leagueDetail.backToLeagues')}</a>
 
 {#if error}
 	<p class="error">{error}</p>
 {:else if !loaded}
-	<p class="muted">Loading…</p>
+	<p class="muted">{t('leagueDetail.loading')}</p>
 {:else if league}
 	<div class="lhead">
 		<div class="ltitle">
-			<p class="kicker">League</p>
+			<p class="kicker">{t('leagueDetail.league')}</p>
 			{#if editing}
 				<input
 					class="input nameedit"
 					bind:value={nameDraft}
 					maxlength="64"
-					aria-label="League name"
+					aria-label={t('leagueDetail.leagueName')}
 					onkeydown={(e) => e.key === 'Enter' && saveName()}
 				/>
 			{:else}
@@ -264,19 +269,19 @@
 						class="btn secondary icon"
 						onclick={saveName}
 						disabled={mgmtBusy}
-						aria-label="Save name"><Check size={18} /></button
+						aria-label={t('leagueDetail.saveName')}><Check size={18} /></button
 					>
 					<button
 						class="btn secondary icon"
 						onclick={exitEdit}
 						disabled={mgmtBusy}
-						aria-label="Done editing"><X size={18} /></button
+						aria-label={t('leagueDetail.doneEditing')}><X size={18} /></button
 					>
 				{:else}
 					<button
 						class="btn secondary icon"
 						onclick={enterEdit}
-						aria-label="Manage league"><Settings size={18} /></button
+						aria-label={t('leagueDetail.manageLeague')}><Settings size={18} /></button
 					>
 				{/if}
 			</div>
@@ -287,19 +292,19 @@
 
 	{#if editing}
 		<section class="card vis">
-			<div class="muted small">Invite code visibility</div>
+			<div class="muted small">{t('leagueDetail.inviteCodeVisibility')}</div>
 			<div class="tabs vistabs">
 				<button class:active={!isPrivate} onclick={() => setPrivacy(false)} disabled={mgmtBusy}
-					>Members</button
+					>{t('common.members')}</button
 				>
 				<button class:active={isPrivate} onclick={() => setPrivacy(true)} disabled={mgmtBusy}
-					>Private</button
+					>{t('common.private')}</button
 				>
 			</div>
 			<p class="muted small hint">
 				{isPrivate
-					? 'Only you can see and share the invite code.'
-					: 'Everyone in the league can see and share the invite code.'}
+					? t('leagueDetail.privateHint')
+					: t('leagueDetail.membersHint')}
 			</p>
 		</section>
 	{/if}
@@ -309,8 +314,8 @@
 			<div class="irow">
 				<div class="ic">
 					<div class="muted small">
-						Invite code
-						{#if isPrivate}<span class="lockpill"><Lock size={11} /> Private</span>{/if}
+						{t('leagueDetail.inviteCode')}
+						{#if isPrivate}<span class="lockpill"><Lock size={11} /> {t('common.private')}</span>{/if}
 					</div>
 					<div class="code" class:masked={!revealed}>
 						{revealed ? invite : '•'.repeat(invite.length || 6)}
@@ -319,37 +324,37 @@
 				<div class="spacer"></div>
 				<button
 					class="btn secondary eye"
-					aria-label={revealed ? 'Hide code' : 'Reveal code'}
+					aria-label={revealed ? t('leagueDetail.hideCode') : t('leagueDetail.revealCode')}
 					onclick={() => (revealed = !revealed)}
 				>
 					{#if revealed}<EyeOff size={18} />{:else}<Eye size={18} />{/if}
 				</button>
 				<button class="btn secondary copy" onclick={copyInvite}>
-					<Copy size={16} /> Copy
+					<Copy size={16} /> {t('common.copy')}
 				</button>
 			</div>
 			<button class="btn share" onclick={shareInvite}>
 				<Share2 size={16} />
-				{linkCopied ? 'Link copied!' : 'Share invite link'}
+				{linkCopied ? t('leagueDetail.linkCopied') : t('leagueDetail.shareInviteLink')}
 			</button>
 			{#if editing}
 				{#if confirmRegen}
 					<p class="muted small hint regwarn">
-						This invalidates the current code and any links already shared.
+						{t('leagueDetail.regenWarning')}
 					</p>
 					<div class="regrow">
 						<button class="btn danger" onclick={regenerate} disabled={mgmtBusy}>
-							Regenerate
+							{t('leagueDetail.regenerate')}
 						</button>
 						<button
 							class="btn secondary"
 							onclick={() => (confirmRegen = false)}
-							disabled={mgmtBusy}>Cancel</button
+							disabled={mgmtBusy}>{t('common.cancel')}</button
 						>
 					</div>
 				{:else}
 					<button class="btn ghost regenbtn" onclick={() => (confirmRegen = true)}>
-						<RefreshCw size={16} /> Regenerate code
+						<RefreshCw size={16} /> {t('leagueDetail.regenerateCode')}
 					</button>
 				{/if}
 			{/if}
@@ -358,33 +363,33 @@
 
 	<section class="card">
 		<div class="tabs">
-			<button class:active={tab === 'total'} onclick={() => (tab = 'total')}>Overall</button>
-			<button class:active={tab === 'tipsPoints'} onclick={() => (tab = 'tipsPoints')}>Tips</button>
-			<button class:active={tab === 'forecastPoints'} onclick={() => (tab = 'forecastPoints')}>Forecast</button>
+			<button class:active={tab === 'total'} onclick={() => (tab = 'total')}>{t('leagueDetail.overall')}</button>
+			<button class:active={tab === 'tipsPoints'} onclick={() => (tab = 'tipsPoints')}>{t('leagueDetail.tips')}</button>
+			<button class:active={tab === 'forecastPoints'} onclick={() => (tab = 'forecastPoints')}>{t('leagueDetail.forecast')}</button>
 		</div>
 
 		<table class="lb">
 			<thead>
 				<tr>
 					<th>#</th>
-					<th>Player</th>
+					<th>{t('leagueDetail.player')}</th>
 					{#if fcView}
-						<th class="num ext" title="Correct group positions">Grp</th>
-						<th class="num ext" title="Correct advancers (group stage)">Adv</th>
-						<th class="num ext" title="Predicted teams that reached the Round of 32">R32</th>
-						<th class="num ext" title="…Round of 16">R16</th>
-						<th class="num ext" title="…Quarter-finals">QF</th>
-						<th class="num ext" title="…Semi-finals">SF</th>
-						<th class="num ext" title="…the Final">F</th>
-						<th class="num ext" title="Champion predicted correctly">Win</th>
+						<th class="num ext" title={t('leagueDetail.grpTip')}>Grp</th>
+						<th class="num ext" title={t('leagueDetail.advTip')}>Adv</th>
+						<th class="num ext" title={t('leagueDetail.r32Tip')}>R32</th>
+						<th class="num ext" title={t('leagueDetail.r16Tip')}>R16</th>
+						<th class="num ext" title={t('leagueDetail.qfTip')}>QF</th>
+						<th class="num ext" title={t('leagueDetail.sfTip')}>SF</th>
+						<th class="num ext" title={t('leagueDetail.fTip')}>F</th>
+						<th class="num ext" title={t('leagueDetail.winTip')}>Win</th>
 					{:else}
-						<th class="num ext" title="Matches predicted">Pred</th>
-						<th class="num ext" title="Forecast points">FC</th>
-						<th class="num ext" title="Exact scores (tiebreak 1)">Exact</th>
-						<th class="num ext" title="Correct winners (tiebreak 2)">Win</th>
-						<th class="num ext" title="Goal-diff error (tiebreak 3, lower is better)">GD&Delta;</th>
+						<th class="num ext" title={t('leagueDetail.predTip')}>Pred</th>
+						<th class="num ext" title={t('leagueDetail.fcTip')}>FC</th>
+						<th class="num ext" title={t('leagueDetail.exactTip')}>Exact</th>
+						<th class="num ext" title={t('leagueDetail.winTip2')}>Win</th>
+						<th class="num ext" title={t('leagueDetail.gdDeltaTip')}>GD&Delta;</th>
 					{/if}
-					<th class="num pts">Pts</th>
+					<th class="num pts">{t('common.pts')}</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -403,14 +408,14 @@
 								<Avatar name={r.name} src={avatarUrl(r.userId, r.avatar)} size={28} />
 								<span class="pname">{r.name}</span>
 								{#if r.role === 'bot'}
-									<span class="rolepill" title="Bot player"><Bot size={11} /> Bot</span>
+									<span class="rolepill" title={t('leagueDetail.botPlayer')}><Bot size={11} /> {t('common.bot')}</span>
 								{:else if r.role === 'admin'}
-									<span class="rolepill admin" title="Admin"><ShieldCheck size={11} /> Admin</span>
+									<span class="rolepill admin" title={t('common.admin')}><ShieldCheck size={11} /> {t('common.admin')}</span>
 								{/if}
 								<a
 									class="fclink"
 									href={`/forecast/${r.userId}`}
-									title="View {r.name}'s forecast"
+									title={t('leagueDetail.viewForecast', { name: r.name })}
 									onclick={(e) => e.stopPropagation()}
 								>
 									<Telescope size={15} />
@@ -418,8 +423,8 @@
 								{#if editing && r.userId !== auth.user?.id}
 									<button
 										class="rmbtn"
-										title="Remove {r.name}"
-										aria-label="Remove {r.name}"
+										title={t('leagueDetail.removeName', { name: r.name })}
+										aria-label={t('leagueDetail.removeName', { name: r.name })}
 										disabled={mgmtBusy}
 										onclick={(e) => {
 											e.stopPropagation();
@@ -455,23 +460,23 @@
 							<td colspan="12">
 								{#if fcView}
 									<div class="stats">
-										<span><i>Correct group positions</i><b>{f.groups ?? 0}</b></span>
-										<span><i>Correct advancers</i><b>{f.advance ?? 0}</b></span>
-										<span><i>Reached Round of 32</i><b>{f.R32 ?? 0}</b></span>
-										<span><i>Reached Round of 16</i><b>{f.R16 ?? 0}</b></span>
-										<span><i>Reached Quarter-finals</i><b>{f.QF ?? 0}</b></span>
-										<span><i>Reached Semi-finals</i><b>{f.SF ?? 0}</b></span>
-										<span><i>Reached the Final</i><b>{f.FINAL ?? 0}</b></span>
-										<span><i>Champion correct</i><b>{f.champion ? 'Yes' : 'No'}</b></span>
+										<span><i>{t('leagueDetail.correctGroupPositions')}</i><b>{f.groups ?? 0}</b></span>
+										<span><i>{t('leagueDetail.correctAdvancers')}</i><b>{f.advance ?? 0}</b></span>
+										<span><i>{t('leagueDetail.reachedR32')}</i><b>{f.R32 ?? 0}</b></span>
+										<span><i>{t('leagueDetail.reachedR16')}</i><b>{f.R16 ?? 0}</b></span>
+										<span><i>{t('leagueDetail.reachedQF')}</i><b>{f.QF ?? 0}</b></span>
+										<span><i>{t('leagueDetail.reachedSF')}</i><b>{f.SF ?? 0}</b></span>
+										<span><i>{t('leagueDetail.reachedFinal')}</i><b>{f.FINAL ?? 0}</b></span>
+										<span><i>{t('leagueDetail.championCorrect')}</i><b>{f.champion ? t('common.yes') : t('common.no')}</b></span>
 									</div>
 								{:else}
 									<div class="stats">
-										<span><i>Matches predicted</i><b>{r.predicted}</b></span>
-										<span><i>Tip points</i><b>{r.tipsPoints}</b></span>
-										<span><i>Forecast points</i><b>{r.forecastPoints}</b></span>
-										<span><i>Exact scores</i><b>{r.exactScores}</b></span>
-										<span><i>Correct winners</i><b>{r.correctWinners}</b></span>
-										<span><i>Goal-diff error</i><b>{r.gdDeviation}</b></span>
+										<span><i>{t('leagueDetail.matchesPredicted')}</i><b>{r.predicted}</b></span>
+										<span><i>{t('leagueDetail.tipPoints')}</i><b>{r.tipsPoints}</b></span>
+										<span><i>{t('leagueDetail.forecastPoints')}</i><b>{r.forecastPoints}</b></span>
+										<span><i>{t('leagueDetail.exactScores')}</i><b>{r.exactScores}</b></span>
+										<span><i>{t('leagueDetail.correctWinners')}</i><b>{r.correctWinners}</b></span>
+										<span><i>{t('leagueDetail.goalDiffError')}</i><b>{r.gdDeviation}</b></span>
 									</div>
 								{/if}
 							</td>
@@ -481,7 +486,7 @@
 
 				{#if editing && availableBots.length}
 					<tr class="botsep">
-						<td colspan="12">Add a bot player</td>
+						<td colspan="12">{t('leagueDetail.addBotPlayer')}</td>
 					</tr>
 					{#each availableBots as b (b.userId)}
 						<tr class="addbot">
@@ -494,17 +499,17 @@
 										size={28}
 									/>
 									<span class="pname">{b.name}</span>
-									<span class="rolepill" title="Bot player">
+									<span class="rolepill" title={t('leagueDetail.botPlayer')}>
 										<Bot size={11} />
-										{b.botKind || 'Bot'}
+										{b.botKind || t('common.bot')}
 									</span>
 									<button
 										class="addbtn"
-										title="Add {b.name} to this league"
+										title={t('leagueDetail.addToLeague', { name: b.name })}
 										disabled={botBusy === b.userId || mgmtBusy}
 										onclick={() => addBot(b)}
 									>
-										<UserPlus size={15} /> Add
+										<UserPlus size={15} /> {t('common.add')}
 									</button>
 								</div>
 							</td>
@@ -514,58 +519,54 @@
 			</tbody>
 		</table>
 		<p class="muted small note">
-			Points update automatically as results come in.
+			{t('leagueDetail.pointsAutoUpdate')}
 		</p>
 	</section>
 
 	{#if cfg}
 		<details class="card legend">
-			<summary>How points work</summary>
+			<summary>{t('leagueDetail.howPointsWork')}</summary>
 
-			<h4>Per match (your Tip) — max {cfg.match.tendency +
+			<h4>{t('leagueDetail.perMatch', { max: cfg.match.tendency +
 					cfg.match.exact +
 					cfg.match.totalGoals +
-					cfg.match.goalDiff} pt</h4>
+					cfg.match.goalDiff })}</h4>
 			<ul class="leg">
 				<li>
-					<span>Correct result — group: 1 / X / 2; knockout: the team
-						that advances</span><b>{cfg.match.tendency} pt</b>
+					<span>{t('leagueDetail.correctResult')}</span><b>{cfg.match.tendency} pt</b>
 				</li>
-				<li><span>Exact score</span><b>+{cfg.match.exact} pt</b></li>
-				<li><span>Correct total number of goals</span><b>+{cfg.match.totalGoals} pt</b></li>
-				<li><span>Correct goal difference</span><b>+{cfg.match.goalDiff} pt</b></li>
+				<li><span>{t('leagueDetail.exactScore')}</span><b>+{cfg.match.exact} pt</b></li>
+				<li><span>{t('leagueDetail.correctTotalGoals')}</span><b>+{cfg.match.totalGoals} pt</b></li>
+				<li><span>{t('leagueDetail.correctGoalDiff')}</span><b>+{cfg.match.goalDiff} pt</b></li>
 			</ul>
 			<p class="muted small">
-				Knockout games have no draw — the result point is for the team
-				that goes through. If a knockout game is decided in extra time,
-				the score points use the after-extra-time score.
+				{t('leagueDetail.knockoutNote')}
 			</p>
 
-			<h4>Tournament Forecast</h4>
+			<h4>{t('leagueDetail.tournamentForecast')}</h4>
 			<ul class="leg">
-				<li><span>Each team in its correct final group position</span><b>{cfg.forecast.groupPosition} pt</b></li>
-				<li><span>Whole group ordered perfectly (bonus)</span><b>+{cfg.forecast.perfectGroupBonus} pt</b></li>
+				<li><span>{t('leagueDetail.groupPosition')}</span><b>{cfg.forecast.groupPosition} pt</b></li>
+				<li><span>{t('leagueDetail.perfectGroupBonus')}</span><b>+{cfg.forecast.perfectGroupBonus} pt</b></li>
 				<li>
-					<span>Each team you predicted to advance (group top 2, or a
-						best-third pick) that actually advances</span
+					<span>{t('leagueDetail.advancePick')}</span
 					><b>{cfg.forecast.advance} pt</b>
 				</li>
 			</ul>
 			<p class="muted small">
-				Reaching a knockout round (per correctly predicted team):
+				{t('leagueDetail.reachingRound')}
 			</p>
 			<ul class="leg">
-				{#each Object.entries(roundLabel) as [k, lbl] (k)}
+				{#each Object.keys(cfg.forecast.round) as k (k)}
 					{#if cfg.forecast.round[k] != null}
-						<li><span>{lbl}</span><b>{cfg.forecast.round[k]} pt</b></li>
+						<li><span>{roundLbl(k)}</span><b>{cfg.forecast.round[k]} pt</b></li>
 					{/if}
 				{/each}
 			</ul>
 
-			<h4>Tiebreakers (in order)</h4>
+			<h4>{t('leagueDetail.tiebreakers')}</h4>
 			<ol class="tiebreak">
-				{#each cfg.tiebreakers as t (t)}
-					<li>{tbLabel[t] ?? t}</li>
+				{#each cfg.tiebreakers as tb (tb)}
+					<li>{tbLabel[tb] ?? tb}</li>
 				{/each}
 			</ol>
 		</details>

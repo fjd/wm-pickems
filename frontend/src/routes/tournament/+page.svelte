@@ -4,6 +4,7 @@
 	import { collapseOnScroll } from '$lib/actions';
 	import { serverClock } from '$lib/serverclock.svelte';
 	import { LocateFixed } from '@lucide/svelte';
+	import { t, stageLabel } from '$lib/i18n.svelte';
 
 	let view = $state<'groups' | 'bracket'>('groups');
 
@@ -89,14 +90,6 @@
 	});
 
 	const stages = ['R32', 'R16', 'QF', 'SF', '3RD', 'FINAL'];
-	const stageName: Record<string, string> = {
-		R32: 'Round of 32',
-		R16: 'Round of 16',
-		QF: 'Quarter-finals',
-		SF: 'Semi-finals',
-		'3RD': 'Third place',
-		FINAL: 'Final'
-	};
 	let bracket = $derived(
 		stages.map((s) => ({
 			stage: s,
@@ -133,36 +126,36 @@
 	function scoreText(m: Match) {
 		if (!played(m)) return '';
 		let s = `${m.ftHome}–${m.ftAway}`;
-		if (m.etHome || m.etAway) s = `${m.etHome}–${m.etAway} a.e.t.`;
-		if (m.penHome || m.penAway) s += ` (${m.penHome}–${m.penAway} pen)`;
+		if (m.etHome || m.etAway) s = `${m.etHome}–${m.etAway} ${t('tournament.aet')}`;
+		if (m.penHome || m.penAway) s += ` (${m.penHome}–${m.penAway} ${t('tournament.pen')})`;
 		return s;
 	}
 </script>
 
 <div class="stickyhead" use:collapseOnScroll>
-	<p class="kicker">World Cup 2026</p>
-	<div class="sh-expand"><div class="sh-inner"><h1>The Tournament</h1></div></div>
+	<p class="kicker">{t('tournament.kicker')}</p>
+	<div class="sh-expand"><div class="sh-inner"><h1>{t('tournament.title')}</h1></div></div>
 	<div class="seg">
-		<button class:on={view === 'groups'} onclick={() => (view = 'groups')}>Group tables</button>
-		<button class:on={view === 'bracket'} onclick={() => (view = 'bracket')}>Bracket</button>
+		<button class:on={view === 'groups'} onclick={() => (view = 'groups')}>{t('tournament.groupTables')}</button>
+		<button class:on={view === 'bracket'} onclick={() => (view = 'bracket')}>{t('tournament.bracket')}</button>
 	</div>
 </div>
 
 {#if !tipsStore.loaded}
-	<p class="muted">Loading…</p>
+	<p class="muted">{t('tournament.loading')}</p>
 {:else if view === 'groups'}
 	{#if groups.length === 0}
 		<div class="card empty">
-			<p class="muted">No group matches played yet. Tables light up as results come in.</p>
+			<p class="muted">{t('tournament.noGroupMatches')}</p>
 		</div>
 	{:else}
 		<div class="gwrap stagger">
 			{#each groups as g (g.letter)}
 				<section class="card grp">
-					<div class="ghead"><span class="gl">{g.letter}</span> Group {g.letter}</div>
+					<div class="ghead"><span class="gl">{g.letter}</span> {t('common.group', { letter: g.letter })}</div>
 					<table>
 						<thead>
-							<tr><th></th><th>Team</th><th>P</th><th>GD</th><th>Pts</th></tr>
+							<tr><th></th><th>{t('tournament.team')}</th><th>{t('tournament.p')}</th><th>{t('tournament.gd')}</th><th>{t('tournament.pts')}</th></tr>
 						</thead>
 						<tbody>
 							{#each g.rows as r, i (r.id)}
@@ -186,7 +179,7 @@
 {:else}
 	<div class="stagger">
 		{#each bracket as col (col.stage)}
-			<h3 class="rname" id={`st-${col.stage}`}>{stageName[col.stage]}</h3>
+			<h3 class="rname" id={`st-${col.stage}`}>{stageLabel(col.stage)}</h3>
 			{#each col.matches as m (m.id)}
 				{@const H = tn(m.homeTeam)}
 				{@const A = tn(m.awayTeam)}
@@ -197,7 +190,7 @@
 						<span class="nm" class:ph={!H}>{H?.name ?? m.homeLabel}</span>
 					</div>
 					<div class="mid digits">
-						{#if done}{scoreText(m)}{:else}<span class="vs">vs</span>{/if}
+						{#if done}{scoreText(m)}{:else}<span class="vs">{t('common.vs')}</span>{/if}
 					</div>
 					<div class="side right" class:won={done && m.advancer === m.awayTeam}>
 						<span class="nm" class:ph={!A}>{A?.name ?? m.awayLabel}</span>
@@ -211,8 +204,8 @@
 {/if}
 
 {#if tipsStore.loaded && view === 'bracket' && currentStage}
-	<button class="fab" onclick={goNow} aria-label="Jump to the current round">
-		<LocateFixed size={18} /> Now
+	<button class="fab" onclick={goNow} aria-label={t('tournament.jumpToRound')}>
+		<LocateFixed size={18} /> {t('common.now')}
 	</button>
 {/if}
 

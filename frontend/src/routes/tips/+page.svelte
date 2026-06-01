@@ -5,16 +5,14 @@
 	import { bestThirds } from '$lib/standings';
 	import { collapseOnScroll } from '$lib/actions';
 	import { serverClock } from '$lib/serverclock.svelte';
+	import { t, stageLabel, locale } from '$lib/i18n.svelte';
 	import { LocateFixed } from '@lucide/svelte';
 	import { tick } from 'svelte';
 
 	let tab = $state<'all' | 'group' | 'ko'>('all');
 
-	// Accordion: only one match's tip inputs are open at a time.
 	let openId = $state('');
 
-	// Projected best-8 third-placed teams across all groups (empty until every
-	// group is filled) — shared by every group's standings table.
 	let thirdsAdv = $derived.by(() => {
 		const by: Record<string, Match[]> = {};
 		for (const m of tipsStore.matches)
@@ -34,8 +32,6 @@
 		})
 	);
 
-	// "Now" = the next match not yet kicked off (or the last one if the
-	// tournament is over) within the current filter.
 	let nowId = $derived.by(() => {
 		const now = serverClock.now();
 		const next = filtered.find(
@@ -45,24 +41,11 @@
 	});
 
 	function goNow() {
-		// Scroll to the day-header of the day holding the "now" match —
-		// nicer context, and days hold only a handful of games.
 		document
 			.getElementById(`day-${nowDayIndex}`)
 			?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
-	// Groups tab: by group letter (A..L). Knockout tab: by stage (R32→FINAL).
-	// All tab: by calendar day.
-	const stageOrder = ['R32', 'R16', 'QF', 'SF', '3RD', 'FINAL'];
-	const stageLabel: Record<string, string> = {
-		R32: 'Round of 32',
-		R16: 'Round of 16',
-		QF: 'Quarter-finals',
-		SF: 'Semi-finals',
-		'3RD': 'Third place',
-		FINAL: 'Final'
-	};
 	let days = $derived.by(() => {
 		const byKickoff = (a: Match, b: Match) =>
 			new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
@@ -73,17 +56,18 @@
 				.sort()
 				.map(
 					(l) =>
-						[`Group ${l}`, byGroup[l].sort(byKickoff)] as [string, Match[]]
+						[t('common.group', { letter: l }), byGroup[l].sort(byKickoff)] as [string, Match[]]
 				);
 		}
 		if (tab === 'ko') {
+			const stageOrder = ['R32', 'R16', 'QF', 'SF', '3RD', 'FINAL'];
 			const byStage: Record<string, Match[]> = {};
 			for (const m of filtered) (byStage[m.stage] ||= []).push(m);
 			return stageOrder
 				.filter((s) => byStage[s])
 				.map(
 					(s) =>
-						[stageLabel[s] ?? s, byStage[s].sort(byKickoff)] as [
+						[stageLabel(s), byStage[s].sort(byKickoff)] as [
 							string,
 							Match[]
 						]
@@ -91,7 +75,7 @@
 		}
 		return Object.entries(
 			filtered.reduce<Record<string, Match[]>>((acc, m) => {
-				const d = new Date(m.kickoff).toLocaleDateString(undefined, {
+				const d = new Date(m.kickoff).toLocaleDateString(locale.lang, {
 					weekday: 'long',
 					day: 'numeric',
 					month: 'long'
@@ -106,15 +90,12 @@
 		days.findIndex(([, ms]) => ms.some((m) => m.id === nowId))
 	);
 
-	// On first load, instantly jump to the current point in the tournament.
 	let didAutoScroll = false;
 	$effect(() => {
 		if (didAutoScroll || !tipsStore.loaded) return;
 		const idx = nowDayIndex;
 		if (idx < 0) return;
 		didAutoScroll = true;
-		// First matchday: stay at the very top (full header). Otherwise jump
-		// to that day's header.
 		if (idx === 0) return;
 		tick().then(() =>
 			document
@@ -125,28 +106,28 @@
 </script>
 
 <div class="stickyhead" use:collapseOnScroll>
-	<p class="kicker">Match predictions</p>
+	<p class="kicker">{t('tips.kicker')}</p>
 	<div class="sh-expand">
 		<div class="sh-inner">
-			<h1>Tips</h1>
-			<p class="muted desc">Predict every match. Editable until kickoff.</p>
+			<h1>{t('tips.title')}</h1>
+			<p class="muted desc">{t('tips.description')}</p>
 		</div>
 	</div>
 	<div class="tabs">
-		<button class:active={tab === 'all'} onclick={() => (tab = 'all')}>All</button>
+		<button class:active={tab === 'all'} onclick={() => (tab = 'all')}>{t('common.all')}</button>
 		<button class:active={tab === 'group'} onclick={() => (tab = 'group')}
-			>Groups</button
+			>{t('common.groups')}</button
 		>
 		<button class:active={tab === 'ko'} onclick={() => (tab = 'ko')}
-			>Knockout</button
+			>{t('common.knockout')}</button
 		>
 	</div>
 </div>
 
 {#if !tipsStore.loaded}
-	<p class="muted">Loading fixtures…</p>
+	<p class="muted">{t('tips.loadingFixtures')}</p>
 {:else if filtered.length === 0}
-	<p class="muted">Nothing here.</p>
+	<p class="muted">{t('tips.nothingHere')}</p>
 {:else}
 	{#each days as [day, ms], i (day)}
 		<h3 class="day" id={`day-${i}`}>{day}</h3>
@@ -167,8 +148,8 @@
 {/if}
 
 {#if tipsStore.loaded && nowId}
-	<button class="fab" onclick={goNow} aria-label="Scroll to the next match">
-		<LocateFixed size={18} /> Now
+	<button class="fab" onclick={goNow} aria-label={t('tips.scrollToNext')}>
+		<LocateFixed size={18} /> {t('common.now')}
 	</button>
 {/if}
 
@@ -222,7 +203,6 @@
 		margin: 1.3rem 0 0.6rem;
 		font-size: 0.95rem;
 		color: var(--muted);
-		/* Land below the fixed top bar + collapsed sticky header. */
 		scroll-margin-top: 150px;
 	}
 	@media (min-width: 900px) {

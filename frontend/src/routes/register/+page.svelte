@@ -2,8 +2,8 @@
 	import { auth } from '$lib/auth.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { t } from '$lib/i18n.svelte';
 
-	// After registering, resume an invite if one was carried in the URL.
 	let invite = $derived($page.url.searchParams.get('invite'));
 	function dest() {
 		return invite ? `/join/${invite}` : '/';
@@ -22,7 +22,7 @@
 		e.preventDefault();
 		error = '';
 		if (password.length < 8) {
-			error = 'Password must be at least 8 characters.';
+			error = t('errors.passwordTooShort');
 			return;
 		}
 		busy = true;
@@ -32,7 +32,7 @@
 		} catch (err: unknown) {
 			error =
 				(err as { message?: string })?.message ??
-				'Could not create account.';
+				t('errors.couldNotCreateAccount');
 		} finally {
 			busy = false;
 		}
@@ -40,16 +40,16 @@
 </script>
 
 <div class="auth">
-	<h1>Create account</h1>
-	<p class="muted">Join the World Cup prediction game.</p>
+	<h1>{t('auth.createAccount')}</h1>
+	<p class="muted">{t('auth.tagline')}</p>
 
 	<form class="card" onsubmit={submit}>
 		<div class="field">
-			<label for="nm">Display name</label>
+			<label for="nm">{t('auth.displayName')}</label>
 			<input id="nm" class="input" bind:value={name} required />
 		</div>
 		<div class="field">
-			<label for="em">Email</label>
+			<label for="em">{t('auth.email')}</label>
 			<input
 				id="em"
 				class="input"
@@ -60,7 +60,7 @@
 			/>
 		</div>
 		<div class="field">
-			<label for="pw">Password</label>
+			<label for="pw">{t('auth.password')}</label>
 			<input
 				id="pw"
 				class="input"
@@ -71,9 +71,9 @@
 			/>
 		</div>
 		{#if error}<p class="error">{error}</p>{/if}
-		<button class="btn" disabled={busy}>{busy ? 'Creating…' : 'Create account'}</button>
+		<button class="btn" disabled={busy}>{busy ? t('auth.creating') : t('auth.createAccount')}</button>
 		<p class="muted switch">
-			Already have an account? <a href={loginHref}>Sign in</a>
+			{t('auth.alreadyHaveAccount')} <a href={loginHref}>{t('auth.signIn')}</a>
 		</p>
 	</form>
 </div>

@@ -3,16 +3,16 @@ import type { Component } from 'svelte';
 
 export interface NavItem {
 	href: string;
-	label: string;
+	key: string;
 	icon: Component;
 }
 
 export const navItems: NavItem[] = [
-	{ href: '/', label: 'Home', icon: House },
-	{ href: '/tips', label: 'Tips', icon: Volleyball },
-	{ href: '/forecast', label: 'Forecast', icon: Telescope },
-	{ href: '/tournament', label: 'Bracket', icon: Network },
-	{ href: '/leagues', label: 'Leagues', icon: Trophy }
+	{ href: '/', key: 'home', icon: House },
+	{ href: '/tips', key: 'tips', icon: Volleyball },
+	{ href: '/forecast', key: 'forecast', icon: Telescope },
+	{ href: '/tournament', key: 'bracket', icon: Network },
+	{ href: '/leagues', key: 'leagues', icon: Trophy }
 ];
 
 export function isActive(href: string, path: string): boolean {

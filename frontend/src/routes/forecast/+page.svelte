@@ -11,6 +11,7 @@
 		Trophy
 	} from '@lucide/svelte';
 	import { collapseOnScroll } from '$lib/actions';
+	import { t, ordinal, stageLabel, locale } from '$lib/i18n.svelte';
 
 	let section = $state<'groups' | 'thirds' | 'bracket'>('groups');
 	let saveState = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -48,21 +49,13 @@
 				saveState = 'error';
 				err =
 					(e as { message?: string })?.message ??
-					'Could not save — your changes are not stored.';
+					t('errors.couldNotSaveForecast');
 			}
 		}, 1000);
 		return () => clearTimeout(timer);
 	});
 
 	const stages = ['R32', 'R16', 'QF', 'SF', '3RD', 'FINAL'];
-	const stageName: Record<string, string> = {
-		R32: 'Round of 32',
-		R16: 'Round of 16',
-		QF: 'Quarter-finals',
-		SF: 'Semi-finals',
-		'3RD': 'Third place',
-		FINAL: 'Final'
-	};
 	let byStage = $derived(
 		stages.map((s) => ({
 			stage: s,
@@ -79,12 +72,10 @@
 	function tname(id: string) {
 		return fs.team(id)?.name ?? '';
 	}
-	const ord = (n: number) =>
-		n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`;
 
 	const lockDate = $derived(
 		fs.tournamentStart
-			? new Date(fs.tournamentStart).toLocaleString(undefined, {
+			? new Date(fs.tournamentStart).toLocaleString(locale.lang, {
 					day: 'numeric',
 					month: 'short',
 					hour: '2-digit',
@@ -106,13 +97,13 @@
 </script>
 
 <div class="stickyhead" use:collapseOnScroll>
-	<p class="kicker">The big call</p>
+	<p class="kicker">{t('forecast.kicker')}</p>
 	<div class="sh-expand">
 		<div class="sh-inner">
-			<h1>Forecast</h1>
+			<h1>{t('forecast.title')}</h1>
 			<p class="muted desc">
-				Your one-time tournament call. {#if fs.locked}<b>Locked.</b
-					>{:else}Locks at kickoff{lockDate
+				{t('forecast.description')} {#if fs.locked}<b>{t('forecast.locked')}</b
+					>{:else}{t('forecast.locksAtKickoff')}{lockDate
 						? ` · ${lockDate}`
 						: ''}.{/if}
 			</p>
@@ -120,9 +111,9 @@
 	</div>
 	{#if fs.loaded}
 		<div class="seg">
-			<button class:on={section === 'groups'} onclick={() => (section = 'groups')}>Groups</button>
-			<button class:on={section === 'thirds'} onclick={() => (section = 'thirds')}>Best thirds</button>
-			<button class:on={section === 'bracket'} onclick={() => (section = 'bracket')}>Bracket</button>
+			<button class:on={section === 'groups'} onclick={() => (section = 'groups')}>{t('common.groups')}</button>
+			<button class:on={section === 'thirds'} onclick={() => (section = 'thirds')}>{t('common.bestThirds')}</button>
+			<button class:on={section === 'bracket'} onclick={() => (section = 'bracket')}>{t('common.bracket')}</button>
 		</div>
 	{/if}
 </div>
@@ -130,17 +121,17 @@
 {#if err}<p class="error">{err}</p>{/if}
 
 {#if !fs.loaded}
-	<p class="muted">Loading…</p>
+	<p class="muted">{t('common.loading')}</p>
 {:else}
 	{#if fs.locked}
-		<div class="card lockbar"><Lock size={16} /> The tournament has started — your Forecast is final.</div>
+		<div class="card lockbar"><Lock size={16} /> {t('forecast.tournamentStarted')}</div>
 	{/if}
 
 	{#if section === 'groups'}
-		<p class="muted small">Order each group 1st → 4th. Top 2 advance; 3rd may qualify as a best third.</p>
+		<p class="muted small">{t('forecast.groupInstruction')}</p>
 		{#each fs.groups as g (g.letter)}
 			<section class="card grp">
-				<h3>Group {g.letter}</h3>
+				<h3>{t('common.group', { letter: g.letter })}</h3>
 				{#each fs.groupOrder[g.letter] as id, i (id)}
 					{@const ao = fs.actualOrder(g.letter)}
 					{@const apos = ao ? ao.indexOf(id) + 1 : 0}
@@ -171,18 +162,18 @@
 						<span class="tag">
 							{#if state === 'ok'}<span class="ind ok"><Check size={15} /></span>
 							{:else if state === 'half'}
-								<span class="apos half">finished {ord(apos)}</span>
+								<span class="apos half">{t('forecast.finished', { pos: ordinal(apos) })}</span>
 								<span class="ind half"><CircleCheck size={15} /></span>
 							{:else if state === 'miss'}
-								<span class="apos">finished {ord(apos)}</span>
+								<span class="apos">{t('forecast.finished', { pos: ordinal(apos) })}</span>
 								<span class="ind no"><X size={15} /></span>
-							{:else if i < 2}<span class="pill ok">advances</span>
-							{:else if i === 2}<span class="pill">3rd</span>{/if}
+							{:else if i < 2}<span class="pill ok">{t('forecast.advances')}</span>
+							{:else if i === 2}<span class="pill">{t('forecast.third')}</span>{/if}
 						</span>
 						{#if !fs.locked}
 							<span class="ord">
-								<button aria-label="up" disabled={i === 0} onclick={() => fs.move(g.letter, i, -1)}><ChevronUp size={16} /></button>
-								<button aria-label="down" disabled={i === 3} onclick={() => fs.move(g.letter, i, 1)}><ChevronDown size={16} /></button>
+								<button aria-label={t('forecast.up')} disabled={i === 0} onclick={() => fs.move(g.letter, i, -1)}><ChevronUp size={16} /></button>
+								<button aria-label={t('forecast.down')} disabled={i === 3} onclick={() => fs.move(g.letter, i, 1)}><ChevronDown size={16} /></button>
 							</span>
 						{/if}
 					</div>
@@ -192,8 +183,7 @@
 	{:else if section === 'thirds'}
 		<div class="thead">
 			<p class="muted small">
-				8 of the 12 third-placed teams advance. Tick the eight you think
-				make it. (The 3rd of each group comes from your Groups order.)
+				{t('forecast.thirdsInstruction')}
 			</p>
 			<span class="cnt" class:full={fs.chosenThirdLetters.length === 8}>
 				{fs.chosenThirdLetters.length} / 8
@@ -226,7 +216,7 @@
 		{#if champion}
 			<div class="card champ">
 				<Trophy size={20} />
-				<span class="lbl">Predicted champion</span>
+				<span class="lbl">{t('forecast.predictedChampion')}</span>
 				<Flag
 					iso2={fs.team(champion)?.iso2 ?? ''}
 					code={fs.team(champion)?.fifaCode ?? ''}
@@ -236,7 +226,7 @@
 			</div>
 		{/if}
 		{#each byStage as col (col.stage)}
-			<h3 class="rname">{stageName[col.stage]}</h3>
+			<h3 class="rname">{stageLabel(col.stage)}</h3>
 			{#each col.matches as m (koKey(m))}
 				{@const H = sideLabel(m, 'home')}
 				{@const A = sideLabel(m, 'away')}
@@ -258,7 +248,7 @@
 						{#if H.team}<Flag iso2={H.team.iso2} code={H.team.fifaCode} />{/if}
 						<span class="bn" class:ph={!H.id}>{H.name}</span>
 					</button>
-					<span class="vs">vs</span>
+					<span class="vs">{t('common.vs')}</span>
 					<button
 						class="bteam"
 						class:win={w && w === A.id}
@@ -279,13 +269,13 @@
 		<div class="savebar">
 			<span class="savestat" class:err={saveState === 'error'}>
 				{#if saveState === 'saving'}
-					Saving…
+					{t('forecast.saving')}
 				{:else if saveState === 'error'}
-					{err || 'Save failed'}
+					{err || t('forecast.saveFailed')}
 				{:else if saveState === 'saved'}
-					<Check size={15} /> Saved · changes auto-save
+					<Check size={15} /> {t('forecast.savedAutoSave')}
 				{:else}
-					Changes auto-save
+					{t('forecast.autoSave')}
 				{/if}
 			</span>
 		</div>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { auth } from '$lib/auth.svelte';
 	import { api, type LeagueSummary } from '$lib/api';
+	import { t } from '$lib/i18n.svelte';
 	import { Telescope, Volleyball, Trophy, Users, ChevronRight } from '@lucide/svelte';
 
 	let leagues = $state<LeagueSummary[]>([]);
@@ -19,41 +20,41 @@
 		{
 			href: '/forecast',
 			icon: Telescope,
-			title: 'Fill in your Forecast',
-			sub: 'Full tournament call — before the opening match'
+			titleKey: 'home.moveForecastTitle',
+			subKey: 'home.moveForecastSub'
 		},
 		{
 			href: '/tips',
 			icon: Volleyball,
-			title: 'Tip the upcoming matches',
-			sub: 'Score predictions, editable until kickoff'
+			titleKey: 'home.moveTipsTitle',
+			subKey: 'home.moveTipsSub'
 		},
 		{
 			href: '/leagues',
 			icon: Trophy,
-			title: 'Create or join a League',
-			sub: 'Play against your friends'
+			titleKey: 'home.moveLeagueTitle',
+			subKey: 'home.moveLeagueSub'
 		}
 	];
 </script>
 
 <header>
-	<p class="kicker">Matchday HQ</p>
-	<h1>Hi,&nbsp;{auth.user?.name}</h1>
-	<p class="muted sd">World Cup 2026 · 11 Jun – 19 Jul · 48 nations</p>
+	<p class="kicker">{t('home.kicker')}</p>
+	<h1>{@html t('home.greeting', { name: auth.user?.name ?? '' })}</h1>
+	<p class="muted sd">{t('home.subtitle')}</p>
 </header>
 
 <div class="stagger">
 <section class="card">
-	<h3>Your next moves</h3>
+	<h3>{t('home.nextMoves')}</h3>
 	<div class="moves">
 		{#each moves as m (m.href)}
 			{@const Icon = m.icon}
 			<a class="move" href={m.href}>
 				<span class="mi"><Icon size={20} /></span>
 				<span class="mt">
-					<span class="title">{m.title}</span>
-					<span class="muted sub">{m.sub}</span>
+					<span class="title">{t(m.titleKey)}</span>
+					<span class="muted sub">{t(m.subKey)}</span>
 				</span>
 				<ChevronRight size={18} class="cr" />
 			</a>
@@ -63,21 +64,21 @@
 
 <section class="card">
 	<div class="row">
-		<h3>Your leagues</h3>
+		<h3>{t('home.yourLeagues')}</h3>
 		<div class="spacer"></div>
-		<a class="pill" href="/leagues">Manage</a>
+		<a class="pill" href="/leagues">{t('common.manage')}</a>
 	</div>
 	{#if !loaded}
-		<p class="muted">Loading…</p>
+		<p class="muted">{t('common.loading')}</p>
 	{:else if leagues.length === 0}
 		<p class="muted">
-			You're not in a league yet. <a href="/leagues">Create or join one →</a>
+			{t('home.noLeagues')} <a href="/leagues">{t('home.noLeaguesLink')}</a>
 		</p>
 	{:else}
 		{#each leagues as l (l.id)}
 			<a class="lrow" href={`/leagues/${l.id}`}>
 				<span>{l.name}</span>
-				{#if l.role === 'owner'}<span class="pill">owner</span>{/if}
+				{#if l.role === 'owner'}<span class="pill">{t('common.owner')}</span>{/if}
 				<span class="spacer"></span>
 				<span class="cnt"><Users size={15} /> {l.members}</span>
 			</a>

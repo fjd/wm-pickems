@@ -1,13 +1,10 @@
 <script lang="ts">
 	import { tipsStore, type Match } from '$lib/tips.svelte';
 	import { groupTable, type StandRow } from '$lib/standings';
+	import { t } from '$lib/i18n.svelte';
 	import Flag from './Flag.svelte';
 	import { ChevronDown } from '@lucide/svelte';
 
-	// A projected group table: played matches count as-is, the rest use the
-	// user's saved picks. Collapsed by default; updates live as tips are saved.
-	// `bestThirds` (the projected best-8 third-placed team ids across all groups)
-	// is computed by the parent and empty until every group is filled.
 	let {
 		matches,
 		bestThirds
@@ -17,30 +14,29 @@
 	let rows = $derived(groupTable(matches, tipsStore.tips));
 	let counted = $derived(rows.reduce((n, r) => n + r.pld, 0));
 	const gd = (r: StandRow) => `${r.gf - r.ga >= 0 ? '+' : ''}${r.gf - r.ga}`;
-	// 1st/2nd advance directly; a 3rd-placed team advances if it's a best third.
 	const advances = (r: StandRow, i: number) => i < 2 || (i === 2 && bestThirds.has(r.id));
 </script>
 
 <div class="gs">
 	<button class="gs-toggle" onclick={() => (open = !open)} aria-expanded={open}>
-		<span>Projected table</span>
+		<span>{t('groupStandings.projectedTable')}</span>
 		<ChevronDown size={15} class="gs-cv {open ? 'up' : ''}" />
 	</button>
 
 	{#if open}
 		{#if counted === 0}
 			<p class="muted small note">
-				Tip this group’s matches to see the projected standings.
+				{t('groupStandings.tipToSee')}
 			</p>
 		{:else}
 			<table class="gs-tbl">
 				<thead>
 					<tr>
 						<th></th>
-						<th class="tl">Team</th>
-						<th>P</th>
-						<th>GD</th>
-						<th>Pts</th>
+						<th class="tl">{t('groupStandings.team')}</th>
+						<th>{t('groupStandings.p')}</th>
+						<th>{t('groupStandings.gd')}</th>
+						<th>{t('groupStandings.pts')}</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -64,10 +60,9 @@
 				</tbody>
 			</table>
 			<p class="muted small note">
-				Your picks, with played results counted. Top 2 advance directly; the 8
-				best 3rd-placed teams also advance{bestThirds.size
+				{t('groupStandings.note')}{bestThirds.size
 					? ''
-					: ' (fill every group to project these)'}.
+					: t('groupStandings.noteMissing')}.
 			</p>
 		{/if}
 	{/if}
@@ -146,7 +141,6 @@
 	tr.adv td {
 		background: color-mix(in srgb, var(--accent) 8%, transparent);
 	}
-	/* A 3rd-placed team that sneaks through as a best third — gold, not green. */
 	tr.third .rk {
 		color: var(--gold);
 	}

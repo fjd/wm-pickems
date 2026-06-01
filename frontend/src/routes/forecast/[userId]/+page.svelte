@@ -4,6 +4,7 @@
 	import Flag from '$lib/components/Flag.svelte';
 	import { collapseOnScroll } from '$lib/actions';
 	import { Check, CircleCheck, X, Trophy, ArrowLeft } from '@lucide/svelte';
+	import { t, ordinal, stageLabel } from '$lib/i18n.svelte';
 
 	const fs = new ForecastStore();
 	let section = $state<'groups' | 'thirds' | 'bracket'>('groups');
@@ -11,22 +12,12 @@
 
 	$effect(() => {
 		const uid = $page.params.userId;
-		if (uid) fs.loadView(uid).catch((e) => (err = e?.message ?? 'Not allowed'));
+		if (uid) fs.loadView(uid).catch((e) => (err = e?.message ?? t('errors.notAllowed')));
 	});
 
-	const ord = (n: number) =>
-		n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`;
 	const tname = (id: string) => fs.team(id)?.name ?? '';
 
 	const stages = ['R32', 'R16', 'QF', 'SF', '3RD', 'FINAL'];
-	const stageName: Record<string, string> = {
-		R32: 'Round of 32',
-		R16: 'Round of 16',
-		QF: 'Quarter-finals',
-		SF: 'Semi-finals',
-		'3RD': 'Third place',
-		FINAL: 'Final'
-	};
 	let byStage = $derived(
 		stages.map((s) => ({
 			stage: s,
@@ -50,22 +41,22 @@
 </script>
 
 <button class="muted back" type="button" onclick={() => history.back()}>
-	<ArrowLeft size={15} /> Back
+	<ArrowLeft size={15} /> {t('forecastView.back')}
 </button>
 
 <div class="stickyhead" use:collapseOnScroll>
-	<p class="kicker">Forecast</p>
+	<p class="kicker">{t('forecastView.title')}</p>
 	<div class="sh-expand">
 		<div class="sh-inner">
 			<h1>{fs.viewName || '…'}</h1>
-			<p class="muted desc">Read-only — your friend's tournament call.</p>
+			<p class="muted desc">{t('forecastView.readOnlyDesc')}</p>
 		</div>
 	</div>
 	{#if fs.loaded}
 		<div class="seg">
-			<button class:on={section === 'groups'} onclick={() => (section = 'groups')}>Groups</button>
-			<button class:on={section === 'thirds'} onclick={() => (section = 'thirds')}>Best thirds</button>
-			<button class:on={section === 'bracket'} onclick={() => (section = 'bracket')}>Bracket</button>
+			<button class:on={section === 'groups'} onclick={() => (section = 'groups')}>{t('common.groups')}</button>
+			<button class:on={section === 'thirds'} onclick={() => (section = 'thirds')}>{t('common.bestThirds')}</button>
+			<button class:on={section === 'bracket'} onclick={() => (section = 'bracket')}>{t('common.bracket')}</button>
 		</div>
 	{/if}
 </div>
@@ -73,11 +64,11 @@
 {#if err}
 	<p class="error">{err}</p>
 {:else if !fs.loaded}
-	<p class="muted">Loading…</p>
+	<p class="muted">{t('forecastView.loading')}</p>
 {:else if section === 'groups'}
 	{#each fs.groups as g (g.letter)}
 		<section class="card grp">
-			<h3>Group {g.letter}</h3>
+			<h3>{t('common.group', { letter: g.letter })}</h3>
 			{#each fs.groupOrder[g.letter] as id, i (id)}
 				{@const ao = fs.actualOrder(g.letter)}
 				{@const apos = ao ? ao.indexOf(id) + 1 : 0}
@@ -102,10 +93,10 @@
 					<span class="nm">{tname(id)}</span>
 					<span class="tag">
 						{#if state === 'ok'}<span class="ind ok"><Check size={15} /></span>
-						{:else if state === 'half'}<span class="apos half">finished {ord(apos)}</span><span class="ind half"><CircleCheck size={15} /></span>
-						{:else if state === 'miss'}<span class="apos">finished {ord(apos)}</span><span class="ind no"><X size={15} /></span>
-						{:else if i < 2}<span class="pill ok">advances</span>
-						{:else if i === 2}<span class="pill">3rd</span>{/if}
+						{:else if state === 'half'}<span class="apos half">{t('forecast.finished', { pos: ordinal(apos) })}</span><span class="ind half"><CircleCheck size={15} /></span>
+						{:else if state === 'miss'}<span class="apos">{t('forecast.finished', { pos: ordinal(apos) })}</span><span class="ind no"><X size={15} /></span>
+						{:else if i < 2}<span class="pill ok">{t('forecast.advances')}</span>
+						{:else if i === 2}<span class="pill">{t('forecast.third')}</span>{/if}
 					</span>
 				</div>
 			{/each}
@@ -129,20 +120,20 @@
 			{/if}
 		{/each}
 		{#if Object.keys(fs.thirds).length === 0}
-			<p class="muted small">No best-third picks.</p>
+			<p class="muted small">{t('forecastView.noBestThirdPicks')}</p>
 		{/if}
 	</section>
 {:else}
 	{#if champion}
 		<div class="card champ">
 			<Trophy size={20} />
-			<span class="lbl">Predicted champion</span>
+			<span class="lbl">{t('forecast.predictedChampion')}</span>
 			<Flag iso2={fs.team(champion)?.iso2 ?? ''} code={fs.team(champion)?.fifaCode ?? ''} size={26} />
 			<b>{tname(champion)}</b>
 		</div>
 	{/if}
 	{#each byStage as col (col.stage)}
-		<h3 class="rname">{stageName[col.stage]}</h3>
+		<h3 class="rname">{stageLabel(col.stage)}</h3>
 		{#each col.matches as m (koKey(m))}
 			{@const H = side(m, 'home')}
 			{@const A = side(m, 'away')}
@@ -158,7 +149,7 @@
 					{#if H.team}<Flag iso2={H.team.iso2} code={H.team.fifaCode} />{/if}
 					<span class="bn" class:ph={!H.id}>{H.name}</span>
 				</div>
-				<span class="vs">vs</span>
+				<span class="vs">{t('common.vs')}</span>
 				<div class="bteam right" class:win={w && w === A.id}>
 					<span class="bn" class:ph={!A.id}>{A.name}</span>
 					{#if A.team}<Flag iso2={A.team.iso2} code={A.team.fifaCode} />{/if}
