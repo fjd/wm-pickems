@@ -33,7 +33,10 @@ This bundles four related threads agreed in discussion:
 
 ---
 
-## Thread 1 — Structured Outputs
+## Thread 1 — Structured Outputs (✅ IMPLEMENTED)
+
+> **Done:** `complete()` now sends `OutputConfig.Format` with a per-call JSON schema; `completeJSON`+`extractJSON` replaced by `completeStructured` (direct unmarshal of the schema-guaranteed reply). Schemas built via `obj`/`arr`/`str`/`int` helpers (`groupsSchema`/`winnersSchema`/`tipsSchema`), all array-of-records with `additionalProperties:false`. Response structs + fold-back keep the `Predictor` return types unchanged (tips still `map[string]Scoreline` — distribution comes in Thread 2). Semantic validators (`repairOrder`/`chooseThirds`/clamps/draw-coercion) retained. `brain_test.go` now asserts schema validity recursively. Build/vet/tests green.
+
 
 ### 1.1 Schema redesign (maps → arrays of records)
 

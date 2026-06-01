@@ -34,10 +34,14 @@ func NewBrain(model, reference, results string, log *slog.Logger) *Brain {
 	}
 }
 
-// complete runs one streamed request with adaptive thinking and a cached system
-// prompt, returning the concatenated final text. Streaming avoids HTTP timeouts
-// on larger outputs and lets thinking run without a fixed budget.
-func (b *Brain) complete(ctx context.Context, label, task string) (string, error) {
+// complete runs one streamed request with adaptive thinking, a cached system
+// prompt, and a Structured Outputs JSON-schema constraint, returning the
+// concatenated final text. Streaming avoids HTTP timeouts on larger outputs and
+// lets thinking run without a fixed budget. The schema constrains the reply so
+// the text is guaranteed valid JSON matching it (no fences/preamble to strip).
+// The schema sits in OutputConfig (not the cached system prefix), so caching is
+// unaffected.
+func (b *Brain) complete(ctx context.Context, label, task string, schema map[string]any) (string, error) {
 	start := time.Now()
 	stream := b.client.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(b.model),
@@ -47,6 +51,9 @@ func (b *Brain) complete(ctx context.Context, label, task string) (string, error
 			Text:         b.system,
 			CacheControl: anthropic.NewCacheControlEphemeralParam(),
 		}},
+		OutputConfig: anthropic.OutputConfigParam{
+			Format: anthropic.JSONOutputFormatParam{Schema: schema},
+		},
 		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(anthropic.NewTextBlock(task)),
 		},
@@ -76,56 +83,65 @@ func (b *Brain) complete(ctx context.Context, label, task string) (string, error
 	return sb.String(), nil
 }
 
-// completeJSON runs complete() and unmarshals the response into out. The model
-// occasionally wraps the JSON in a ```fence``` or adds a sentence of preamble,
-// so we extract the first complete JSON object rather than trusting the whole
-// reply to be valid JSON.
-func (b *Brain) completeJSON(ctx context.Context, label, task string, out any) error {
-	raw, err := b.complete(ctx, label, task)
+// completeStructured runs complete() with a JSON-schema constraint and unmarshals
+// the (schema-guaranteed valid) reply into out.
+func (b *Brain) completeStructured(ctx context.Context, label, task string, schema map[string]any, out any) error {
+	raw, err := b.complete(ctx, label, task, schema)
 	if err != nil {
 		return err
 	}
-	js := extractJSON(raw)
-	if js == "" {
-		return fmt.Errorf("no JSON object in model reply: %.120q", strings.TrimSpace(raw))
+	if err := json.Unmarshal([]byte(raw), out); err != nil {
+		return fmt.Errorf("structured output for %s not valid JSON: %w; got %.200q", label, err, strings.TrimSpace(raw))
 	}
-	return json.Unmarshal([]byte(js), out)
+	return nil
 }
 
-// extractJSON returns the first balanced {...} object found in s, ignoring any
-// surrounding prose or code fences (string contents and escapes are respected
-// so braces inside strings don't throw off the depth count).
-func extractJSON(s string) string {
-	start := strings.IndexByte(s, '{')
-	if start < 0 {
-		return ""
+// ---- JSON schema helpers (Structured Outputs) ----
+//
+// Every object node must set additionalProperties:false, and dynamic-keyed maps
+// aren't expressible — hence the array-of-records response shapes below.
+
+func strSchema() map[string]any { return map[string]any{"type": "string"} }
+func intSchema() map[string]any { return map[string]any{"type": "integer"} }
+
+func arr(items map[string]any) map[string]any { return map[string]any{"type": "array", "items": items} }
+
+func obj(required []string, props map[string]any) map[string]any {
+	return map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             required,
+		"properties":           props,
 	}
-	depth, inStr, esc := 0, false, false
-	for i := start; i < len(s); i++ {
-		c := s[i]
-		if inStr {
-			switch {
-			case esc:
-				esc = false
-			case c == '\\':
-				esc = true
-			case c == '"':
-				inStr = false
-			}
-			continue
-		}
-		switch c {
-		case '"':
-			inStr = true
-		case '{':
-			depth++
-		case '}':
-			if depth--; depth == 0 {
-				return s[start : i+1]
-			}
-		}
-	}
-	return "" // unbalanced — treat as no object
+}
+
+func groupsSchema() map[string]any {
+	return obj([]string{"groups", "bestThirds"}, map[string]any{
+		"groups": arr(obj([]string{"letter", "teamIds"}, map[string]any{
+			"letter":  strSchema(),
+			"teamIds": arr(strSchema()),
+		})),
+		"bestThirds": arr(strSchema()),
+	})
+}
+
+func winnersSchema() map[string]any {
+	return obj([]string{"winners"}, map[string]any{
+		"winners": arr(obj([]string{"matchNum", "side"}, map[string]any{
+			"matchNum": intSchema(),
+			"side":     map[string]any{"type": "string", "enum": []string{"home", "away"}},
+		})),
+	})
+}
+
+func tipsSchema() map[string]any {
+	return obj([]string{"tips"}, map[string]any{
+		"tips": arr(obj([]string{"key", "home", "away"}, map[string]any{
+			"key":  strSchema(),
+			"home": intSchema(),
+			"away": intSchema(),
+		})),
+	})
 }
 
 // ---- forecast: group standings + best thirds ----
@@ -156,20 +172,24 @@ func (b *Brain) PredictGroups(ctx context.Context, groups []groupPick) (map[stri
 		}
 		sb.WriteString(strings.Join(parts, ", ") + "\n")
 	}
-	sb.WriteString(`
-Output ONLY the JSON object — begin your reply with { and end with }, no preamble, no explanation, no markdown:
-{"groups": {"A": ["id1","id2","id3","id4"], ... all 12 groups},
- "bestThirds": ["A","C", ... exactly 8 group letters]}
-Use the exact team ids given above, each group ordered best-to-worst.`)
+	sb.WriteString("\nFor every group return an object {letter, teamIds} with the four team ids ordered best-to-worst (1st→4th). " +
+		"Set bestThirds to exactly 8 group letters whose 3rd-placed team you expect to advance. Use the exact team ids given above.")
 
 	var resp struct {
-		Groups     map[string][]string `json:"groups"`
-		BestThirds []string            `json:"bestThirds"`
+		Groups []struct {
+			Letter  string   `json:"letter"`
+			TeamIDs []string `json:"teamIds"`
+		} `json:"groups"`
+		BestThirds []string `json:"bestThirds"`
 	}
-	if err := b.completeJSON(ctx, "groups", sb.String(), &resp); err != nil {
+	if err := b.completeStructured(ctx, "groups", sb.String(), groupsSchema(), &resp); err != nil {
 		return nil, nil, err
 	}
-	return resp.Groups, resp.BestThirds, nil
+	order := make(map[string][]string, len(resp.Groups))
+	for _, g := range resp.Groups {
+		order[g.Letter] = g.TeamIDs
+	}
+	return order, resp.BestThirds, nil
 }
 
 // ---- forecast/tips: pick a winner between two concrete teams ----
@@ -189,22 +209,26 @@ func (b *Brain) PredictWinners(ctx context.Context, stageLabel string, ms []matc
 		fmt.Fprintf(&sb, "Match %d: home=%s (id=%s) vs away=%s (id=%s)\n",
 			m.Num, m.Home.Name, m.Home.ID, m.Away.Name, m.Away.ID)
 	}
-	sb.WriteString(`
-Output ONLY the JSON object — begin your reply with { and end with }, no preamble, no explanation, no markdown:
-{"winners": {"73": "home", "74": "away", ...}}`)
+	sb.WriteString("\nFor each match return {matchNum, side} where side is \"home\" or \"away\" — the team you expect to advance.")
 
 	var resp struct {
-		Winners map[string]string `json:"winners"`
+		Winners []struct {
+			MatchNum int    `json:"matchNum"`
+			Side     string `json:"side"`
+		} `json:"winners"`
 	}
-	if err := b.completeJSON(ctx, "winners", sb.String(), &resp); err != nil {
+	if err := b.completeStructured(ctx, "winners", sb.String(), winnersSchema(), &resp); err != nil {
 		return nil, err
+	}
+	side := make(map[int]string, len(resp.Winners))
+	for _, w := range resp.Winners {
+		side[w.MatchNum] = strings.ToLower(strings.TrimSpace(w.Side))
 	}
 	out := map[int]string{}
 	for _, m := range ms {
-		switch strings.ToLower(strings.TrimSpace(resp.Winners[fmt.Sprintf("%d", m.Num)])) {
-		case "away":
+		if side[m.Num] == "away" {
 			out[m.Num] = m.Away.ID
-		default: // default to home if missing/garbled
+		} else { // default to home if missing/garbled
 			out[m.Num] = m.Home.ID
 		}
 	}
@@ -246,23 +270,29 @@ func (b *Brain) PredictTips(ctx context.Context, targets []tipTarget) (map[strin
 		}
 		fmt.Fprintf(&sb, "key=%s [%s] %s vs %s (kickoff %s)\n", t.MatchID, kind, t.Home, t.Away, t.Kickoff)
 	}
-	sb.WriteString(`
-Output ONLY the JSON object — begin your reply with { and end with }, no preamble, no explanation, no markdown:
-{"tips": {"<key>": [2, 1], ...}}`)
+	sb.WriteString("\nFor each match return {key, home, away} — the key given above and your predicted home/away goals.")
 
 	var resp struct {
-		Tips map[string][]int `json:"tips"`
+		Tips []struct {
+			Key  string `json:"key"`
+			Home int    `json:"home"`
+			Away int    `json:"away"`
+		} `json:"tips"`
 	}
-	if err := b.completeJSON(ctx, "tips", sb.String(), &resp); err != nil {
+	if err := b.completeStructured(ctx, "tips", sb.String(), tipsSchema(), &resp); err != nil {
 		return nil, err
+	}
+	byKey := make(map[string]Scoreline, len(resp.Tips))
+	for _, v := range resp.Tips {
+		byKey[v.Key] = Scoreline{Home: v.Home, Away: v.Away}
 	}
 	out := map[string]Scoreline{}
 	for _, t := range targets {
-		v := resp.Tips[t.MatchID]
-		if len(v) != 2 {
+		s, ok := byKey[t.MatchID]
+		if !ok {
 			continue
 		}
-		h, a := v[0], v[1]
+		h, a := s.Home, s.Away
 		if h < 0 {
 			h = 0
 		}

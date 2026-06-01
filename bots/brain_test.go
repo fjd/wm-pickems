@@ -5,30 +5,39 @@ import (
 	"testing"
 )
 
-func TestExtractJSON(t *testing.T) {
-	cases := []struct {
-		name, in, want string
-	}{
-		{"plain", `{"a":1}`, `{"a":1}`},
-		{"preamble", `Looking at the form, here is my answer: {"a":1}`, `{"a":1}`},
-		{"trailing prose", `{"a":1} — hope that helps!`, `{"a":1}`},
-		{"code fence", "```json\n{\"a\":1}\n```", `{"a":1}`},
-		{"brace in string", `note {"name":"A}B","x":2} end`, `{"name":"A}B","x":2}`},
-		{"nested", `pre {"o":{"b":1},"c":2} post`, `{"o":{"b":1},"c":2}`},
-		{"none", `no json here`, ``},
+// Structured Outputs requires additionalProperties:false on every object node
+// and rejects dynamic-keyed maps. These guard against schema typos that the API
+// would otherwise reject at call time.
+func TestSchemasValid(t *testing.T) {
+	for name, s := range map[string]map[string]any{
+		"groups":  groupsSchema(),
+		"winners": winnersSchema(),
+		"tips":    tipsSchema(),
+	} {
+		if _, err := json.Marshal(s); err != nil {
+			t.Fatalf("%s schema not serializable: %v", name, err)
+		}
+		assertClosedObjects(t, name, s)
 	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			got := extractJSON(c.in)
-			if got != c.want {
-				t.Fatalf("extractJSON(%q) = %q, want %q", c.in, got, c.want)
+}
+
+// assertClosedObjects recursively checks every object node sets
+// additionalProperties:false.
+func assertClosedObjects(t *testing.T, path string, node map[string]any) {
+	switch node["type"] {
+	case "object":
+		if v, ok := node["additionalProperties"].(bool); !ok || v {
+			t.Fatalf("%s: object missing additionalProperties:false", path)
+		}
+		props, _ := node["properties"].(map[string]any)
+		for k, p := range props {
+			if pm, ok := p.(map[string]any); ok {
+				assertClosedObjects(t, path+"."+k, pm)
 			}
-			if got != "" { // result must be valid JSON
-				var v any
-				if err := json.Unmarshal([]byte(got), &v); err != nil {
-					t.Fatalf("extracted %q is not valid JSON: %v", got, err)
-				}
-			}
-		})
+		}
+	case "array":
+		if items, ok := node["items"].(map[string]any); ok {
+			assertClosedObjects(t, path+"[]", items)
+		}
 	}
 }
