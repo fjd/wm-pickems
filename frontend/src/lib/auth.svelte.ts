@@ -11,9 +11,24 @@ class Auth {
 		role: string; // "admin" | "bot"; empty => normal member
 	} | null>(null);
 
+	// Whether Google OAuth is available on this server (fetched once on init).
+	googleAvailable = $state(false);
+
 	constructor() {
 		this.sync();
 		pb.authStore.onChange(() => this.sync());
+		this.checkGoogle();
+	}
+
+	private async checkGoogle() {
+		try {
+			const methods = await pb.collection('users').listAuthMethods();
+			this.googleAvailable = methods.oauth2.providers.some(
+				(p) => p.name === 'google'
+			);
+		} catch {
+			this.googleAvailable = false;
+		}
 	}
 
 	private sync() {
