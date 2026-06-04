@@ -571,6 +571,13 @@
 		display: grid;
 		gap: 0.85rem;
 	}
+	/* These layouts are grids spaced by `gap`; cancel the global stacked-card
+	   `.card + .card` top margin so grid cells stay equal height and aligned. */
+	.grid3 > .card + .card,
+	.grid2 > .card + .card,
+	.pts-grid > .card + .card {
+		margin-top: 0;
+	}
 	@media (min-width: 720px) {
 		.grid3 {
 			grid-template-columns: repeat(3, 1fr);
