@@ -357,6 +357,25 @@ h3 {
 	z-index: 50;
 }
 
+/* Help (?) icon button — mobile topbar, left of the install button. */
+.topbar-help {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 34px;
+	height: 34px;
+	border-radius: var(--radius-sm);
+	color: var(--muted);
+	flex: none;
+	transition:
+		color 0.15s ease,
+		background 0.15s ease;
+}
+.topbar-help:hover {
+	color: var(--accent);
+	background: var(--surface-2);
+}
+
 /* ---- Mobile bottom tab bar ---- */
 .tabbar {
 	position: fixed;
@@ -392,6 +411,24 @@ h3 {
 	}
 	.rail-logo {
 		padding: 0 1.5rem 0.8rem;
+	}
+	/* Help (?) link — sits just above the user area (above its divider line). */
+	.rail-help {
+		display: flex;
+		align-items: center;
+		gap: 0.85rem;
+		padding: 0.7rem 1.5rem;
+		color: var(--muted);
+		transition: color 0.15s ease;
+	}
+	.rail-help span {
+		font-size: 0.82rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+	.rail-help:hover {
+		color: var(--accent);
 	}
 	.rail-user {
 		padding: 0.9rem 1.5rem 0;
