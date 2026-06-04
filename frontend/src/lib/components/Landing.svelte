@@ -277,7 +277,7 @@
 	}
 	.wm-note {
 		position: absolute;
-		left: calc(100% + 1.3rem);
+		left: calc(100% + 6.2rem);
 		top: -0.7rem;
 		width: 11.5rem;
 		pointer-events: none;
@@ -317,17 +317,17 @@
 		}
 		.wm-note {
 			left: auto;
-			right: 0.2rem;
-			top: 7rem;
+			right: -1.6rem;
+			top: 2rem;
 			width: 9.5rem;
-			font-size: 1.2rem;
-			transform: rotate(-3deg);
+			font-size: 0.8rem;
+			transform: rotate(2deg);
 		}
 		.wm-arrow {
-			left: -2.6rem;
-			top: -1.7rem;
-			width: 4.2rem;
-			transform: scaleY(-1) rotate(-6deg);
+			left: 1.9rem;
+			top: 0.1rem;
+			width: 2.6rem;
+			transform: rotate(341deg);
 		}
 	}
 	.flags {
