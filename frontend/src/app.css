@@ -85,6 +85,10 @@ h3 {
 	max-width: var(--maxw);
 	margin: 0 auto;
 	padding: 1rem;
+	/* Contain decorative off-edge elements (e.g. the landing's WM note) so they
+	   can't trigger sideways page scroll. `clip` keeps overflow-y visible, so it
+	   establishes no scroll container and sticky headers keep working. */
+	overflow-x: clip;
 }
 .app-shell.with-chrome {
 	padding-top: calc(var(--topbar-h) + 1.25rem);
