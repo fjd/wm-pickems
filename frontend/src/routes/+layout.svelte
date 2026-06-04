@@ -74,7 +74,7 @@
 		<div class="spacer"></div>
 		<a class="rail-help" href="/welcome">
 			<CircleHelp size={20} />
-			<span>What is this?</span>
+			<span>How does it work?</span>
 		</a>
 		<div class="rail-user"><UserMenu align="left" up showName /></div>
 	</aside>
