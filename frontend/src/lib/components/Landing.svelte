@@ -54,6 +54,12 @@
 	const ticker = ['Free', 'No ads', 'Open source'];
 	const tickerRun = Array.from({ length: 5 }, () => ticker).flat();
 
+	// Forecast group-stage scoring.
+	const groups = [
+		{ r: 'Position', p: '1' },
+		{ r: 'Advancer', p: '+1' },
+		{ r: 'Perfect', p: '+2' }
+	];
 	// Forecast knockout-reach escalation.
 	const reach = [
 		{ r: 'R32', p: '1' },
@@ -200,8 +206,8 @@
 	<section class="block">
 		<p class="kicker">How points work</p>
 		<h2>Six points a game. <span class="grad">Max.</span></h2>
-		<div class="grid2">
-			<div class="card score">
+		<div class="pts-grid">
+			<div class="card score tips">
 				<div class="score-head">
 					<span class="pill">Per match</span>
 					<span class="max digits">6<small>max</small></span>
@@ -213,6 +219,24 @@
 				</ul>
 				<p class="muted fine">
 					<Target size={13} /> Knockout score points use the after-extra-time result.
+				</p>
+			</div>
+			<div class="card score">
+				<div class="score-head">
+					<span class="pill ok">Forecast groups</span>
+					<span class="muted fine">each correct call</span>
+				</div>
+				<div class="reach">
+					{#each groups as g (g.r)}
+						<div class="rstep">
+							<span class="rp digits">{g.p}</span>
+							<span class="rr">{g.r}</span>
+						</div>
+					{/each}
+				</div>
+				<p class="muted fine">
+					<Sparkles size={13} /> Each team in its right slot, plus every predicted
+					advancer — a whole group nailed earns the bonus.
 				</p>
 			</div>
 			<div class="card score">
@@ -229,8 +253,7 @@
 					{/each}
 				</div>
 				<p class="muted fine">
-					<Sparkles size={13} /> Plus points for every correct group position and
-					advancer — a perfect group earns a bonus.
+					<Trophy size={13} /> Climbs each round a predicted team keeps surviving.
 				</p>
 			</div>
 		</div>
@@ -651,6 +674,21 @@
 	}
 
 	/* ---------- POINTS ---------- */
+	/* Tips (per-match) fills the left column; the two Forecast cards — groups +
+	   knockout reach, equally weighted — stack on the right. */
+	.pts-grid {
+		display: grid;
+		gap: 0.85rem;
+	}
+	@media (min-width: 720px) {
+		.pts-grid {
+			grid-template-columns: 1fr 1fr;
+			align-items: stretch;
+		}
+		.pts-grid .tips {
+			grid-row: span 2;
+		}
+	}
 	.score {
 		display: flex;
 		flex-direction: column;
@@ -704,14 +742,14 @@
 		margin: 0.9rem 0 0;
 	}
 	.reach {
-		display: grid;
-		grid-template-columns: repeat(6, 1fr);
+		display: flex;
 		gap: 0.3rem;
 		text-align: center;
 		flex: 1;
-		align-content: center;
+		align-items: center;
 	}
 	.rstep {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
