@@ -316,6 +316,7 @@
 		text-align: left;
 		padding: 0.85rem 1rem;
 		display: block;
+		cursor: pointer;
 	}
 	.teams {
 		display: grid;
