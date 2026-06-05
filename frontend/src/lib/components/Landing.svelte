@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Confetti } from 'svelte-confetti';
 	import { auth } from '$lib/auth.svelte';
 	import {
 		Telescope,
@@ -12,7 +13,11 @@
 		Lock,
 		Target,
 		Check,
-		Sparkles
+		Sparkles,
+		ChevronUp,
+		ChevronDown,
+		Minus,
+		Plus
 	} from '@lucide/svelte';
 
 	// The landing is only mounted for signed-out visitors, but keep the primary
@@ -69,6 +74,73 @@
 		{ r: 'Final', p: '8' },
 		{ r: 'Champ', p: '13' }
 	];
+
+	// ---- Live in-app demos (mirror the real forecast/tips UI) -------------
+	// Forecast group orderer — reorder with the chevrons; top two advance, 3rd
+	// goes to the best-third pool. Flags for non-qualifiers live in /flags/more.
+	let groupOrder = $state([
+		{ name: 'Austria', flag: '/flags/at.svg', code: 'AUT' },
+		{ name: 'Rwanda', flag: '/flags/more/rw.svg', code: 'RWA' },
+		{ name: 'Bolivia', flag: '/flags/more/bo.svg', code: 'BOL' },
+		{ name: 'Italy', flag: '/flags/more/it.svg', code: 'ITA' }
+	]);
+	function moveTeam(i: number, dir: number) {
+		const j = i + dir;
+		if (j < 0 || j >= groupOrder.length) return;
+		const next = [...groupOrder];
+		[next[i], next[j]] = [next[j], next[i]];
+		groupOrder = next;
+	}
+
+	// Knockout matchup — the group's top two carry over; click one to send it
+	// through. Tracked by slot so it stays valid as the group reorders.
+	let koPick = $state('first');
+
+	// Match tip — the steppers stage an edit; the header scoreline only updates
+	// once you hit Save, mirroring the real editor.
+	let tipH = $state(1);
+	let tipA = $state(0);
+	let savedH = $state(1);
+	let savedA = $state(0);
+	let savedFlash = $state(false);
+	// Easter-egg confetti. Each qualifying save appends a burst anchored to the
+	// Save button's on-screen centre — a fixed layer, so it escapes the cards'
+	// overflow clip. Bursts stack rather than cancelling each other; a single
+	// idle timeout (reset on every save) tears the whole layer down afterwards.
+	const BURST_MS = 2000; // ≈ piece duration; layer is torn down this long after the last save
+	const MAX_BURSTS = 2; // cap concurrent bursts so spamming Save can't tank the framerate
+	let saveBtn: HTMLButtonElement;
+	let bursts: { id: number; x: number; y: number }[] = $state([]);
+	let burstSeq = 0;
+	let clearBursts: ReturnType<typeof setTimeout>;
+	function bumpTip(side: 'h' | 'a', d: number) {
+		if (side === 'h') tipH = Math.max(0, Math.min(99, tipH + d));
+		else tipA = Math.max(0, Math.min(99, tipA + d));
+	}
+	function saveTip(e?: MouseEvent) {
+		savedH = tipH;
+		savedA = tipA;
+		savedFlash = true;
+		setTimeout(() => (savedFlash = false), 1400);
+		// Easter egg: Brazil 1 : Germany 7 — the 2014 semi-final. 🇧🇷🇩🇪
+		if (tipH === 1 && tipA === 7) {
+			// Burst from the actual click point (the .party layer is fixed, so use
+			// viewport coords). Keyboard-activated clicks report 0,0 — fall back to
+			// the button's centre then.
+			let x: number, y: number;
+			if (e && (e.clientX || e.clientY)) {
+				x = e.clientX;
+				y = e.clientY;
+			} else {
+				const r = saveBtn?.getBoundingClientRect();
+				x = r ? r.left + r.width / 2 : 0;
+				y = r ? r.top + r.height / 2 : 0;
+			}
+			bursts = [...bursts, { id: burstSeq++, x, y }].slice(-MAX_BURSTS);
+			clearTimeout(clearBursts);
+			clearBursts = setTimeout(() => (bursts = []), BURST_MS + 400);
+		}
+	}
 </script>
 
 <div class="land stagger">
@@ -152,26 +224,134 @@
 	<section class="block">
 		<p class="kicker">Two ways to play</p>
 		<h2>One big call. <span class="grad">104 small ones.</span></h2>
-		<div class="grid2">
-			<div class="card mode">
-				<span class="ic"><Telescope size={22} /></span>
-				<h3>Forecast</h3>
-				<p class="muted">
-					One pre-tournament prediction: full group standings 1–4, the eight
-					best-third qualifiers and the entire knockout bracket. Locks at the
-					opening kickoff — then scores tick in stage by stage.
-				</p>
-				<span class="pill ok"><Lock size={13} /> Locks at first kickoff</span>
+		<div class="modes">
+			<!-- Forecast: copy + live group/knockout pickers -->
+			<div class="mode-row card">
+				<div class="mode-copy">
+					<span class="ic"><Telescope size={22} /></span>
+					<h3>Forecast</h3>
+					<p class="muted">
+						One pre-tournament prediction: full group standings 1–4, the eight
+						best-third qualifiers and the entire knockout bracket. Locks at the
+						opening kickoff — then scores tick in stage by stage.
+					</p>
+					<span class="pill ok"><Lock size={13} /> Locks at first kickoff</span>
+				</div>
+				<div class="mode-demo">
+					<div class="gdemo card">
+						<p class="glabel">Groups</p>
+						{#each groupOrder as t, i (t.name)}
+							<div class="grow">
+								<span class="gpos digits">{i + 1}</span>
+								<img class="gflag" src={t.flag} alt={t.code} />
+								<span class="gnm">{t.name}</span>
+								<span class="gtag">
+									{#if i < 2}<span class="pill ok">advances</span>
+									{:else if i === 2}<span class="pill">3rd</span>{/if}
+								</span>
+								<span class="gord">
+									<button
+										aria-label="move {t.name} up"
+										disabled={i === 0}
+										onclick={() => moveTeam(i, -1)}><ChevronUp size={16} /></button
+									>
+									<button
+										aria-label="move {t.name} down"
+										disabled={i === 3}
+										onclick={() => moveTeam(i, 1)}><ChevronDown size={16} /></button
+									>
+								</span>
+							</div>
+						{/each}
+					</div>
+					<div class="kdemo card">
+						<p class="glabel">Knockout</p>
+						<div class="kmatch">
+							<button
+								class="kteam"
+								class:win={koPick === 'first'}
+								onclick={() => (koPick = 'first')}
+							>
+								<img class="gflag" src={groupOrder[0].flag} alt={groupOrder[0].code} />
+								<span class="kn">{groupOrder[0].name}</span>
+							</button>
+							<span class="kvs">vs</span>
+							<button
+								class="kteam"
+								class:win={koPick === 'second'}
+								onclick={() => (koPick = 'second')}
+							>
+								<img class="gflag" src={groupOrder[1].flag} alt={groupOrder[1].code} />
+								<span class="kn">{groupOrder[1].name}</span>
+							</button>
+						</div>
+					</div>
+				</div>
 			</div>
-			<div class="card mode">
-				<span class="ic alt"><Volleyball size={22} /></span>
-				<h3>Tips</h3>
-				<p class="muted">
-					Predict the score of every match, editable right up to kickoff.
-					Knockouts go deeper — 90′, extra time, then penalties. Once a game
-					starts your tip locks and you can see what everyone else picked.
-				</p>
-				<span class="pill"><Check size={13} /> Editable until kickoff</span>
+
+			<!-- Tips: copy + live score tip -->
+			<div class="mode-row reverse card">
+				<div class="mode-copy">
+					<span class="ic alt"><Volleyball size={22} /></span>
+					<h3>Tips</h3>
+					<p class="muted">
+						Predict the score of every match, editable right up to kickoff.
+						Knockouts go deeper — 90′, extra time, then penalties. Once a game
+						starts your tip locks and you can see what everyone else picked.
+					</p>
+					<span class="pill"><Check size={13} /> Editable until kickoff</span>
+				</div>
+				<div class="mode-demo">
+					<div class="tdemo card">
+						<div class="thead">
+							<div class="tteams">
+								<span class="tt">
+									<img class="gflag" src="/flags/br.svg" alt="BRA" />
+									<span class="ttn">Brazil</span>
+								</span>
+								<span class="tsc digits"
+									><span class="pred">{savedH}<span class="cln">:</span>{savedA}</span></span
+								>
+								<span class="tt right">
+									<span class="ttn">Germany</span>
+									<img class="gflag" src="/flags/de.svg" alt="GER" />
+								</span>
+							</div>
+							<div class="tmeta">
+								<span class="muted">Group F · Matchday 1 · Sat, Jun 13, 6:00 PM</span>
+								<span class="tspacer"></span>
+								<span class="pill ok"><Check size={12} /> tipped</span>
+								<ChevronUp size={16} class="tcv" />
+							</div>
+						</div>
+						<div class="tbody">
+							<div class="tenter">
+								<span class="tstep">
+									<button aria-label="Brazil minus" onclick={() => bumpTip('h', -1)}
+										><Minus size={16} /></button
+									>
+									<span class="tval digits">{tipH}</span>
+									<button aria-label="Brazil plus" onclick={() => bumpTip('h', 1)}
+										><Plus size={16} /></button
+									>
+								</span>
+								<span class="tsep">:</span>
+								<span class="tstep">
+									<button aria-label="Germany minus" onclick={() => bumpTip('a', -1)}
+										><Minus size={16} /></button
+									>
+									<span class="tval digits">{tipA}</span>
+									<button aria-label="Germany plus" onclick={() => bumpTip('a', 1)}
+										><Plus size={16} /></button
+									>
+								</span>
+							</div>
+							<button class="btn tsave" bind:this={saveBtn} onclick={saveTip}>
+								{#if savedFlash}<Check size={16} /> Saved{:else}Save tip{/if}
+							</button>
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
 	</section>
@@ -276,6 +456,31 @@
 		</p>
 	</section>
 </div>
+
+<!-- Easter egg: saving Brazil 1 : Germany 7 pops confetti + trophies from the button. -->
+{#each bursts as b (b.id)}
+	<div class="party" aria-hidden="true" style="left:{b.x}px; top:{b.y}px;">
+		<Confetti
+			x={[-0.75, 0.75]}
+			y={[-0.5, 0.5]}
+			fallDistance="20px"
+			amount={150}
+			duration={2000}
+			colorArray={['var(--accent)', 'var(--accent-2)', '#ffcf3a', '#ff5a36', '#ffffff']}
+			destroyOnComplete
+		/>
+		<Confetti
+			x={[-1.5, 1.5]}
+			y={[0.3, 1.2]}
+			fallDistance="20px"
+			amount={20}
+			size={32}
+			duration={2000}
+			colorArray={['url(/assets/wc_trophy.svg) center / contain no-repeat']}
+			destroyOnComplete
+		/>
+	</div>
+{/each}
 
 <style>
 	@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap');
@@ -566,24 +771,19 @@
 	.block h2 {
 		margin: 0.35rem 0 1.2rem;
 	}
-	.grid3,
-	.grid2 {
+	.grid3 {
 		display: grid;
 		gap: 0.85rem;
 	}
 	/* These layouts are grids spaced by `gap`; cancel the global stacked-card
 	   `.card + .card` top margin so grid cells stay equal height and aligned. */
 	.grid3 > .card + .card,
-	.grid2 > .card + .card,
 	.pts-grid > .card + .card {
 		margin-top: 0;
 	}
 	@media (min-width: 720px) {
 		.grid3 {
 			grid-template-columns: repeat(3, 1fr);
-		}
-		.grid2 {
-			grid-template-columns: repeat(2, 1fr);
 		}
 	}
 
@@ -614,26 +814,279 @@
 	.why h3 {
 		margin-bottom: 0.3rem;
 	}
-	.mode h3 {
-		margin-bottom: 0.4rem;
-	}
-	.why p,
-	.mode p {
+	.why p {
 		font-size: 0.92rem;
 		line-height: 1.5;
 		margin: 0;
 	}
-	.mode {
+
+	/* ---------- TWO MODES ---------- */
+	/* Each mode is a copy column beside a live demo of the real picker UI.
+	   On desktop the Tips row flips so the demos zig-zag down the page. */
+	.modes {
 		display: flex;
 		flex-direction: column;
+		gap: 0.85rem;
 	}
-	.mode .pill {
+	/* Rows are spaced by the flex `gap`; cancel the global stacked-card margin. */
+	.modes > .card + .card {
+		margin-top: 0;
+	}
+	.mode-row {
+		display: grid;
+		gap: 1.25rem;
+	}
+	@media (min-width: 760px) {
+		.mode-row {
+			grid-template-columns: 1fr 1fr;
+			gap: 2rem;
+			align-items: center;
+		}
+		.mode-row.reverse .mode-copy {
+			order: 2;
+		}
+	}
+	.mode-copy {
+		display: flex;
+		flex-direction: column;
+		/* sit at the top of the row rather than centering against a taller demo */
+		align-self: start;
+	}
+	.mode-copy h3 {
+		margin-bottom: 0.4rem;
+	}
+	.mode-copy p {
+		font-size: 0.92rem;
+		line-height: 1.5;
+		margin: 0;
+	}
+	.mode-copy .pill {
 		align-self: flex-start;
 		margin-top: 0.9rem;
 	}
-	.mode .pill.ok {
+	.mode-copy .pill.ok {
 		color: var(--accent);
 		border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+	}
+
+	/* ---------- LIVE DEMOS ---------- */
+	.mode-demo {
+		display: flex;
+		flex-direction: column;
+		gap: 0.7rem;
+	}
+	/* Demos are cards nested inside the mode card — tighter radius so the
+	   nesting reads as intentional, not card-on-card. */
+	.mode-demo .card {
+		margin-top: 0;
+		border-radius: var(--radius-sm);
+	}
+	/* shared flag chip — mirrors Flag.svelte */
+	.gflag {
+		width: 22px;
+		height: 16px;
+		flex: none;
+		object-fit: cover;
+		border-radius: 3px;
+		border: 1px solid var(--border);
+	}
+
+	/* group orderer (.trow in the real forecast page) */
+	.gdemo {
+		padding: 0.85rem 1rem;
+	}
+	.glabel {
+		margin: 0 0 0.3rem;
+		font-weight: 800;
+		font-size: 1.05rem;
+	}
+	.grow {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.45rem 0;
+	}
+	.grow + .grow {
+		border-top: 1px solid var(--border);
+	}
+	.gpos {
+		width: 1.2rem;
+		text-align: center;
+		font-weight: 800;
+		color: var(--muted);
+	}
+	.gnm {
+		flex: 1;
+		font-weight: 600;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.gtag {
+		display: flex;
+		align-items: center;
+	}
+	.gtag .pill.ok {
+		color: var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+	}
+	.gord {
+		display: flex;
+		gap: 2px;
+	}
+	.gord button {
+		display: grid;
+		place-items: center;
+		width: 30px;
+		height: 26px;
+		background: var(--surface-2);
+		border: 1px solid var(--border);
+		color: var(--accent);
+		border-radius: 7px;
+	}
+	.gord button:disabled {
+		color: var(--muted);
+		opacity: 0.5;
+	}
+
+	/* knockout matchup (.bm in the real forecast page) */
+	.kdemo {
+		padding: 0.85rem 1rem;
+	}
+	.kmatch {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.kteam {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-width: 0;
+		padding: 0.55rem 0.6rem;
+		background: var(--surface-2);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		color: var(--text);
+	}
+	.kteam.win {
+		background: var(--accent);
+		border-color: var(--accent);
+		color: var(--accent-fg);
+	}
+	.kteam.win .gflag {
+		border-color: color-mix(in srgb, var(--accent-fg) 30%, transparent);
+	}
+	.kn {
+		font-weight: 600;
+		font-size: 0.9rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.kvs {
+		color: var(--muted);
+		font-size: 0.8rem;
+	}
+
+	/* match tip card (TipCard.svelte, expanded) */
+	.tdemo {
+		padding: 0;
+		overflow: hidden;
+	}
+	.thead {
+		padding: 0.85rem 1rem;
+	}
+	.tteams {
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.tt {
+		display: flex;
+		align-items: center;
+		gap: 0.45rem;
+		min-width: 0;
+	}
+	.tt.right {
+		justify-content: flex-end;
+	}
+	.ttn {
+		font-weight: 600;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.tsc {
+		padding: 0 0.4rem;
+	}
+	.tsc .pred {
+		color: var(--muted);
+		font-size: 0.95rem;
+		font-weight: 700;
+	}
+	.cln {
+		opacity: 0.6;
+	}
+	.tmeta {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-top: 0.5rem;
+		font-size: 0.8rem;
+	}
+	.tspacer {
+		flex: 1;
+	}
+	.tmeta .pill.ok {
+		color: var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+	}
+	:global(.tdemo .tcv) {
+		color: var(--muted);
+		flex: none;
+	}
+	.tbody {
+		padding: 0.25rem 1rem 1rem;
+		border-top: 1px solid var(--border);
+	}
+	.tenter {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.6rem;
+		margin: 0.8rem 0;
+	}
+	.tstep {
+		display: inline-flex;
+		align-items: center;
+		background: var(--bg);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-pill);
+	}
+	.tstep button {
+		display: grid;
+		place-items: center;
+		width: 34px;
+		height: 34px;
+		background: none;
+		border: none;
+		color: var(--accent);
+	}
+	.tval {
+		min-width: 1.6rem;
+		text-align: center;
+		font-weight: 800;
+		font-size: 1.05rem;
+	}
+	.tsep {
+		font-weight: 800;
+		opacity: 0.5;
+	}
+	.tsave {
+		width: 100%;
 	}
 
 	/* ---------- LEAGUES ---------- */
@@ -798,5 +1251,15 @@
 		text-align: center;
 		font-size: 0.8rem;
 		margin: 1.25rem 0 0;
+	}
+
+	/* ---------- EASTER EGG ---------- */
+	/* Burst anchored to the Save button's centre (left/top set inline); a fixed
+	   sibling layer so it escapes the cards' overflow clipping. */
+	.party {
+		position: fixed;
+		z-index: 100;
+		transform: translate(-50%, -50%);
+		pointer-events: none;
 	}
 </style>

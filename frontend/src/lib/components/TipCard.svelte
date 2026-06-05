@@ -254,21 +254,17 @@
 			{:else}
 				<!-- Editable -->
 				<div class="enter">
-					<span class="el">{H.name}</span>
 					<Stepper bind:value={ftH} />
 					<span class="sep">:</span>
 					<Stepper bind:value={ftA} />
-					<span class="el right">{A.name}</span>
 				</div>
 
 				{#if ftTie}
 					<div class="phase">After extra time</div>
 					<div class="enter">
-						<span class="el">{H.name}</span>
 						<Stepper bind:value={etH} min={ftH} />
 						<span class="sep">:</span>
 						<Stepper bind:value={etA} min={ftA} />
-						<span class="el right">{A.name}</span>
 					</div>
 				{/if}
 
@@ -376,14 +372,6 @@
 		justify-content: center;
 		gap: 0.6rem;
 		margin: 0.8rem 0;
-	}
-	.el {
-		flex: 1;
-		font-weight: 600;
-		font-size: 0.9rem;
-	}
-	.el.right {
-		text-align: right;
 	}
 	.sep {
 		font-weight: 800;
