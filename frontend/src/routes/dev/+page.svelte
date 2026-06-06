@@ -72,6 +72,31 @@
 		}
 	}
 
+	const sampleEvents = [
+		{ key: 'tips_reminder', label: '⚽ Tip reminder' },
+		{ key: 'results_recap', label: '🏆 Results recap' },
+		{ key: 'stage_starting', label: '🏟 Stage starting' },
+		{ key: 'forecast_reminder', label: '⏰ Forecast deadline' }
+	];
+
+	async function sendSample(event: string) {
+		busy = true;
+		msg = '';
+		try {
+			const r = await pb.send<{ sent: number; total: number }>(
+				'/api/dev/push/sample',
+				{ method: 'POST', body: { event } }
+			);
+			msg = `Sent to ${r.sent}/${r.total} device(s) — watch for the notification.`;
+		} catch (e: unknown) {
+			msg =
+				(e as { message?: string })?.message ??
+				'Failed — is push enabled on this device?';
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function reset() {
 		busy = true;
 		msg = '';
@@ -166,6 +191,22 @@
 		<button class="btn" disabled={busy} onclick={genBots}>
 			Generate {botCount} bot{botCount === 1 ? '' : 's'}
 		</button>
+	</section>
+
+	<section class="card">
+		<h3>Test push notifications</h3>
+		<p class="muted small">
+			Send a sample of each notification to this device (needs push enabled in
+			Settings). Use it to preview the icon, headline and copy on real
+			hardware.
+		</p>
+		<div class="presets">
+			{#each sampleEvents as s (s.key)}
+				<button class="chip" disabled={busy} onclick={() => sendSample(s.key)}
+					>{s.label}</button
+				>
+			{/each}
+		</div>
 	</section>
 
 	<section class="card">

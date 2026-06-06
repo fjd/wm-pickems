@@ -1,6 +1,7 @@
 package notify
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -92,6 +93,30 @@ func TestToPath(t *testing.T) {
 			t.Errorf("toPath(%q) = %q, want %q", in, got, want)
 		}
 	}
+}
+
+func TestRenderPushTipsCompact(t *testing.T) {
+	// A single untipped match should produce the short "CODE vs CODE" title and
+	// a status-first body (so the collapsed notification reads well).
+	data := tplData{
+		Count: 1,
+		Matches: []matchLine{{
+			Home: "Mexico", Away: "South Africa",
+			HomeCode: "MEX", AwayCode: "RSA",
+			WhenText: "Thu, Jun 11 · 19:00 UTC",
+		}},
+	}
+	title, body, err := renderPush("tips_reminder", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if title != "MEX vs RSA" {
+		t.Fatalf("title = %q, want %q", title, "MEX vs RSA")
+	}
+	if !strings.HasPrefix(body, "Not yet tipped") {
+		t.Fatalf("body = %q, want it to lead with %q", body, "Not yet tipped")
+	}
+	t.Logf("compact tips → title=%q body=%q", title, body)
 }
 
 func TestRenderPushAllEvents(t *testing.T) {

@@ -127,10 +127,11 @@ func (r *Runner) detectTipsReminder(ctx context.Context, res *Result, now time.T
 		return err
 	}
 	names := r.teamNames()
+	codes := r.teamCodes()
 
 	for _, u := range recipients {
-		r.tipsEmail(ctx, res, ncol, u, upcoming, names, base)
-		r.tipsPush(ctx, res, ncol, u, upcoming, names, base)
+		r.tipsEmail(ctx, res, ncol, u, upcoming, names, codes, base)
+		r.tipsPush(ctx, res, ncol, u, upcoming, names, codes, base)
 	}
 	return nil
 }
@@ -157,12 +158,14 @@ func (r *Runner) missingTips(u *core.Record, upcoming []*core.Record, channel st
 }
 
 // tipsData builds the digest template data for a set of untipped matches.
-func (r *Runner) tipsData(missing []*core.Record, names map[string]string, base baseInfo) tplData {
+func (r *Runner) tipsData(missing []*core.Record, names, codes map[string]string, base baseInfo) tplData {
 	lines := make([]matchLine, 0, len(missing))
 	for _, m := range missing {
 		lines = append(lines, matchLine{
 			Home:     r.teamLabel(m, "homeTeam", "homeLabel", names),
 			Away:     r.teamLabel(m, "awayTeam", "awayLabel", names),
+			HomeCode: r.teamLabel(m, "homeTeam", "homeLabel", codes),
+			AwayCode: r.teamLabel(m, "awayTeam", "awayLabel", codes),
 			WhenText: formatKickoff(m.GetDateTime("kickoff").Time()),
 		})
 	}
@@ -194,7 +197,7 @@ func (r *Runner) writeTipsRows(ncol *core.Collection, userID string, missing []*
 
 // tipsEmail sends the untipped-matches digest by email.
 func (r *Runner) tipsEmail(ctx context.Context, res *Result, ncol *core.Collection,
-	u *core.Record, upcoming []*core.Record, names map[string]string, base baseInfo) {
+	u *core.Record, upcoming []*core.Record, names, codes map[string]string, base baseInfo) {
 
 	if !prefEnabled(u, "tips_reminder", "email") {
 		return
@@ -204,7 +207,7 @@ func (r *Runner) tipsEmail(ctx context.Context, res *Result, ncol *core.Collecti
 		return
 	}
 	res.Considered++
-	data := r.tipsData(missing, names, base)
+	data := r.tipsData(missing, names, codes, base)
 	subject, html, text, rerr := render("tips_reminder", data)
 	if rerr != nil {
 		res.Failed++
@@ -223,7 +226,7 @@ func (r *Runner) tipsEmail(ctx context.Context, res *Result, ncol *core.Collecti
 
 // tipsPush sends the untipped-matches digest as a push to all the user's devices.
 func (r *Runner) tipsPush(ctx context.Context, res *Result, ncol *core.Collection,
-	u *core.Record, upcoming []*core.Record, names map[string]string, base baseInfo) {
+	u *core.Record, upcoming []*core.Record, names, codes map[string]string, base baseInfo) {
 
 	if r.push == nil || !r.push.Enabled() || !prefEnabled(u, "tips_reminder", "push") {
 		return
@@ -237,7 +240,7 @@ func (r *Runner) tipsPush(ctx context.Context, res *Result, ncol *core.Collectio
 		return
 	}
 	res.Considered++
-	data := r.tipsData(missing, names, base)
+	data := r.tipsData(missing, names, codes, base)
 	title, body, rerr := renderPush("tips_reminder", data)
 	if rerr != nil {
 		res.Failed++

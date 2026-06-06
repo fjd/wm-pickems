@@ -99,6 +99,24 @@ func Register(app core.App, se *core.ServeEvent) {
 			}
 			return e.JSON(http.StatusOK, res)
 		}).Bind(apis.RequireAuth())
+
+		// Send a representative push for one event to the caller's devices, so
+		// each notification type can be previewed on a real device.
+		se.Router.POST("/api/dev/push/sample", func(e *core.RequestEvent) error {
+			var body struct {
+				Event string `json:"event"`
+			}
+			if err := e.BindBody(&body); err != nil {
+				return e.JSON(400, map[string]string{"error": err.Error()})
+			}
+			ctx, cancel := context.WithTimeout(e.Request.Context(), 15*time.Second)
+			defer cancel()
+			sent, total, err := r.SendSample(ctx, e.Auth.Id, body.Event)
+			if err != nil {
+				return e.JSON(400, map[string]any{"error": err.Error()})
+			}
+			return e.JSON(http.StatusOK, map[string]any{"sent": sent, "total": total})
+		}).Bind(apis.RequireAuth())
 	}
 }
 
@@ -425,6 +443,61 @@ func newLedgerRow(ncol *core.Collection, userID, event, dedupKey, channel string
 	rec.Set("channel", channel)
 	rec.Set("status", "queued")
 	return rec
+}
+
+// SendSample renders a representative push for an event and delivers it to the
+// user's devices — backs the dev test buttons. Returns (accepted, total).
+func (r *Runner) SendSample(ctx context.Context, userID, event string) (int, int, error) {
+	if r.push == nil || !r.push.Enabled() {
+		return 0, 0, fmt.Errorf("push not configured")
+	}
+	subs, err := push.Subscriptions(r.app, userID)
+	if err != nil {
+		return 0, 0, err
+	}
+	if len(subs) == 0 {
+		return 0, 0, fmt.Errorf("no push subscriptions on this account")
+	}
+	data := r.sampleData(event)
+	title, body, err := renderPush(event, data)
+	if err != nil {
+		return 0, len(subs), err
+	}
+	ok, _ := r.sendPush(ctx, subs, push.Notification{
+		Title: title, Body: body, URL: toPath(data.CTAUrl), Tag: event, Icon: pushIcon(event),
+	})
+	return ok, len(subs), nil
+}
+
+// sampleData builds representative template data for a sample/test push.
+func (r *Runner) sampleData(event string) tplData {
+	base := r.base()
+	when := formatKickoff(time.Date(2026, 6, 11, 19, 0, 0, 0, time.UTC))
+	d := tplData{AppName: base.appName, SettingsUrl: base.url + "/settings"}
+	switch event {
+	case "stage_starting":
+		d.StageName = "Round of 32"
+		d.StartsIn = "12 hours"
+		d.WhenText = formatKickoff(time.Date(2026, 6, 28, 18, 0, 0, 0, time.UTC))
+		d.CTAText, d.CTAUrl = "Open your tips", base.url+"/tips"
+	case "forecast_reminder":
+		d.StartsIn = "12 hours"
+		d.WhenText = when
+		d.CTAText, d.CTAUrl = "Finish your Forecast", base.url+"/forecast"
+	case "tips_reminder":
+		d.Count = 1
+		d.Matches = []matchLine{{Home: "Mexico", Away: "South Africa", HomeCode: "MEX", AwayCode: "RSA", WhenText: when}}
+		d.CTAText, d.CTAUrl = "Enter your tips", base.url+"/tips"
+	case "results_recap":
+		d.Finalized = 3
+		d.PointsGained = 7
+		d.Total = 42
+		d.Ranks = []rankLine{{League: "Friends", Rank: 2, Of: 8}}
+		d.CTAText, d.CTAUrl = "See the leaderboard", base.url+"/leagues"
+	default:
+		d.CTAUrl = base.url + "/"
+	}
+	return d
 }
 
 // AppNameOr returns d's AppName if set, else the fallback.

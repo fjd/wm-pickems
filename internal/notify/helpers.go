@@ -95,6 +95,19 @@ func (r *Runner) teamNames() map[string]string {
 	return out
 }
 
+// teamCodes returns teamId -> 3-letter FIFA code for compact labels.
+func (r *Runner) teamCodes() map[string]string {
+	out := map[string]string{}
+	teams, err := r.app.FindRecordsByFilter("teams", "id != ''", "", 0, 0)
+	if err != nil {
+		return out
+	}
+	for _, t := range teams {
+		out[t.Id] = t.GetString("fifaCode")
+	}
+	return out
+}
+
 // teamLabel resolves a match side to a team name, falling back to the
 // placeholder label (e.g. "W74") when the team isn't decided yet.
 func (r *Runner) teamLabel(m *core.Record, relField, labelField string, names map[string]string) string {
