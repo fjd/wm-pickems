@@ -3,6 +3,7 @@ package notify
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/pocketbase/dbx"
@@ -11,6 +12,18 @@ import (
 	"github.com/floholz/wm-pickems/internal/mailer"
 	"github.com/floholz/wm-pickems/internal/scoring"
 )
+
+// toPath reduces an (absolute or relative) URL to an origin-relative path+query
+// for push notifications, so the deep-link resolves against the service worker's
+// own origin (works on localhost, the tailnet, and prod without configuring the
+// app URL). Emails keep the absolute URL — a relative href has no origin there.
+func toPath(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.RequestURI() == "" {
+		return raw
+	}
+	return u.RequestURI()
+}
 
 // inLeadWindow reports whether `start` is within [now, now+lead) — i.e. the
 // deadline is in the future but no further off than the lead time.

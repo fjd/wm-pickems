@@ -79,6 +79,21 @@ func TestPrefEnabledFromRaw(t *testing.T) {
 	}
 }
 
+func TestToPath(t *testing.T) {
+	tests := map[string]string{
+		"https://fhdt.example.ts.net/tips":          "/tips",
+		"https://prod.example.com/forecast?u=abc#x": "/forecast?u=abc",
+		"http://localhost:8090/leagues":             "/leagues",
+		"/settings":                                 "/settings",
+		"/tips?x=1":                                 "/tips?x=1",
+	}
+	for in, want := range tests {
+		if got := toPath(in); got != want {
+			t.Errorf("toPath(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestRenderPushAllEvents(t *testing.T) {
 	events := []string{"stage_starting", "forecast_reminder", "tips_reminder", "results_recap"}
 	data := tplData{
