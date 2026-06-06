@@ -52,6 +52,24 @@
 	// Absent pref defaults to ON (matches the backend default-on semantics).
 	const isOn = (key: string, ch: Channel) => prefs[key]?.[ch] !== false;
 
+	let testMsg = $state('');
+	let testBusy = $state(false);
+	async function sendTest() {
+		testMsg = '';
+		testBusy = true;
+		try {
+			const { sent, total } = await push.test();
+			testMsg =
+				sent > 0
+					? `Test sent to ${sent}/${total} device(s) — watch for a notification.`
+					: `No device accepted it (${total} tried).`;
+		} catch (e: unknown) {
+			testMsg = (e as { message?: string })?.message ?? 'Test failed.';
+		} finally {
+			testBusy = false;
+		}
+	}
+
 	async function toggleNotify(key: string, ch: Channel) {
 		const next = {
 			...prefs,
@@ -231,15 +249,26 @@
 			{:else if push.subscribed}
 				<div class="push-row">
 					<span class="ok small">✓ Push enabled on this device</span>
-					<button
-						type="button"
-						class="btn secondary tiny"
-						onclick={() => push.disable()}
-						disabled={push.busy}
-					>
-						{push.busy ? 'Working…' : 'Disable'}
-					</button>
+					<div class="push-actions">
+						<button
+							type="button"
+							class="btn secondary tiny"
+							onclick={sendTest}
+							disabled={testBusy}
+						>
+							{testBusy ? 'Sending…' : 'Send test'}
+						</button>
+						<button
+							type="button"
+							class="btn secondary tiny"
+							onclick={() => push.disable()}
+							disabled={push.busy}
+						>
+							{push.busy ? 'Working…' : 'Disable'}
+						</button>
+					</div>
 				</div>
+				{#if testMsg}<p class="muted small">{testMsg}</p>{/if}
 			{:else}
 				<button
 					type="button"
@@ -345,6 +374,10 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 1rem;
+	}
+	.push-actions {
+		display: flex;
+		gap: 0.5rem;
 	}
 	.btn.tiny {
 		padding: 0.3rem 0.7rem;

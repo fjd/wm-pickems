@@ -91,6 +91,17 @@ class Push {
 		}
 	}
 
+	// Ask the server to push a test notification to this account's devices.
+	// Returns how many endpoints accepted it (for surfacing in the UI).
+	async test(): Promise<{ sent: number; total: number }> {
+		this.error = '';
+		const res = await pb.send<{ sent: number; total: number }>(
+			'/api/push/test',
+			{ method: 'POST' }
+		);
+		return res;
+	}
+
 	async disable() {
 		if (!this.supported || this.busy) return;
 		this.error = '';

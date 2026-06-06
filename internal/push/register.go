@@ -1,7 +1,10 @@
 package push
 
 import (
+	"context"
+	"errors"
 	"net/http"
+	"time"
 
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -52,6 +55,46 @@ func Register(app core.App, se *core.ServeEvent) {
 			return e.JSON(500, map[string]string{"error": err.Error()})
 		}
 		return e.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	}).Bind(apis.RequireAuth())
+
+	// Send a test push to the caller's own devices and report the per-endpoint
+	// outcome — a one-click way to verify the full delivery path.
+	se.Router.POST("/api/push/test", func(e *core.RequestEvent) error {
+		subs, err := Subscriptions(app, e.Auth.Id)
+		if err != nil {
+			return e.JSON(500, map[string]string{"error": err.Error()})
+		}
+		if len(subs) == 0 {
+			return e.JSON(400, map[string]string{"error": "no push subscriptions on this account"})
+		}
+		sender := NewSender(ResolveKeys(app))
+		if !sender.Enabled() {
+			return e.JSON(400, map[string]string{"error": "push is not configured on the server"})
+		}
+		ctx, cancel := context.WithTimeout(e.Request.Context(), 15*time.Second)
+		defer cancel()
+		n := Notification{
+			Title: "WM Tips — test",
+			Body:  "Push notifications are working 🎉",
+			URL:   "/settings",
+			Tag:   "test",
+		}
+		ok := 0
+		results := make([]map[string]any, 0, len(subs))
+		for _, s := range subs {
+			err := sender.Send(ctx, s, n)
+			switch {
+			case err == nil:
+				ok++
+				results = append(results, map[string]any{"ok": true})
+			case errors.Is(err, ErrGone):
+				PruneEndpoint(app, s.Endpoint)
+				results = append(results, map[string]any{"ok": false, "pruned": true})
+			default:
+				results = append(results, map[string]any{"ok": false, "error": err.Error()})
+			}
+		}
+		return e.JSON(http.StatusOK, map[string]any{"sent": ok, "total": len(subs), "results": results})
 	}).Bind(apis.RequireAuth())
 
 	// Remove a subscription (only the caller's own).
