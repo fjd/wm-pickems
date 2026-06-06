@@ -3,6 +3,7 @@ package mailer
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -43,12 +44,20 @@ type mjAddr struct {
 	Name  string `json:"Name,omitempty"`
 }
 
+type mjInline struct {
+	ContentType   string `json:"ContentType"`
+	Filename      string `json:"Filename"`
+	ContentID     string `json:"ContentID"`
+	Base64Content string `json:"Base64Content"`
+}
+
 type mjMessage struct {
-	From     mjAddr   `json:"From"`
-	To       []mjAddr `json:"To"`
-	Subject  string   `json:"Subject"`
-	TextPart string   `json:"TextPart,omitempty"`
-	HTMLPart string   `json:"HTMLPart,omitempty"`
+	From               mjAddr     `json:"From"`
+	To                 []mjAddr   `json:"To"`
+	Subject            string     `json:"Subject"`
+	TextPart           string     `json:"TextPart,omitempty"`
+	HTMLPart           string     `json:"HTMLPart,omitempty"`
+	InlinedAttachments []mjInline `json:"InlinedAttachments,omitempty"`
 }
 
 // mjResponse captures the per-message result; the message id is what we persist
@@ -72,13 +81,22 @@ func (m *mailjet) Send(ctx context.Context, msg Message) (string, error) {
 	if m.from.email == "" {
 		return "", fmt.Errorf("mailjet: no sender address (set MAIL_FROM or PocketBase sender)")
 	}
-	payload := mjRequest{Messages: []mjMessage{{
+	mjm := mjMessage{
 		From:     mjAddr{Email: m.from.email, Name: m.from.name},
 		To:       []mjAddr{{Email: msg.ToEmail, Name: msg.ToName}},
 		Subject:  msg.Subject,
 		TextPart: msg.Text,
 		HTMLPart: msg.HTML,
-	}}}
+	}
+	for _, in := range msg.Inlines {
+		mjm.InlinedAttachments = append(mjm.InlinedAttachments, mjInline{
+			ContentType:   in.ContentType,
+			Filename:      in.Filename,
+			ContentID:     in.ContentID,
+			Base64Content: base64.StdEncoding.EncodeToString(in.Data),
+		})
+	}
+	payload := mjRequest{Messages: []mjMessage{mjm}}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return "", err

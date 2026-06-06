@@ -1,8 +1,10 @@
 package mailer
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/mail"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -33,6 +35,14 @@ func (s *smtpSender) Send(ctx context.Context, m Message) (string, error) {
 		Subject: m.Subject,
 		HTML:    m.HTML,
 		Text:    m.Text,
+	}
+	if len(m.Inlines) > 0 {
+		// PB keys inline attachments by name and sets Content-ID to that key,
+		// so the HTML references cid:<ContentID>. MIME is auto-detected.
+		msg.InlineAttachments = map[string]io.Reader{}
+		for _, in := range m.Inlines {
+			msg.InlineAttachments[in.ContentID] = bytes.NewReader(in.Data)
+		}
 	}
 	if err := s.app.NewMailClient().Send(msg); err != nil {
 		return "", err

@@ -12,6 +12,12 @@ import (
 //go:embed templates/*.html templates/*.txt
 var tmplFS embed.FS
 
+// markPNG is the brand mark, attached inline (cid:mark) to HTML emails so it
+// renders without a remote fetch (no CSP/http issues, no remote-image blocking).
+//
+//go:embed assets/mark.png
+var markPNG []byte
+
 // matchLine is one fixture row in the tips-reminder digest. Home/Away are full
 // names (for email); HomeCode/AwayCode are the 3-letter FIFA codes (for the
 // compact push title, e.g. "MEX vs RSA").

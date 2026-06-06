@@ -73,6 +73,12 @@ func mailerMessage(u *core.Record, subject, html, text string) mailer.Message {
 		Subject: subject,
 		HTML:    html,
 		Text:    text,
+		Inlines: []mailer.Inline{{
+			ContentID:   "mark",
+			Filename:    "mark.png",
+			ContentType: "image/png",
+			Data:        markPNG,
+		}},
 	}
 }
 

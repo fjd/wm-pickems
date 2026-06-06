@@ -115,6 +115,9 @@ func Register(app core.App, se *core.ServeEvent) {
 			if e.Request.URL.Query().Get("fmt") == "text" {
 				return e.Blob(http.StatusOK, "text/plain; charset=utf-8", []byte("Subject: "+subject+"\n\n"+text))
 			}
+			// In real emails the mark is an inline cid: attachment; for the
+			// browser preview, point it at the served asset so it renders.
+			html = strings.ReplaceAll(html, "cid:mark", "/email/mark.png")
 			return e.Blob(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 		})
 
@@ -355,13 +358,7 @@ func (r *Runner) dispatchEmail(ctx context.Context, res *Result, ncol *core.Coll
 		return
 	}
 
-	mid, sendErr := r.sender.Send(ctx, mailer.Message{
-		ToEmail: u.Email(),
-		ToName:  u.GetString("name"),
-		Subject: subject,
-		HTML:    html,
-		Text:    text,
-	})
+	mid, sendErr := r.sender.Send(ctx, mailerMessage(u, subject, html, text))
 	if sendErr != nil {
 		rec.Set("status", "failed")
 		rec.Set("error", sendErr.Error())

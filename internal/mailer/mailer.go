@@ -13,6 +13,15 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// Inline is an image embedded in the message and referenced from the HTML via
+// cid:<ContentID> — so it renders without a remote fetch.
+type Inline struct {
+	ContentID   string
+	Filename    string
+	ContentType string
+	Data        []byte
+}
+
 // Message is one email to one recipient.
 type Message struct {
 	ToEmail string
@@ -20,6 +29,7 @@ type Message struct {
 	Subject string
 	HTML    string
 	Text    string
+	Inlines []Inline
 }
 
 // Sender delivers a single message and returns the provider's message id (empty
