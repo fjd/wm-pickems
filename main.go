@@ -4,6 +4,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io/fs"
 	"log"
 	"net/http"
@@ -56,11 +57,18 @@ func main() {
 		dev.Register(e.App, e)
 
 		// Serve the web manifest with the correct MIME so it installs as a
-		// proper PWA (apis.Static would send text/plain for .webmanifest).
+		// proper PWA (apis.Static would send text/plain for .webmanifest). In
+		// dev (WMP_DEV=1) the manifest gets a distinct id/name/theme so the
+		// browser treats the dev build as a separate installable app from prod.
 		e.Router.GET("/manifest.webmanifest", func(re *core.RequestEvent) error {
 			b, err := fs.ReadFile(web.DistFS(), "manifest.webmanifest")
 			if err != nil {
 				return apis.NewNotFoundError("", nil)
+			}
+			if dev.Enabled() {
+				if patched, perr := devManifest(b); perr == nil {
+					b = patched
+				}
 			}
 			return re.Blob(200, "application/manifest+json", b)
 		})
@@ -83,4 +91,21 @@ func main() {
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// devManifest rewrites the PWA manifest for the dev build so it installs as a
+// separate app from prod: a distinct id (the browser's identity key), a "(Dev)"
+// name, and a different theme colour so it's visually obvious. Unknown fields
+// are preserved.
+func devManifest(b []byte) ([]byte, error) {
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	m["id"] = "/?dev"
+	m["name"] = "WM Tips (Dev)"
+	m["short_name"] = "WM Tips Dev"
+	m["theme_color"] = "#ff5a36"
+	m["background_color"] = "#1a0f0a"
+	return json.Marshal(m)
 }
