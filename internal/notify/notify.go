@@ -33,6 +33,8 @@ type Runner struct {
 	// lastAllowKey is the normalized allowlist seen on the previous pass, used
 	// to log when the allowlist changes at runtime.
 	lastAllowKey string
+	// verbose enables the per-pass heartbeat log (NOTIFY_LOG_LEVEL=debug).
+	verbose bool
 }
 
 // base identity reused across emails.
@@ -56,6 +58,7 @@ func New(app core.App) *Runner {
 		app:          app,
 		sender:       mailer.Pick(app),
 		lastAllowKey: allowlistKey(readConfig(app).Allowlist),
+		verbose:      strings.EqualFold(os.Getenv("NOTIFY_LOG_LEVEL"), "debug"),
 	}
 }
 
@@ -106,11 +109,14 @@ func (r *Runner) RunOnce(ctx context.Context) (*Result, error) {
 	base := r.base()
 	res := &Result{}
 
-	// Always log a one-line heartbeat so it's clear the scheduler ran, even on
-	// a no-op pass.
+	// Log a one-line pass summary. In the default (info) level only passes that
+	// did something are logged; NOTIFY_LOG_LEVEL=debug logs every pass as a
+	// heartbeat to confirm the scheduler is running.
 	defer func() {
-		log.Printf("[notify] pass: considered=%d sent=%d failed=%d skipped=%d",
-			res.Considered, res.Sent, res.Failed, res.Skipped)
+		if r.verbose || res.Sent > 0 || res.Failed > 0 {
+			log.Printf("[notify] pass: considered=%d sent=%d failed=%d skipped=%d",
+				res.Considered, res.Sent, res.Failed, res.Skipped)
+		}
 	}()
 
 	recipients, err := r.eligibleUsers(cfg.Allowlist)

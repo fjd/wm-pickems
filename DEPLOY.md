@@ -20,6 +20,7 @@ cp .env.example .env
 | `MAIL_FROM` / `MAIL_FROM_NAME` | optional | Sender identity (must be a verified Mailjet sender). Falls back to PocketBase's configured sender. |
 | `NOTIFY_CRON` | no | Override the notify scheduler cadence (default `*/15 * * * *`). |
 | `NOTIFY_ALLOWLIST` | optional | Comma-separated emails for a gradual rollout — only these addresses get mail. Empty = everyone. |
+| `NOTIFY_LOG_LEVEL` | no | `debug` logs a per-pass heartbeat; default logs only passes that sent/failed mail (plus allowlist changes & errors). |
 | `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD` | optional | Convenience only — see superuser step below. |
 
 **Notifications.** When a mail provider is configured, the app emails reminders

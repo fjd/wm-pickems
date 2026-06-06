@@ -22,6 +22,7 @@ services:
       - MAIL_FROM_NAME=${MAIL_FROM_NAME:-}
       - NOTIFY_CRON=${NOTIFY_CRON:-}
       - NOTIFY_ALLOWLIST=${NOTIFY_ALLOWLIST:-}
+      - NOTIFY_LOG_LEVEL=${NOTIFY_LOG_LEVEL:-}
     volumes:
       - pb_data:/pb_data
     networks: [wmpickems]
