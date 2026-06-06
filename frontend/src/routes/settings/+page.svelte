@@ -17,6 +17,56 @@
 	let resetSent = $state(false);
 	let resetError = $state('');
 
+	// Notification preferences. Each event defaults to ON when no pref is stored.
+	const NOTIFY_EVENTS = [
+		{
+			key: 'stage_starting',
+			label: 'Stage starting soon',
+			hint: 'When the next stage (group stage, knockout rounds) is about to begin.'
+		},
+		{
+			key: 'tips_reminder',
+			label: 'Tip reminders',
+			hint: "Before upcoming matches if you haven't entered a tip yet."
+		},
+		{
+			key: 'forecast_reminder',
+			label: 'Forecast deadline',
+			hint: "Before the tournament starts if your Forecast isn't finished."
+		},
+		{
+			key: 'results_recap',
+			label: 'Results recap',
+			hint: 'A daily summary of how your points and ranking moved.'
+		}
+	];
+
+	let prefs = $state<Record<string, { email?: boolean }>>({
+		...(auth.user?.notifyPrefs ?? {})
+	});
+	let notifyBusy = $state(false);
+	let notifyError = $state('');
+
+	const isOn = (key: string) => prefs[key]?.email !== false;
+
+	async function toggleNotify(key: string) {
+		const next = { ...prefs, [key]: { email: !isOn(key) } };
+		const prev = prefs;
+		prefs = next;
+		notifyError = '';
+		notifyBusy = true;
+		try {
+			await auth.updateNotifyPrefs(next);
+		} catch (err: unknown) {
+			prefs = prev; // revert on failure
+			notifyError =
+				(err as { message?: string })?.message ??
+				'Could not save notification settings.';
+		} finally {
+			notifyBusy = false;
+		}
+	}
+
 	async function sendReset() {
 		if (!auth.user?.email) return;
 		resetError = '';
@@ -154,6 +204,36 @@
 		</button>
 	</section>
 
+	<section class="card">
+		<h3>Notifications</h3>
+		<p class="muted small">
+			Choose which emails we send to <strong>{auth.user?.email ?? ''}</strong>.
+		</p>
+		{#if notifyError}<p class="error">{notifyError}</p>{/if}
+		<ul class="notify-list">
+			{#each NOTIFY_EVENTS as ev (ev.key)}
+				<li class="notify-row">
+					<div class="notify-text">
+						<span class="notify-label">{ev.label}</span>
+						<span class="muted notify-hint">{ev.hint}</span>
+					</div>
+					<button
+						type="button"
+						role="switch"
+						aria-checked={isOn(ev.key)}
+						aria-label={ev.label}
+						class="toggle"
+						class:on={isOn(ev.key)}
+						onclick={() => toggleNotify(ev.key)}
+						disabled={notifyBusy}
+					>
+						<span class="knob"></span>
+					</button>
+				</li>
+			{/each}
+		</ul>
+	</section>
+
 	<p class="muted switch"><a href="/">Back</a></p>
 </div>
 
@@ -197,5 +277,67 @@
 	.switch {
 		text-align: center;
 		margin: 1rem 0 0;
+	}
+	.notify-list {
+		list-style: none;
+		margin: 0.5rem 0 0;
+		padding: 0;
+	}
+	.notify-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.85rem 0;
+		border-top: 1px solid var(--border);
+	}
+	.notify-row:first-child {
+		border-top: none;
+	}
+	.notify-text {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+	}
+	.notify-label {
+		font-size: 0.95rem;
+		font-weight: 600;
+	}
+	.notify-hint {
+		font-size: 0.8rem;
+		line-height: 1.4;
+	}
+	.toggle {
+		flex: none;
+		width: 44px;
+		height: 26px;
+		border-radius: var(--radius-pill);
+		border: 1px solid var(--border);
+		background: var(--surface-2);
+		padding: 2px;
+		cursor: pointer;
+		transition:
+			background 0.15s ease,
+			border-color 0.15s ease;
+	}
+	.toggle:disabled {
+		opacity: 0.6;
+		cursor: default;
+	}
+	.toggle.on {
+		background: var(--accent);
+		border-color: var(--accent);
+	}
+	.knob {
+		display: block;
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		background: var(--text);
+		transition: transform 0.15s ease;
+	}
+	.toggle.on .knob {
+		transform: translateX(18px);
+		background: var(--accent-fg);
 	}
 </style>

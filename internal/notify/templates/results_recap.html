@@ -1,0 +1,24 @@
+{{define "subject"}}Your matchday recap{{end}}
+{{define "preheader"}}{{.Finalized}} match{{if ne .Finalized 1}}es{{end}} resolved — see how you did.{{end}}
+{{define "content"}}
+<h1 style="margin:0 0 12px;font-size:22px;color:#f3f5fb;">Matchday recap</h1>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#f3f5fb;">
+{{.Finalized}} match{{if ne .Finalized 1}}es{{end}} wrapped up. Here's how it moved your standing:
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">
+<tr>
+<td style="padding:14px;border:1px solid #283047;border-radius:10px;text-align:center;">
+<div style="font-size:28px;font-weight:800;color:#c8fb50;">+{{.PointsGained}}</div>
+<div style="font-size:12px;color:#8b93b0;text-transform:uppercase;letter-spacing:.05em;">points earned</div>
+</td>
+<td style="width:12px;">&nbsp;</td>
+<td style="padding:14px;border:1px solid #283047;border-radius:10px;text-align:center;">
+<div style="font-size:28px;font-weight:800;color:#f3f5fb;">{{.Total}}</div>
+<div style="font-size:12px;color:#8b93b0;text-transform:uppercase;letter-spacing:.05em;">total points</div>
+</td>
+</tr>
+</table>
+{{range .Ranks}}<p style="margin:8px 0 0;font-size:14px;line-height:1.5;color:#8b93b0;">
+{{.League}}: <strong style="color:#f3f5fb;">#{{.Rank}}</strong> of {{.Of}}
+</p>{{end}}
+{{end}}

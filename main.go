@@ -17,6 +17,7 @@ import (
 	"github.com/floholz/wm-pickems/internal/dev"
 	"github.com/floholz/wm-pickems/internal/forecast"
 	"github.com/floholz/wm-pickems/internal/leagues"
+	"github.com/floholz/wm-pickems/internal/notify"
 	"github.com/floholz/wm-pickems/internal/oauth"
 	"github.com/floholz/wm-pickems/internal/scoring"
 	"github.com/floholz/wm-pickems/internal/seed"
@@ -49,6 +50,7 @@ func main() {
 		tips.Register(e.App, e)
 		forecast.Register(e.App, e)
 		scoring.Register(e.App, e)
+		notify.Register(e.App, e)
 		dev.Register(e.App, e)
 
 		// Serve the web manifest with the correct MIME so it installs as a

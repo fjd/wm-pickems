@@ -9,6 +9,8 @@ class Auth {
 		email: string;
 		avatarUrl: string | null;
 		role: string; // "admin" | "bot"; empty => normal member
+		// Per-event email toggles; absent/missing entries default to ON.
+		notifyPrefs: Record<string, { email?: boolean }>;
 	} | null>(null);
 
 	constructor() {
@@ -33,7 +35,9 @@ class Auth {
 			name: (r.name as string) || r.email,
 			email: r.email,
 			avatarUrl,
-			role: (r.role as string) || 'member'
+			role: (r.role as string) || 'member',
+			notifyPrefs:
+				(r.notifyPrefs as Record<string, { email?: boolean }>) || {}
 		};
 	}
 
@@ -68,6 +72,13 @@ class Auth {
 		body.set('name', opts.name.trim());
 		if (opts.avatarFile) body.set('avatar', opts.avatarFile);
 		await pb.collection('users').update(this.user.id, body);
+		await pb.collection('users').authRefresh();
+	}
+
+	// Save the per-event email notification toggles onto the user record.
+	async updateNotifyPrefs(prefs: Record<string, { email?: boolean }>) {
+		if (!this.user) throw new Error('Not signed in.');
+		await pb.collection('users').update(this.user.id, { notifyPrefs: prefs });
 		await pb.collection('users').authRefresh();
 	}
 

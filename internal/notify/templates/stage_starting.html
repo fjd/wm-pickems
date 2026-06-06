@@ -1,0 +1,11 @@
+{{define "subject"}}The {{.StageName}} is about to kick off{{end}}
+{{define "preheader"}}{{.StageName}} starts in about {{.StartsIn}}.{{end}}
+{{define "content"}}
+<h1 style="margin:0 0 12px;font-size:22px;color:#f3f5fb;">{{.StageName}} starts in ~{{.StartsIn}}</h1>
+<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#f3f5fb;">
+The next stage of the tournament is almost here. First kickoff is <strong>{{.WhenText}}</strong>.
+</p>
+<p style="margin:0;font-size:15px;line-height:1.6;color:#8b93b0;">
+Get your score predictions in before each match locks at kickoff.
+</p>
+{{end}}

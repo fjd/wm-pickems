@@ -1,0 +1,17 @@
+{{define "subject"}}{{.Count}} match{{if ne .Count 1}}es{{end}} you haven't tipped yet{{end}}
+{{define "preheader"}}{{.Count}} upcoming match{{if ne .Count 1}}es{{end}} without a tip — they lock at kickoff.{{end}}
+{{define "content"}}
+<h1 style="margin:0 0 12px;font-size:22px;color:#f3f5fb;">Don't forget your tips</h1>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#f3f5fb;">
+You haven't entered a score prediction for {{if eq .Count 1}}this upcoming match{{else}}these upcoming matches{{end}}.
+Tips lock at kickoff, so get them in soon:
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 4px;">
+{{range .Matches}}<tr>
+<td style="padding:8px 12px;border:1px solid #283047;border-radius:10px;font-size:14px;color:#f3f5fb;">
+<strong>{{.Home}}</strong> vs <strong>{{.Away}}</strong>
+<span style="color:#8b93b0;"> &middot; {{.WhenText}}</span>
+</td></tr><tr><td style="height:8px;line-height:8px;">&nbsp;</td></tr>
+{{end}}
+</table>
+{{end}}
