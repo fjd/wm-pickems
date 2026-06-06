@@ -51,8 +51,10 @@ type mjMessage struct {
 	HTMLPart string   `json:"HTMLPart,omitempty"`
 }
 
-// mjResponse captures the per-message result; MessageID is what we persist for
-// status tracking and a possible future webhook join.
+// mjResponse captures the per-message result; the message id is what we persist
+// for status tracking and a possible future webhook join. Note: Mailjet returns
+// MessageID as a JSON *number*, so it must be decoded as json.Number (not a
+// string) — otherwise decode fails even though the mail was accepted/sent.
 type mjResponse struct {
 	Messages []struct {
 		Status string `json:"Status"`
@@ -60,8 +62,8 @@ type mjResponse struct {
 			ErrorMessage string `json:"ErrorMessage"`
 		} `json:"Errors"`
 		To []struct {
-			MessageID   string `json:"MessageID"`
-			MessageUUID string `json:"MessageUUID"`
+			MessageID   json.Number `json:"MessageID"`
+			MessageUUID string      `json:"MessageUUID"`
 		} `json:"To"`
 	} `json:"Messages"`
 }
@@ -114,7 +116,10 @@ func (m *mailjet) Send(ctx context.Context, msg Message) (string, error) {
 		return "", fmt.Errorf("mailjet: status %q (http %d)", first.Status, resp.StatusCode)
 	}
 	if len(first.To) > 0 {
-		return first.To[0].MessageID, nil
+		if id := first.To[0].MessageID.String(); id != "" && id != "0" {
+			return id, nil
+		}
+		return first.To[0].MessageUUID, nil
 	}
 	return "", nil
 }

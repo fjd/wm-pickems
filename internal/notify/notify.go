@@ -66,6 +66,9 @@ func Register(app core.App, se *core.ServeEvent) {
 		}
 	})
 	log.Printf("[notify] scheduler enabled (%s) via %s", cronExpr, r.sender.Name())
+	if al := readConfig(app).Allowlist; len(al) > 0 {
+		log.Printf("[notify] allowlist active — only %d address(es) will be emailed", len(al))
+	}
 
 	// Dev-only manual trigger so the flow can be exercised against the virtual
 	// clock without waiting for the cron. Mirrors the /api/dev gating in dev.go.
@@ -92,7 +95,7 @@ func (r *Runner) RunOnce(ctx context.Context) (*Result, error) {
 	base := r.base()
 	res := &Result{}
 
-	recipients, err := r.eligibleUsers()
+	recipients, err := r.eligibleUsers(cfg.Allowlist)
 	if err != nil {
 		return res, fmt.Errorf("load recipients: %w", err)
 	}
@@ -137,15 +140,26 @@ func (r *Runner) base() baseInfo {
 	return baseInfo{appName: name, url: url}
 }
 
-// eligibleUsers returns real (non-bot) users with an email address.
-func (r *Runner) eligibleUsers() ([]*core.Record, error) {
+// eligibleUsers returns real (non-bot) users with an email address. When
+// allowlist is non-empty, only addresses on it are returned (gradual rollout).
+func (r *Runner) eligibleUsers(allowlist []string) ([]*core.Record, error) {
 	all, err := r.app.FindRecordsByFilter("users", "id != ''", "", 0, 0)
 	if err != nil {
 		return nil, err
 	}
+	var allow map[string]bool
+	if len(allowlist) > 0 {
+		allow = make(map[string]bool, len(allowlist))
+		for _, e := range allowlist {
+			allow[e] = true
+		}
+	}
 	out := make([]*core.Record, 0, len(all))
 	for _, u := range all {
 		if users.IsBot(u) || u.Email() == "" {
+			continue
+		}
+		if allow != nil && !allow[strings.ToLower(u.Email())] {
 			continue
 		}
 		out = append(out, u)

@@ -104,6 +104,34 @@ func TestApplyConfigDefaults(t *testing.T) {
 	}
 }
 
+func TestNormalizeEmails(t *testing.T) {
+	got := normalizeEmails([]string{"  Me@Example.com ", "", "  ", "x@Y.COM"})
+	want := []string{"me@example.com", "x@y.com"}
+	if len(got) != len(want) {
+		t.Fatalf("normalizeEmails len = %d, want %d (%v)", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("normalizeEmails[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestApplyConfigDefaultsAllowlist(t *testing.T) {
+	t.Setenv("NOTIFY_ALLOWLIST", "")
+	got := applyConfigDefaults(storedConfig{Allowlist: []string{"A@B.com", " ", "c@d.com "}})
+	if len(got.Allowlist) != 2 || got.Allowlist[0] != "a@b.com" || got.Allowlist[1] != "c@d.com" {
+		t.Fatalf("allowlist = %v, want [a@b.com c@d.com]", got.Allowlist)
+	}
+
+	// Falls back to the env seed when the stored list is empty.
+	t.Setenv("NOTIFY_ALLOWLIST", "Foo@Bar.com, baz@qux.com")
+	got = applyConfigDefaults(storedConfig{})
+	if len(got.Allowlist) != 2 || got.Allowlist[0] != "foo@bar.com" || got.Allowlist[1] != "baz@qux.com" {
+		t.Fatalf("env allowlist = %v, want [foo@bar.com baz@qux.com]", got.Allowlist)
+	}
+}
+
 func TestRenderAllTemplates(t *testing.T) {
 	// Each event template must parse and execute against tplData without error,
 	// and produce a non-empty subject + bodies.

@@ -19,15 +19,21 @@ cp .env.example .env
 | `MAILJET_API_KEY` / `MAILJET_SECRET` | optional | Mailjet Send API credentials (needed when using the `mailjet` provider). |
 | `MAIL_FROM` / `MAIL_FROM_NAME` | optional | Sender identity (must be a verified Mailjet sender). Falls back to PocketBase's configured sender. |
 | `NOTIFY_CRON` | no | Override the notify scheduler cadence (default `*/15 * * * *`). |
+| `NOTIFY_ALLOWLIST` | optional | Comma-separated emails for a gradual rollout — only these addresses get mail. Empty = everyone. |
 | `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD` | optional | Convenience only — see superuser step below. |
 
 **Notifications.** When a mail provider is configured, the app emails reminders
 before each stage kicks off, before the Forecast locks, before untipped matches,
 and a daily results recap — each user manages these per-event under **Settings →
-Notifications**. The reminder lead time (default **12h**) and recap hour are
-tunable at runtime via the `notify_config` row in the `app_meta` collection
-(PocketBase dashboard), no redeploy needed. With no provider set, emails are
-logged only (not delivered).
+Notifications**. The reminder lead time (default **12h**), recap hour, and the
+rollout allowlist are tunable at runtime via the `notify_config` row in the
+`app_meta` collection (PocketBase dashboard), no redeploy needed. With no
+provider set, emails are logged only (not delivered).
+
+*Gradual rollout:* set `NOTIFY_ALLOWLIST` (or `notify_config.allowlist`, which
+wins when set) to your own address plus a few friends to limit who receives mail
+while you trial the feature; clear it to open delivery to all users. The list is
+matched case-insensitively against each user's email.
 
 ## 2. Run
 
