@@ -97,6 +97,25 @@
 		}
 	}
 
+	async function sendEmail(event: string) {
+		busy = true;
+		msg = '';
+		try {
+			const r = await pb.send<{ to: string; provider: string }>(
+				'/api/dev/notify/email',
+				{ method: 'POST', body: { event } }
+			);
+			msg =
+				r.provider === 'log'
+					? `Provider is "log" — nothing delivered. Set a mail provider to actually send.`
+					: `Email sent to ${r.to} via ${r.provider} — check your inbox.`;
+		} catch (e: unknown) {
+			msg = (e as { message?: string })?.message ?? 'Failed to send email.';
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function reset() {
 		busy = true;
 		msg = '';
@@ -203,6 +222,21 @@
 		<div class="presets">
 			{#each sampleEvents as s (s.key)}
 				<button class="chip" disabled={busy} onclick={() => sendSample(s.key)}
+					>{s.label}</button
+				>
+			{/each}
+		</div>
+	</section>
+
+	<section class="card">
+		<h3>Test emails</h3>
+		<p class="muted small">
+			Send a sample of each email to your account's address to check
+			rendering in a real mail client.
+		</p>
+		<div class="presets">
+			{#each sampleEvents as s (s.key)}
+				<button class="chip" disabled={busy} onclick={() => sendEmail(s.key)}
 					>{s.label}</button
 				>
 			{/each}

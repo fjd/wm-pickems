@@ -121,6 +121,24 @@ func Register(app core.App, se *core.ServeEvent) {
 			return e.Blob(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 		})
 
+		// Send a representative email for one event to the caller, to verify
+		// rendering in a real mail client.
+		se.Router.POST("/api/dev/notify/email", func(e *core.RequestEvent) error {
+			var body struct {
+				Event string `json:"event"`
+			}
+			if err := e.BindBody(&body); err != nil {
+				return e.JSON(400, map[string]string{"error": err.Error()})
+			}
+			ctx, cancel := context.WithTimeout(e.Request.Context(), 20*time.Second)
+			defer cancel()
+			provider, err := r.SendSampleEmail(ctx, e.Auth, body.Event)
+			if err != nil {
+				return e.JSON(400, map[string]any{"error": err.Error(), "provider": provider})
+			}
+			return e.JSON(http.StatusOK, map[string]any{"to": e.Auth.Email(), "provider": provider})
+		}).Bind(apis.RequireAuth())
+
 		// Send a representative push for one event to the caller's devices, so
 		// each notification type can be previewed on a real device.
 		se.Router.POST("/api/dev/push/sample", func(e *core.RequestEvent) error {
@@ -483,6 +501,23 @@ func (r *Runner) SendSample(ctx context.Context, userID, event string) (int, int
 		Title: title, Body: body, URL: toPath(data.CTAUrl), Tag: event, Icon: pushIcon(event),
 	})
 	return ok, len(subs), nil
+}
+
+// SendSampleEmail renders a representative email for an event and sends it to
+// the user — backs the dev email test buttons. Returns the active provider name.
+func (r *Runner) SendSampleEmail(ctx context.Context, u *core.Record, event string) (string, error) {
+	if u.Email() == "" {
+		return r.sender.Name(), fmt.Errorf("your account has no email address")
+	}
+	data := r.sampleData(event)
+	subject, html, text, err := render(event, data)
+	if err != nil {
+		return r.sender.Name(), err
+	}
+	if _, err := r.sender.Send(ctx, mailerMessage(u, subject, html, text)); err != nil {
+		return r.sender.Name(), err
+	}
+	return r.sender.Name(), nil
 }
 
 // sampleData builds representative template data for a sample/test push.
