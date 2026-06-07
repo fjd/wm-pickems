@@ -88,6 +88,8 @@ class Push {
 			};
 			await pb.send('/api/push/subscribe', { method: 'POST', body: json });
 			this.subscribed = true;
+			// Fire an instant confirmation so the user sees push actually works.
+			this.test().catch(() => {});
 		} catch (err: unknown) {
 			this.error =
 				(err as { message?: string })?.message ??
