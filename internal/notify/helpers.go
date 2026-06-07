@@ -13,9 +13,9 @@ import (
 	"github.com/floholz/wm-pickems/internal/scoring"
 )
 
-// pushIcon maps an event to its contextual notification icon (served from the
-// embedded static assets). Falls back to a generic bell.
-func pushIcon(event string) string {
+// pushIcon maps an event (and its data) to its contextual notification icon
+// (served from the static assets). Falls back to a generic bell.
+func pushIcon(event string, data tplData) string {
 	switch event {
 	case "stage_starting":
 		return "/icons/notif/stage.png"
@@ -28,7 +28,14 @@ func pushIcon(event string) string {
 	case "league_lead":
 		return "/icons/notif/lead.png"
 	case "kickoff_countdown":
-		return "/icons/notif/countdown.png"
+		switch data.DaysLeft {
+		case 0:
+			return "/icons/notif/push-icon-countdown-kickoff.png"
+		case 1:
+			return "/icons/notif/push-icon-countdown-1.png"
+		default:
+			return "/icons/notif/push-icon-countdown.png"
+		}
 	default:
 		return "/icons/notif/default.png"
 	}

@@ -294,7 +294,7 @@ func (r *Runner) tipsPush(ctx context.Context, res *Result, ncol *core.Collectio
 		return
 	}
 	ok, serr := r.sendPush(ctx, subs, push.Notification{
-		Title: title, Body: body, URL: toPath(data.CTAUrl), Tag: "tips_reminder", Icon: pushIcon("tips_reminder"),
+		Title: title, Body: body, URL: toPath(data.CTAUrl), Tag: "tips_reminder", Icon: pushIcon("tips_reminder", data),
 	})
 	status, errStr := "sent", ""
 	if ok == 0 {

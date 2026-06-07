@@ -439,7 +439,7 @@ func (r *Runner) dispatchPush(ctx context.Context, res *Result, ncol *core.Colle
 	}
 
 	ok, sendErr := r.sendPush(ctx, subs, push.Notification{
-		Title: title, Body: body, URL: toPath(data.CTAUrl), Tag: event, Icon: pushIcon(event),
+		Title: title, Body: body, URL: toPath(data.CTAUrl), Tag: event, Icon: pushIcon(event, data),
 	})
 	if ok == 0 {
 		rec.Set("status", "failed")
@@ -507,7 +507,7 @@ func (r *Runner) SendSample(ctx context.Context, userID, event string) (int, int
 		return 0, len(subs), err
 	}
 	ok, _ := r.sendPush(ctx, subs, push.Notification{
-		Title: title, Body: body, URL: toPath(data.CTAUrl), Tag: event, Icon: pushIcon(event),
+		Title: title, Body: body, URL: toPath(data.CTAUrl), Tag: event, Icon: pushIcon(event, data),
 	})
 	return ok, len(subs), nil
 }
