@@ -199,6 +199,11 @@ func (r *Runner) RunOnce(ctx context.Context) (*Result, error) {
 	if err := r.detectForecastReminder(ctx, res, now, lead, matches, recipients, base); err != nil {
 		log.Printf("[notify] forecast_reminder: %v", err)
 	}
+	if now.Hour() >= cfg.CountdownHourUTC {
+		if err := r.detectKickoffCountdown(ctx, res, now, matches, recipients, base); err != nil {
+			log.Printf("[notify] kickoff_countdown: %v", err)
+		}
+	}
 	if err := r.detectTipsReminder(ctx, res, now, lead, matches, recipients, base); err != nil {
 		log.Printf("[notify] tips_reminder: %v", err)
 	}
@@ -254,9 +259,10 @@ func seedNotifyConfig(app core.App) {
 	rec := core.NewRecord(col)
 	rec.Set("key", metaKey)
 	rec.Set("value", map[string]any{
-		"leadHours":    defaultLeadHours,
-		"recapHourUTC": defaultRecapHourUTC,
-		"allowlist":    []string{},
+		"leadHours":        defaultLeadHours,
+		"recapHourUTC":     defaultRecapHourUTC,
+		"countdownHourUTC": defaultCountdownHourUTC,
+		"allowlist":        []string{},
 	})
 	if err := app.Save(rec); err != nil {
 		log.Printf("[notify] seed config: %v", err)
@@ -552,6 +558,10 @@ func (r *Runner) sampleData(event string) tplData {
 		d.League = "Friends"
 		d.Total = 48
 		d.CTAText, d.CTAUrl = "See the leaderboard", base.url+"/leagues"
+	case "kickoff_countdown":
+		d.DaysLeft = 3
+		d.WhenText = when
+		d.CTAText, d.CTAUrl = "Open WM Tips", base.url+"/"
 	default:
 		d.CTAUrl = base.url + "/"
 	}

@@ -77,7 +77,8 @@
 		{ key: 'results_recap', label: '🏆 Results recap' },
 		{ key: 'stage_starting', label: '🏟 Stage starting' },
 		{ key: 'forecast_reminder', label: '⏰ Forecast deadline' },
-		{ key: 'league_lead', label: '🥇 Took the lead' }
+		{ key: 'league_lead', label: '🥇 Took the lead' },
+		{ key: 'kickoff_countdown', label: '📅 Countdown to kickoff' }
 	];
 
 	async function sendSample(event: string) {

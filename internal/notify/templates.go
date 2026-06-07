@@ -50,6 +50,8 @@ type tplData struct {
 	StartsIn  string
 	WhenText  string
 
+	DaysLeft int // days until the tournament's first kickoff (countdown)
+
 	Count   int
 	Matches []matchLine
 

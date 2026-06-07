@@ -21,6 +21,11 @@
 	// Notification preferences. Each event defaults to ON when no pref is stored.
 	const NOTIFY_EVENTS = [
 		{
+			key: 'kickoff_countdown',
+			label: 'Countdown to kickoff',
+			hint: 'A daily reminder in the final days before the World Cup kicks off.'
+		},
+		{
 			key: 'stage_starting',
 			label: 'Stage starting soon',
 			hint: 'When the next stage (group stage, knockout rounds) is about to begin.'

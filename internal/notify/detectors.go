@@ -106,6 +106,51 @@ func (r *Runner) detectForecastReminder(ctx context.Context, res *Result, now ti
 	return nil
 }
 
+// countdownFromDays is how many days before the first kickoff the daily
+// pre-tournament countdown starts (so a value of 4 yields 4-, 3-, 2-, 1-days-left
+// and a "starts today" send on kickoff day).
+const countdownFromDays = 4
+
+// detectKickoffCountdown sends a once-daily countdown to the whole field in the
+// final days before the tournament's first kickoff ("4 days left" … "1 more day"
+// … "the World Cup starts today"), always reminding players to finish their tips
+// and Forecast. Gated to the countdown hour by the caller; deduped per calendar
+// day so it fires once a day regardless of cron cadence.
+func (r *Runner) detectKickoffCountdown(ctx context.Context, res *Result, now time.Time,
+	matches []*core.Record, recipients []*core.Record, base baseInfo) error {
+
+	if len(matches) == 0 {
+		return nil
+	}
+	start := matches[0].GetDateTime("kickoff").Time().UTC() // sorted by kickoff asc
+
+	// Calendar-day difference (UTC), so the count flips at midnight rather than on
+	// the rolling 24h boundary: e.g. any time on the 7th with kickoff on the 11th
+	// is "4 days left", and any time on kickoff day is "today" (0).
+	kickoffDay := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
+	today := time.Date(now.UTC().Year(), now.UTC().Month(), now.UTC().Day(), 0, 0, 0, 0, time.UTC)
+	daysLeft := int(kickoffDay.Sub(today).Hours() / 24)
+	if daysLeft < 0 || daysLeft > countdownFromDays {
+		return nil
+	}
+
+	ncol, err := r.notificationsCol()
+	if err != nil {
+		return err
+	}
+	dateKey := today.Format("2006-01-02")
+	data := tplData{
+		DaysLeft: daysLeft,
+		WhenText: formatKickoff(start),
+		CTAText:  "Open WM Tips",
+		CTAUrl:   base.url + "/",
+	}
+	for _, u := range recipients {
+		r.dispatch(ctx, res, ncol, u, "kickoff_countdown", "kickoff_countdown:"+dateKey+":"+u.Id, data)
+	}
+	return nil
+}
+
 // detectTipsReminder sends a per-user digest of upcoming matches (within the
 // lead window) the user hasn't tipped. Dedup is per (user, match) so each match
 // is reminded at most once, while the email batches all newly-missing matches.

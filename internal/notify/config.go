@@ -9,8 +9,9 @@ import (
 
 // config holds the resolved (defaults-applied) notify settings.
 type config struct {
-	LeadHours    int // reminder lead time before a deadline
-	RecapHourUTC int // hour (UTC) the daily results recap fires
+	LeadHours        int // reminder lead time before a deadline
+	RecapHourUTC     int // hour (UTC) the daily results recap fires
+	CountdownHourUTC int // hour (UTC) the daily pre-tournament countdown fires
 	// Allowlist gates delivery to specific email addresses (lowercased) for a
 	// gradual rollout. Empty = send to everyone.
 	Allowlist []string
@@ -19,15 +20,17 @@ type config struct {
 // storedConfig is the on-disk shape (app_meta "notify_config"). Pointers let us
 // tell "unset" apart from a legitimate zero (e.g. recapHourUTC = 0 = midnight).
 type storedConfig struct {
-	LeadHours    *int     `json:"leadHours"`
-	RecapHourUTC *int     `json:"recapHourUTC"`
-	Allowlist    []string `json:"allowlist"`
+	LeadHours        *int     `json:"leadHours"`
+	RecapHourUTC     *int     `json:"recapHourUTC"`
+	CountdownHourUTC *int     `json:"countdownHourUTC"`
+	Allowlist        []string `json:"allowlist"`
 }
 
 const (
-	defaultLeadHours    = 12
-	defaultRecapHourUTC = 8
-	metaKey             = "notify_config"
+	defaultLeadHours        = 12
+	defaultRecapHourUTC     = 8
+	defaultCountdownHourUTC = 9
+	metaKey                 = "notify_config"
 )
 
 // readConfig loads the notify config from app_meta, applying defaults for any
@@ -50,12 +53,19 @@ func readConfig(app core.App) config {
 // resolves the allowlist (app_meta value, else the NOTIFY_ALLOWLIST env seed).
 // Pure except for the env read, so the numeric defaults stay unit-testable.
 func applyConfigDefaults(s storedConfig) config {
-	c := config{LeadHours: defaultLeadHours, RecapHourUTC: defaultRecapHourUTC}
+	c := config{
+		LeadHours:        defaultLeadHours,
+		RecapHourUTC:     defaultRecapHourUTC,
+		CountdownHourUTC: defaultCountdownHourUTC,
+	}
 	if s.LeadHours != nil && *s.LeadHours > 0 {
 		c.LeadHours = *s.LeadHours
 	}
 	if s.RecapHourUTC != nil && *s.RecapHourUTC >= 0 && *s.RecapHourUTC <= 23 {
 		c.RecapHourUTC = *s.RecapHourUTC
+	}
+	if s.CountdownHourUTC != nil && *s.CountdownHourUTC >= 0 && *s.CountdownHourUTC <= 23 {
+		c.CountdownHourUTC = *s.CountdownHourUTC
 	}
 	c.Allowlist = normalizeEmails(s.Allowlist)
 	if len(c.Allowlist) == 0 {
