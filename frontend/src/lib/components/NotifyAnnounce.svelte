@@ -1,8 +1,9 @@
 <script lang="ts">
-	// One-time announcement that the notifications feature exists, nudging the
-	// user to install (if needed) and turn on push on this device. Shown once
-	// per device (localStorage) until dismissed or push is enabled. Email
-	// reminders are already on by default, so this is purely about push.
+	// Announcement that the notifications feature exists, nudging the user to
+	// install (if needed) and turn on push on this device. Closing hides it for
+	// the session but it returns on the next visit, so it can't be lost before
+	// it's read — only ticking "Don't show again" persists the dismissal
+	// (localStorage). Once push is enabled it never shows again regardless.
 	import { push } from '$lib/push.svelte';
 	import { pwa } from '$lib/pwa.svelte';
 	import { BellRing, X } from '@lucide/svelte';
@@ -10,6 +11,7 @@
 	const KEY = 'notify-announce-v1';
 
 	let dismissed = $state(true);
+	let dontShowAgain = $state(false);
 	if (typeof localStorage !== 'undefined') {
 		try {
 			dismissed = localStorage.getItem(KEY) === '1';
@@ -19,12 +21,14 @@
 	}
 
 	function close() {
-		dismissed = true;
-		try {
-			localStorage.setItem(KEY, '1');
-		} catch {
-			/* ignore (private mode) */
+		if (dontShowAgain) {
+			try {
+				localStorage.setItem(KEY, '1');
+			} catch {
+				/* ignore (private mode) */
+			}
 		}
+		dismissed = true;
 	}
 
 	// Auto-dismiss once push is enabled on this device.
@@ -55,10 +59,11 @@
 		<div class="icon"><BellRing size={22} /></div>
 		<h3>Notifications are here ⚽</h3>
 		<p class="body">
-			WM Tips can now nudge you before kickoff and the Forecast lock, recap
-			your matchday, and ping you when you hit&nbsp;#1. Email reminders are
-			<strong>already on</strong> — turn on push for instant alerts on this
-			device.
+			WM Tips can now nudge you before kickoff and picks lock, recap
+			your matchday, and ping you when you hit&nbsp;#1.
+			<br>
+			Email reminders are <strong>already enabled</strong>. Turn on push
+			for instant alerts on this device.
 		</p>
 
 		{#if push.supported && !push.blocked}
@@ -80,6 +85,11 @@
 		{/if}
 
 		{#if push.error}<p class="err">{push.error}</p>{/if}
+
+		<label class="dsa">
+			<input type="checkbox" bind:checked={dontShowAgain} />
+			<span>Don't show this again</span>
+		</label>
 
 		<div class="foot">
 			<a href="/settings" onclick={close}>Fine-tune in Settings</a>
@@ -152,11 +162,26 @@
 		font-size: 0.82rem;
 		color: var(--danger);
 	}
+	.dsa {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-top: 1rem;
+		font-size: 0.85rem;
+		color: var(--muted);
+		cursor: pointer;
+	}
+	.dsa input {
+		width: 16px;
+		height: 16px;
+		accent-color: var(--accent);
+		cursor: pointer;
+	}
 	.foot {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		margin-top: 1rem;
+		margin-top: 0.85rem;
 	}
 	.foot a {
 		font-size: 0.85rem;
