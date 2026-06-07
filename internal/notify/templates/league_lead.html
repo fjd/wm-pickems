@@ -1,0 +1,16 @@
+{{define "subject"}}You're #1 in {{.League}}!{{end}}
+{{define "preheader"}}You've taken the top spot in {{.League}} — {{.Total}} points.{{end}}
+{{define "pushTitle"}}🥇 You're #1 in {{.League}}{{end}}
+{{define "pushBody"}}You've taken the lead with {{.Total}} pts — now defend it.{{end}}
+{{define "content"}}
+<div style="font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#ffcf3a;">New leader</div>
+<h1 style="margin:7px 0 14px;font-size:27px;line-height:1.12;font-weight:800;color:#f3f5fb;">You're #1 in {{.League}} 🥇</h1>
+<p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#aeb6d0;">
+You've climbed to the top of the table. Keep your tips sharp — the lead won't defend itself.
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+<td bgcolor="#181d2e" style="background:#181d2e;border:1px solid #283047;border-radius:12px;padding:18px 14px;text-align:center;">
+<div style="font-size:34px;font-weight:800;line-height:1;color:#ffcf3a;">{{.Total}}</div>
+<div style="margin-top:6px;font-size:11px;color:#8b93b0;text-transform:uppercase;letter-spacing:.08em;">points · {{.League}}</div>
+</td></tr></table>
+{{end}}

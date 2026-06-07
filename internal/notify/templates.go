@@ -57,6 +57,8 @@ type tplData struct {
 	PointsGained int
 	Total        int
 	Ranks        []rankLine
+
+	League string // league name (took-the-lead event)
 }
 
 // render produces the subject, HTML body, and text body for an event by

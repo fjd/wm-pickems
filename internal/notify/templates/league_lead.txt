@@ -1,0 +1,9 @@
+You're #1 in {{.League}}!
+
+You've climbed to the top of the table with {{.Total}} points. Keep your tips
+sharp — the lead won't defend itself.
+
+See the leaderboard: {{.CTAUrl}}
+
+—
+Manage your notifications: {{.SettingsUrl}}

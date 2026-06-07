@@ -3,6 +3,7 @@ package notify
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/pocketbase/dbx"
@@ -263,6 +264,95 @@ func (r *Runner) tipsPush(ctx context.Context, res *Result, ncol *core.Collectio
 		res.Sent++
 	}
 	r.writeTipsRows(ncol, u.Id, missing, "push", "", status, errStr)
+}
+
+// leaderState is the persisted current #1 of a league (app_meta "lead:<id>").
+// Seq increments on each takeover so the ledger dedup key is unique per reign.
+type leaderState struct {
+	Leader string `json:"leader"`
+	Seq    int    `json:"seq"`
+}
+
+func (r *Runner) storedLeader(leagueID string) leaderState {
+	rec, err := r.app.FindFirstRecordByFilter("app_meta",
+		"key = {:k}", map[string]any{"k": "lead:" + leagueID})
+	if err != nil {
+		return leaderState{}
+	}
+	var s leaderState
+	_ = rec.UnmarshalJSONField("value", &s)
+	return s
+}
+
+func (r *Runner) setStoredLeader(leagueID string, s leaderState) {
+	key := "lead:" + leagueID
+	rec, err := r.app.FindFirstRecordByFilter("app_meta", "key = {:k}", map[string]any{"k": key})
+	if err != nil {
+		col, cerr := r.app.FindCollectionByNameOrId("app_meta")
+		if cerr != nil {
+			return
+		}
+		rec = core.NewRecord(col)
+		rec.Set("key", key)
+	}
+	rec.Set("value", map[string]any{"leader": s.Leader, "seq": s.Seq})
+	_ = r.app.Save(rec)
+}
+
+// detectLeagueLead notifies the new #1 whenever a league's leader changes. The
+// leader is persisted per league, so it fires once per genuine takeover (not
+// every cron tick), and only for leaders who are eligible recipients.
+func (r *Runner) detectLeagueLead(ctx context.Context, res *Result,
+	recipients []*core.Record, base baseInfo) error {
+
+	ncol, err := r.notificationsCol()
+	if err != nil {
+		return err
+	}
+	byID := map[string]*core.Record{}
+	for _, u := range recipients {
+		byID[u.Id] = u
+	}
+
+	leagues, err := r.app.FindRecordsByFilter("leagues", "id != ''", "", 0, 0)
+	if err != nil {
+		return err
+	}
+	for _, lg := range leagues {
+		lb, err := scoring.Leaderboard(r.app, lg.Id)
+		if err != nil {
+			continue
+		}
+		rows, _ := lb["rows"].([]scoring.Row)
+		if len(rows) == 0 {
+			continue
+		}
+		top := rows[0]
+		if top.Total <= 0 { // no real leader yet (no points scored)
+			continue
+		}
+		st := r.storedLeader(lg.Id)
+		if top.UserID == st.Leader {
+			continue // unchanged
+		}
+		// Genuine takeover — persist immediately so it fires only once.
+		st = leaderState{Leader: top.UserID, Seq: st.Seq + 1}
+		r.setStoredLeader(lg.Id, st)
+
+		u, ok := byID[top.UserID]
+		if !ok {
+			continue // new leader is a bot / not eligible / not allowlisted
+		}
+		data := tplData{
+			League:  lg.GetString("name"),
+			Total:   top.Total,
+			CTAText: "See the leaderboard",
+			CTAUrl:  base.url + "/leagues/" + lg.Id,
+		}
+		dedupKey := "league_lead:" + lg.Id + ":" + top.UserID + ":" + strconv.Itoa(st.Seq)
+		r.dispatch(ctx, res, ncol, u, "league_lead", dedupKey, data)
+	}
+	return nil
 }
 
 // detectResultsRecap sends a once-daily digest (gated to the recap hour by the

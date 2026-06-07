@@ -39,6 +39,11 @@
 			key: 'results_recap',
 			label: 'Results recap',
 			hint: 'A daily summary of how your points and ranking moved.'
+		},
+		{
+			key: 'league_lead',
+			label: 'Took the lead',
+			hint: 'When you climb to #1 in one of your leagues.'
 		}
 	];
 

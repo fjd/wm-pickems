@@ -25,6 +25,8 @@ func pushIcon(event string) string {
 		return "/icons/notif/tips.png"
 	case "results_recap":
 		return "/icons/notif/recap.png"
+	case "league_lead":
+		return "/icons/notif/lead.png"
 	default:
 		return "/icons/notif/default.png"
 	}

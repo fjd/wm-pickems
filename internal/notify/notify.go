@@ -207,6 +207,9 @@ func (r *Runner) RunOnce(ctx context.Context) (*Result, error) {
 			log.Printf("[notify] results_recap: %v", err)
 		}
 	}
+	if err := r.detectLeagueLead(ctx, res, recipients, base); err != nil {
+		log.Printf("[notify] league_lead: %v", err)
+	}
 
 	return res, nil
 }
@@ -544,6 +547,10 @@ func (r *Runner) sampleData(event string) tplData {
 		d.PointsGained = 7
 		d.Total = 42
 		d.Ranks = []rankLine{{League: "Friends", Rank: 2, Of: 8}}
+		d.CTAText, d.CTAUrl = "See the leaderboard", base.url+"/leagues"
+	case "league_lead":
+		d.League = "Friends"
+		d.Total = 48
 		d.CTAText, d.CTAUrl = "See the leaderboard", base.url+"/leagues"
 	default:
 		d.CTAUrl = base.url + "/"

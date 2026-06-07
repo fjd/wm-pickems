@@ -76,7 +76,8 @@
 		{ key: 'tips_reminder', label: '⚽ Tip reminder' },
 		{ key: 'results_recap', label: '🏆 Results recap' },
 		{ key: 'stage_starting', label: '🏟 Stage starting' },
-		{ key: 'forecast_reminder', label: '⏰ Forecast deadline' }
+		{ key: 'forecast_reminder', label: '⏰ Forecast deadline' },
+		{ key: 'league_lead', label: '🥇 Took the lead' }
 	];
 
 	async function sendSample(event: string) {
