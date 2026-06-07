@@ -4,11 +4,12 @@
 		isLocked,
 		teamsResolved,
 		type Match,
-		type FriendTip
+		type FriendTip,
+		type PerfectScorers
 	} from '$lib/tips.svelte';
 	import Flag from './Flag.svelte';
 	import Stepper from './Stepper.svelte';
-	import { Lock, ChevronDown, Check, Users } from '@lucide/svelte';
+	import { Lock, ChevronDown, Check, Users, Target } from '@lucide/svelte';
 
 	// Controlled by the parent so only one card is open at a time (accordion).
 	let {
@@ -113,17 +114,22 @@
 
 	// Friends' picks (only available after kickoff) — toggles open/closed.
 	let friends = $state<FriendTip[] | null>(null);
+	let perfect = $state<PerfectScorers | null>(null);
 	let friendsBusy = $state(false);
 	async function toggleFriends() {
 		if (friends !== null) {
 			friends = null;
+			perfect = null;
 			return;
 		}
 		friendsBusy = true;
 		try {
-			friends = await tipsStore.friends(match.id);
+			const r = await tipsStore.friends(match.id);
+			friends = r.tips;
+			perfect = r.perfect;
 		} catch {
 			friends = [];
+			perfect = null;
 		} finally {
 			friendsBusy = false;
 		}
@@ -249,6 +255,17 @@
 								{/each}
 							</tbody>
 						</table>
+					{/if}
+					{#if perfect && perfect.count > 0}
+						<div class="exact">
+							<span class="exhead">
+								<Target size={14} /> Perfect tip · {perfect.points}&thinsp;pts
+							</span>
+							<span class="exnames">
+								{perfect.names.join(', ')}{#if perfect.count > perfect.names.length}
+									&nbsp;+{perfect.count - perfect.names.length} more{/if}
+							</span>
+						</div>
 					{/if}
 				{/if}
 			{:else}
@@ -505,5 +522,27 @@
 	}
 	.small {
 		font-size: 0.85rem;
+	}
+	.exact {
+		margin-top: 0.7rem;
+		padding: 0.55rem 0.7rem;
+		border: 1px solid var(--accent);
+		border-radius: 0.5rem;
+		background: var(--accent);
+		color: var(--accent-fg);
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+	.exhead {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		font-size: 0.85rem;
+		font-weight: 600;
+	}
+	.exnames {
+		font-size: 0.9rem;
+		line-height: 1.4;
 	}
 </style>

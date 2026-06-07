@@ -53,6 +53,20 @@ export interface FriendTip {
 	advancer: string;
 }
 
+// Up to 10 names of players (across the whole app) who scored a perfect tip
+// on this match — the maximum `points` (correct result + exact reference
+// score). `count` is the true total when more than 10 nailed it.
+export interface PerfectScorers {
+	count: number;
+	names: string[];
+	points: number;
+}
+
+export interface FriendsResult {
+	tips: FriendTip[];
+	perfect: PerfectScorers | null;
+}
+
 class TipsStore {
 	teams = $state<Record<string, Team>>({});
 	matches = $state<Match[]>([]);
@@ -138,11 +152,11 @@ class TipsStore {
 		};
 	}
 
-	async friends(matchId: string): Promise<FriendTip[]> {
+	async friends(matchId: string): Promise<FriendsResult> {
 		const r = await pb.send(`/api/tips/others/${matchId}`, {
 			method: 'GET'
 		});
-		return r.tips ?? [];
+		return { tips: r.tips ?? [], perfect: r.perfect ?? null };
 	}
 }
 
