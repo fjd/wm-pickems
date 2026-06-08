@@ -83,31 +83,58 @@
 		margin-bottom: 1rem;
 	}
 	.banner {
-		--tone: var(--accent);
 		display: grid;
 		grid-template-columns: auto 1fr auto;
 		align-items: start;
 		gap: 0.7rem;
 		padding: 0.8rem 0.9rem;
-		background: color-mix(in srgb, var(--tone) 9%, var(--surface));
-		border: 1px solid color-mix(in srgb, var(--tone) 40%, var(--border));
-		border-left: 3px solid var(--tone);
+		background: var(--surface);
+		border: 1px solid var(--border);
 		border-radius: var(--radius-sm);
 	}
+
+	/* Info — calm and neutral: flat surface, thin grey rule, outlined icon. */
+	.banner.info {
+		border-left: 3px solid color-mix(in srgb, var(--muted) 45%, var(--border));
+	}
+	.banner.info .ico {
+		background: var(--surface-2);
+		color: var(--muted);
+	}
+
+	/* Highlight — loud and on-brand: lime wash, filled icon chip, soft glow,
+	   bright title. The visual opposite of the muted info notice. */
 	.banner.success {
-		--tone: var(--success);
+		background: color-mix(in srgb, var(--accent) 13%, var(--surface));
+		border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+		border-left: 3px solid var(--accent);
+		box-shadow: 0 12px 32px -18px color-mix(in srgb, var(--accent) 70%, transparent);
 	}
+	.banner.success .ico {
+		background: var(--accent);
+		color: var(--accent-fg);
+	}
+	.banner.success .t {
+		color: var(--accent-2);
+	}
+
+	/* Warning — amber wash, filled icon. */
 	.banner.warn {
-		--tone: var(--warning);
+		background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+		border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+		border-left: 3px solid var(--warning);
 	}
+	.banner.warn .ico {
+		background: var(--warning);
+		color: #20160a;
+	}
+
 	.ico {
 		display: inline-grid;
 		place-items: center;
 		width: 28px;
 		height: 28px;
 		border-radius: var(--radius-pill);
-		background: color-mix(in srgb, var(--tone) 18%, var(--surface-2));
-		color: var(--tone);
 		margin-top: 0.05rem;
 	}
 	.text {

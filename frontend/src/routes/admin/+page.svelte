@@ -373,7 +373,9 @@
 		gap: 0.8rem;
 	}
 	.ann {
-		--tone: var(--accent);
+		/* info (default) is neutral grey; highlight + warn carry colour, matching
+		   the in-app banner so the styles read the same in both places. */
+		--tone: color-mix(in srgb, var(--muted) 60%, var(--border));
 		padding: 0.9rem 1rem;
 		background: var(--surface);
 		border: 1px solid var(--border);
@@ -381,7 +383,7 @@
 		border-radius: var(--radius-sm);
 	}
 	.ann.success {
-		--tone: var(--success);
+		--tone: var(--accent);
 	}
 	.ann.warn {
 		--tone: var(--warning);
