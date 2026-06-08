@@ -395,6 +395,7 @@
 		flex: 1;
 		min-height: 0;
 		overflow-y: auto;
+		overscroll-behavior: contain;
 		display: flex;
 		flex-direction: column;
 		padding: 0.9rem 0.1rem 0.6rem;
