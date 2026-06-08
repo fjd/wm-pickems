@@ -333,8 +333,11 @@
 
 <style>
 	.settings {
-		max-width: 380px;
-		margin: 8dvh auto 0;
+		/* Left-aligned and filling a comfortable form width, matching the other
+		   pages (leagues/announcements/admin) rather than a narrow centred column
+		   that leaves the desktop content area looking empty. */
+		max-width: 640px;
+		margin: 0;
 	}
 	h1 {
 		margin: 0;
