@@ -66,25 +66,42 @@ func New(app core.App) *Runner {
 	}
 }
 
+// disabled reports whether the scheduler is switched off via NOTIFY_DISABLED.
+// Accepts the usual truthy spellings (1/true/yes/on, any case).
+func disabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("NOTIFY_DISABLED"))) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
+}
+
 // Register wires the notify cron (and, in dev, a manual trigger route).
 func Register(app core.App, se *core.ServeEvent) {
 	seedNotifyConfig(app)
 	r := New(app)
 
-	cronExpr := os.Getenv("NOTIFY_CRON")
-	if cronExpr == "" {
-		cronExpr = "*/15 * * * *"
-	}
-	app.Cron().MustAdd("notify", cronExpr, func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-		defer cancel()
-		if _, err := r.RunOnce(ctx); err != nil {
-			log.Printf("[notify] %v", err)
+	// NOTIFY_DISABLED skips the scheduler entirely so local/test runs never fire
+	// automated notifications. The dev manual-trigger and preview routes below
+	// stay wired, so rendering can still be exercised on demand.
+	if disabled() {
+		log.Printf("[notify] scheduler disabled (NOTIFY_DISABLED) — no automated notifications will be sent")
+	} else {
+		cronExpr := os.Getenv("NOTIFY_CRON")
+		if cronExpr == "" {
+			cronExpr = "*/15 * * * *"
 		}
-	})
-	log.Printf("[notify] scheduler enabled (%s) via %s", cronExpr, r.sender.Name())
-	if al := readConfig(app).Allowlist; len(al) > 0 {
-		log.Printf("[notify] allowlist active — only %d address(es) will be emailed", len(al))
+		app.Cron().MustAdd("notify", cronExpr, func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+			defer cancel()
+			if _, err := r.RunOnce(ctx); err != nil {
+				log.Printf("[notify] %v", err)
+			}
+		})
+		log.Printf("[notify] scheduler enabled (%s) via %s", cronExpr, r.sender.Name())
+		if al := readConfig(app).Allowlist; len(al) > 0 {
+			log.Printf("[notify] allowlist active — only %d address(es) will be emailed", len(al))
+		}
 	}
 
 	// Dev-only manual trigger so the flow can be exercised against the virtual

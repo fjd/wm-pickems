@@ -19,6 +19,7 @@ cp .env.example .env
 | `MAILJET_API_KEY` / `MAILJET_SECRET` | optional | Mailjet Send API credentials (needed when using the `mailjet` provider). |
 | `MAIL_FROM` / `MAIL_FROM_NAME` | optional | Sender identity (must be a verified Mailjet sender). Falls back to PocketBase's configured sender. |
 | `NOTIFY_CRON` | no | Override the notify scheduler cadence (default `*/15 * * * *`). |
+| `NOTIFY_DISABLED` | no | Set to `1`/`true` to switch the scheduler off — no automated mail/push is sent. Handy for local testing; dev manual-trigger routes still work. |
 | `NOTIFY_ALLOWLIST` | optional | Comma-separated emails for a gradual rollout — only these addresses get mail. Empty = everyone. |
 | `NOTIFY_LOG_LEVEL` | no | `debug` logs a per-pass heartbeat; default logs only passes that sent/failed mail (plus allowlist changes & errors). |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | optional | Web Push keys. Auto-generated & stored in the DB if unset; pin them to keep keys stable across a `pb_data` wipe (regenerating invalidates existing subscriptions). |
