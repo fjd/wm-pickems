@@ -6,6 +6,7 @@
 package chat
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -28,6 +29,18 @@ const (
 func Register(app core.App, se *core.ServeEvent) {
 	g := se.Router.Group("/api")
 	g.Bind(apis.RequireAuth())
+
+	// GET /api/chat/gif/search?q=&pos= — proxied KLIPY GIF search (trending when q
+	// is empty). Auth-gated; GIFs aren't league-specific. Keeps the key server-side.
+	g.GET("/chat/gif/search", func(e *core.RequestEvent) error {
+		ctx, cancel := context.WithTimeout(e.Request.Context(), 12*time.Second)
+		defer cancel()
+		res, err := searchGifs(ctx, e.Request.URL.Query().Get("q"), e.Request.URL.Query().Get("pos"))
+		if err != nil {
+			return apis.NewApiError(http.StatusBadGateway, err.Error(), nil)
+		}
+		return e.JSON(http.StatusOK, res)
+	})
 
 	// GET /api/leagues/{id}/members — member directory (resolves message senders,
 	// including for realtime messages from someone not yet in the loaded history).
@@ -83,15 +96,22 @@ func Register(app core.App, se *core.ServeEvent) {
 		}
 		var body struct {
 			Text string `json:"text"`
+			Gif  string `json:"gif"`
 		}
 		if err := e.BindBody(&body); err != nil {
 			return apis.NewBadRequestError(err.Error(), nil)
 		}
 		text := strings.TrimSpace(body.Text)
-		if text == "" {
+		gif := strings.TrimSpace(body.Gif)
+		// A message is text OR a GIF (a hosted URL from the search proxy).
+		if gif != "" {
+			if !gifHostAllowed(gif) {
+				return apis.NewBadRequestError("invalid gif url", nil)
+			}
+			text = ""
+		} else if text == "" {
 			return apis.NewBadRequestError("message is empty", nil)
-		}
-		if len([]rune(text)) > maxLen {
+		} else if len([]rune(text)) > maxLen {
 			text = string([]rune(text)[:maxLen])
 		}
 		col, err := app.FindCollectionByNameOrId(messages)
@@ -102,6 +122,7 @@ func Register(app core.App, se *core.ServeEvent) {
 		rec.Set("league", lid)
 		rec.Set("user", e.Auth.Id)
 		rec.Set("text", text)
+		rec.Set("gif", gif)
 		if err := app.Save(rec); err != nil { // fires the realtime create event
 			return err
 		}
@@ -128,7 +149,9 @@ func Register(app core.App, se *core.ServeEvent) {
 		}
 		if !rec.GetBool("deleted") {
 			rec.Set("origText", rec.GetString("text"))
+			rec.Set("origGif", rec.GetString("gif"))
 			rec.Set("text", "")
+			rec.Set("gif", "")
 			rec.Set("deleted", true)
 			rec.Set("deletedBy", e.Auth.Id)
 			rec.Set("deletedAt", time.Now().UTC())
@@ -157,7 +180,9 @@ func Register(app core.App, se *core.ServeEvent) {
 		}
 		if rec.GetBool("deleted") {
 			rec.Set("text", rec.GetString("origText"))
+			rec.Set("gif", rec.GetString("origGif"))
 			rec.Set("origText", "")
+			rec.Set("origGif", "")
 			rec.Set("deleted", false)
 			rec.Set("deletedBy", "")
 			rec.Set("deletedAt", "")
@@ -279,12 +304,14 @@ func msgView(r *core.Record, mod bool) map[string]any {
 		"id":      r.Id,
 		"user":    r.GetString("user"),
 		"text":    r.GetString("text"),
+		"gif":     r.GetString("gif"),
 		"created": r.GetDateTime("created").Time().UTC().Format(time.RFC3339Nano),
 	}
 	if r.GetBool("deleted") {
 		v["deleted"] = true
 		if mod {
 			v["original"] = r.GetString("origText")
+			v["originalGif"] = r.GetString("origGif")
 			v["deletedBy"] = r.GetString("deletedBy")
 			if dt := r.GetDateTime("deletedAt"); !dt.IsZero() {
 				v["deletedAt"] = dt.Time().UTC().Format(time.RFC3339)

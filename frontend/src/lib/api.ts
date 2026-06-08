@@ -46,13 +46,24 @@ export interface BotSummary {
 export interface ChatMessage {
 	id: string;
 	user: string; // sender user id
-	text: string; // empty when deleted
+	text: string; // empty when deleted or a GIF
+	gif?: string; // hosted GIF url (a message is text OR a gif)
 	created: string; // RFC3339
 	deleted?: boolean;
 	// Moderation fields, returned only to app-admins for deleted messages:
 	original?: string;
+	originalGif?: string;
 	deletedBy?: string;
 	deletedAt?: string;
+}
+
+export interface GifResult {
+	id: string;
+	title: string;
+	preview: string; // small url for the grid
+	url: string; // full gif url to post
+	width: number;
+	height: number;
 }
 
 export interface ChatMember {
@@ -163,8 +174,12 @@ export const api = {
 		),
 	chatMembers: (leagueId: string) =>
 		get<{ members: ChatMember[] }>(`/api/leagues/${leagueId}/members`),
-	chatPost: (leagueId: string, text: string) =>
-		post<ChatMessage>(`/api/leagues/${leagueId}/chat`, { text }),
+	chatPost: (leagueId: string, body: { text?: string; gif?: string }) =>
+		post<ChatMessage>(`/api/leagues/${leagueId}/chat`, body),
+	chatGifSearch: (q: string, pos?: string) =>
+		get<{ gifs: GifResult[]; next: string; configured: boolean }>(
+			`/api/chat/gif/search?q=${encodeURIComponent(q)}${pos ? `&pos=${pos}` : ''}`
+		),
 	chatDelete: (leagueId: string, msgId: string) =>
 		del<ChatMessage>(`/api/leagues/${leagueId}/chat/${msgId}`),
 	chatRestore: (leagueId: string, msgId: string) =>

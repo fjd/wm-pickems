@@ -4,9 +4,9 @@
 	import { goto } from '$app/navigation';
 	import { pb } from '$lib/pb';
 	import { auth } from '$lib/auth.svelte';
-	import { api, type ChatMessage, type ChatMember } from '$lib/api';
+	import { api, type ChatMessage, type ChatMember, type GifResult } from '$lib/api';
 	import Avatar from '$lib/components/Avatar.svelte';
-	import { ArrowLeft, SendHorizontal, Trash2 } from '@lucide/svelte';
+	import { ArrowLeft, SendHorizontal, Trash2, Search, X } from '@lucide/svelte';
 
 	let id = $derived($page.params.id ?? '');
 
@@ -105,20 +105,26 @@
 						id: string;
 						user: string;
 						text: string;
+						gif?: string;
 						created: string;
 						deleted?: boolean;
 					};
 					if (e.action === 'create') {
 						if (messages.some((m) => m.id === r.id)) return; // echo of our own post
 						if (!members[r.user]) loadMembers(); // unknown sender → refresh directory
-						messages = [...messages, { id: r.id, user: r.user, text: r.text, created: r.created }];
+						messages = [
+							...messages,
+							{ id: r.id, user: r.user, text: r.text, gif: r.gif, created: r.created }
+						];
 						scrollToBottom();
 						if (r.user !== me) api.chatMarkRead(id).catch(() => {});
 					} else if (e.action === 'update') {
-						// Soft-delete: text is cleared in the payload; keep any `original`
-						// an admin already has (realtime never carries it).
+						// Soft-delete: text/gif are cleared in the payload; keep any
+						// `original*` an admin already has (realtime never carries it).
 						messages = messages.map((m) =>
-							m.id === r.id ? { ...m, text: r.text ?? '', deleted: r.deleted ?? m.deleted } : m
+							m.id === r.id
+								? { ...m, text: r.text ?? '', gif: r.gif ?? '', deleted: r.deleted ?? m.deleted }
+								: m
 						);
 					} else if (e.action === 'delete') {
 						messages = messages.filter((m) => m.id !== r.id);
@@ -157,7 +163,7 @@
 		if (!body || sending) return;
 		sending = true;
 		try {
-			const msg = await api.chatPost(id, body);
+			const msg = await api.chatPost(id, { text: body });
 			text = '';
 			await tick();
 			autosize(); // collapse back to one line
@@ -174,6 +180,52 @@
 		if (e.key === 'Enter' && !e.shiftKey && !coarse) {
 			e.preventDefault();
 			send();
+		}
+	}
+
+	// ---- GIF picker (KLIPY, proxied) ----
+	let gifOpen = $state(false);
+	let gifQuery = $state('');
+	let gifResults = $state<GifResult[]>([]);
+	let gifNext = $state('');
+	let gifLoading = $state(false);
+	let gifConfigured = $state(true);
+	let gifDebounce: ReturnType<typeof setTimeout>;
+
+	function toggleGifs() {
+		gifOpen = !gifOpen;
+		if (gifOpen && gifResults.length === 0) loadGifs(true);
+	}
+
+	async function loadGifs(reset: boolean) {
+		if (gifLoading) return;
+		gifLoading = true;
+		try {
+			const res = await api.chatGifSearch(gifQuery.trim(), reset ? '' : gifNext);
+			gifConfigured = res.configured;
+			gifResults = reset ? res.gifs : [...gifResults, ...res.gifs];
+			gifNext = res.next;
+		} catch {
+			if (reset) gifResults = [];
+		} finally {
+			gifLoading = false;
+		}
+	}
+
+	function onGifSearch() {
+		clearTimeout(gifDebounce);
+		gifDebounce = setTimeout(() => loadGifs(true), 300);
+	}
+
+	async function pickGif(g: GifResult) {
+		gifOpen = false;
+		try {
+			const msg = await api.chatPost(id, { gif: g.url });
+			if (!messages.some((m) => m.id === msg.id)) messages = [...messages, msg];
+			scrollToBottom();
+			api.chatMarkRead(id).catch(() => {});
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Could not send the GIF.';
 		}
 	}
 
@@ -313,13 +365,23 @@
 						{#if !grouped && !mine}
 							<span class="who">{mem?.name ?? 'Member'}</span>
 						{/if}
-						<div class="bubble" class:deleted={m.deleted}>
+						<div class="bubble" class:deleted={m.deleted} class:hasgif={!!m.gif && !m.deleted}>
 							{#if m.deleted}
-								{#if m.original}
-									<span class="msgtext"><span class="modtag">deleted</span> {m.original}</span>
+								{#if m.original || m.originalGif}
+									<span class="msgtext">
+										<span class="modtag">deleted</span>
+										{m.original}{#if m.originalGif}<a
+												class="modgif"
+												href={m.originalGif}
+												target="_blank"
+												rel="noopener">[gif]</a
+											>{/if}
+									</span>
 								{:else}
 									<span class="msgtext gone">message deleted</span>
 								{/if}
+							{:else if m.gif}
+								<img class="msggif" src={m.gif} alt="GIF" loading="lazy" />
 							{:else}
 								<span class="msgtext">{m.text}</span>
 							{/if}
@@ -350,17 +412,65 @@
 			</div>
 		{/if}
 
+		{#if gifOpen}
+			<div class="gifpicker">
+				<div class="gifsearch">
+					<Search size={15} class="gs-ico" />
+					<input
+						bind:value={gifQuery}
+						oninput={onGifSearch}
+						placeholder="Search GIFs…"
+						aria-label="Search GIFs"
+					/>
+					<button class="gs-close" aria-label="Close" onclick={() => (gifOpen = false)}>
+						<X size={16} />
+					</button>
+				</div>
+				{#if !gifConfigured}
+					<p class="gif-empty">GIF search isn't set up yet.</p>
+				{:else if gifResults.length === 0 && !gifLoading}
+					<p class="gif-empty">No GIFs found.</p>
+				{:else}
+					<div class="gifgrid">
+						{#each gifResults as g (g.id)}
+							<button class="gifcell" onclick={() => pickGif(g)} title={g.title}>
+								<img src={g.preview} alt={g.title || 'GIF'} loading="lazy" />
+							</button>
+						{/each}
+					</div>
+					{#if gifNext}
+						<button class="gifmore" disabled={gifLoading} onclick={() => loadGifs(false)}>
+							{gifLoading ? 'Loading…' : 'Load more'}
+						</button>
+					{/if}
+				{/if}
+				<div class="gif-attrib">Powered by KLIPY</div>
+			</div>
+		{/if}
+
 		<form class="composer" onsubmit={(e) => (e.preventDefault(), send())}>
-			<textarea
-				bind:this={taEl}
-				bind:value={text}
-				oninput={autosize}
-				onkeydown={onKeydown}
-				onfocus={scrollToBottom}
-				placeholder="Message {clipName(leagueName)}…"
-				rows="1"
-				maxlength="2000"
-			></textarea>
+			<div class="ta-wrap">
+				<textarea
+					bind:this={taEl}
+					bind:value={text}
+					oninput={autosize}
+					onkeydown={onKeydown}
+					onfocus={scrollToBottom}
+					placeholder="Message {clipName(leagueName)}…"
+					rows="1"
+					maxlength="2000"
+				></textarea>
+				<button
+					type="button"
+					class="gifbtn"
+					class:on={gifOpen}
+					onclick={toggleGifs}
+					onmousedown={(e) => e.preventDefault()}
+					aria-label="Add a GIF"
+				>
+					GIF
+				</button>
+			</div>
 			<button
 				class="sendbtn"
 				disabled={!text.trim() || sending}
@@ -566,6 +676,25 @@
 		margin-right: 0.35rem;
 		vertical-align: 1px;
 	}
+	.modgif {
+		color: var(--accent);
+		margin-left: 0.25rem;
+	}
+	/* GIF message: the image fills the bubble (tight padding). */
+	.bubble.hasgif {
+		padding: 3px;
+		background: var(--surface-2);
+	}
+	.row.mine .bubble.hasgif {
+		background: var(--surface-2);
+		border-color: var(--border);
+	}
+	.msggif {
+		display: block;
+		max-width: min(220px, 60vw);
+		height: auto;
+		border-radius: 11px;
+	}
 	.del {
 		display: none; /* revealed on hover (or tap, on touch); stays while armed */
 		align-items: center;
@@ -647,19 +776,144 @@
 		border-top: 1px solid var(--border);
 		flex: none;
 	}
+	.ta-wrap {
+		position: relative;
+		flex: 1;
+		display: flex;
+	}
 	.composer textarea {
 		flex: 1;
 		resize: none;
 		min-height: 2.6rem;
 		max-height: 7.6rem; /* ~5 lines, then scroll */
 		overflow-y: auto;
-		padding: 0.6rem 0.8rem;
+		padding: 0.6rem 3rem 0.6rem 0.8rem; /* right room for the GIF button */
 		line-height: 1.4;
 		font: inherit;
 		background: var(--surface-2);
 		border: 1px solid var(--border);
 		border-radius: var(--radius);
 		color: var(--text);
+	}
+	/* "GIF" button, inside the textbox at the end. */
+	.gifbtn {
+		position: absolute;
+		right: 0.45rem;
+		bottom: 0.5rem;
+		padding: 0.15rem 0.4rem;
+		background: transparent;
+		border: none;
+		border-radius: var(--radius-sm);
+		color: var(--muted);
+		font-weight: 800;
+		font-size: 0.72rem;
+		letter-spacing: 0.04em;
+		cursor: pointer;
+	}
+	.gifbtn:hover {
+		color: var(--text);
+		background: var(--surface);
+	}
+	.gifbtn.on {
+		color: var(--accent-fg);
+		background: var(--accent);
+	}
+
+	/* ---- GIF picker panel ---- */
+	.gifpicker {
+		display: flex;
+		flex-direction: column;
+		gap: 0.55rem;
+		max-height: 46vh;
+		margin-bottom: 0.4rem;
+		padding: 0.6rem;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		overflow: hidden;
+	}
+	.gifsearch {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.35rem 0.55rem;
+		background: var(--surface-2);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		flex: none;
+	}
+	:global(.gifsearch .gs-ico) {
+		color: var(--muted);
+		flex: none;
+	}
+	.gifsearch input {
+		flex: 1;
+		min-width: 0;
+		background: none;
+		border: none;
+		color: var(--text);
+		font: inherit;
+		outline: none;
+	}
+	.gs-close {
+		flex: none;
+		display: inline-grid;
+		place-items: center;
+		background: none;
+		border: none;
+		color: var(--muted);
+		cursor: pointer;
+	}
+	.gifgrid {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 0.4rem;
+	}
+	.gifcell {
+		padding: 0;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		overflow: hidden;
+		background: var(--surface-2);
+		cursor: pointer;
+		aspect-ratio: 1;
+	}
+	.gifcell img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+	.gifcell:hover {
+		border-color: var(--accent);
+	}
+	.gifmore {
+		flex: none;
+		align-self: center;
+		padding: 0.35rem 0.9rem;
+		background: var(--surface-2);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-pill);
+		color: var(--muted);
+		font-size: 0.8rem;
+		cursor: pointer;
+	}
+	.gif-empty {
+		color: var(--muted);
+		text-align: center;
+		padding: 1.5rem 0;
+		margin: 0;
+	}
+	.gif-attrib {
+		flex: none;
+		text-align: right;
+		font-size: 0.68rem;
+		color: var(--muted);
+		opacity: 0.7;
 	}
 	.composer textarea:focus {
 		outline: none;

@@ -22,6 +22,7 @@ cp .env.example .env
 | `NOTIFY_CRON` | no | Override the notify scheduler cadence (default `*/15 * * * *`). |
 | `CHAT_NOTIFY_CRON` | no | Override the league-chat push cadence (default `* * * * *`, i.e. every minute). Batches a burst into one push per league with a per-user cooldown. |
 | `CHAT_DIGEST_CRON` | no | Override the league-chat **email** digest cadence (default `0 */6 * * *`, i.e. every 6h). One email per user summarising unread chat; deduped so it won't nag about the same unread. |
+| `KLIPY_API_KEY` | optional | KLIPY GIF API key (klipy.com/developers). Enables the in-chat GIF picker; without it the picker shows "not set up yet". The key stays server-side (search is proxied). |
 | `NOTIFY_DISABLED` | no | Set to `1`/`true` to switch the scheduler off — no automated mail/push is sent. Handy for local testing; dev manual-trigger routes still work. |
 | `NOTIFY_ALLOWLIST` | optional | Comma-separated emails for a gradual rollout — only these addresses get mail. Empty = everyone. |
 | `NOTIFY_LOG_LEVEL` | no | `debug` logs a per-pass heartbeat; default logs only passes that sent/failed mail (plus allowlist changes & errors). |
