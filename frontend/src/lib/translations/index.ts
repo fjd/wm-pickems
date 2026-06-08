@@ -13,12 +13,21 @@ export interface Translations {
 		SF: string;
 		thirdPlace: string;
 		final: string;
+		groupStage: string;
 		/** Used in league detail scoring legend — singular forms */
 		R32s: string;
 		R16s: string;
 		QFs: string;
 		SFs: string;
 		champion: string;
+	};
+	countdown: {
+		forecastLockIn: string;
+		locksIn: string;
+		days: string;
+		hrs: string;
+		min: string;
+		sec: string;
 	};
 	common: {
 		loading: string;
@@ -95,6 +104,32 @@ export interface Translations {
 		sending: string;
 		sent: string;
 		sendResetLink: string;
+		notifications: string;
+		notifyDesc: string;
+		pushNotSupported: string;
+		pushBlocked: string;
+		pushEnabledLabel: string;
+		sendTest: string;
+		disable: string;
+		enablePushDevice: string;
+		emailCol: string;
+		pushCol: string;
+		enablePushHint: string;
+		notifyKickoffCountdown: string;
+		notifyKickoffCountdownHint: string;
+		notifyStageStarting: string;
+		notifyStageStartingHint: string;
+		notifyTipsReminder: string;
+		notifyTipsReminderHint: string;
+		notifyForecastReminder: string;
+		notifyForecastReminderHint: string;
+		notifyResultsRecap: string;
+		notifyResultsRecapHint: string;
+		notifyLeagueLead: string;
+		notifyLeagueLeadHint: string;
+		couldNotSaveNotify: string;
+		testSent: string;
+		testNoDevice: string;
 	};
 	home: {
 		kicker: string;
@@ -111,6 +146,17 @@ export interface Translations {
 		moveTipsSub: string;
 		moveLeagueTitle: string;
 		moveLeagueSub: string;
+		kickoffIn: string;
+		championsCrowned: string;
+		matchesPlayed: string;
+		nextUp: string;
+		tipIt: string;
+		teamsTbd: string;
+		allCaughtUp: string;
+		howDoesItWork: string;
+		howDoesItWorkSub: string;
+		moveTipsTitleOne: string;
+		moveTipsTitleMany: string;
 	};
 	tips: {
 		kicker: string;
@@ -300,6 +346,128 @@ export interface Translations {
 		invalidInvite: string;
 		goHome: string;
 	};
+	landing: {
+		backToApp: string;
+		joinForFree: string;
+		signIn: string;
+		iHaveAccount: string;
+		// Hero
+		worldCup: string;
+		dates: string;
+		predictThe: string;
+		beatYour: string;
+		tldr: string;
+		tldrBody: string;
+		nations: string;
+		matches: string;
+		groups: string;
+		winner: string;
+		// Rolling words
+		rollFriends: string;
+		rollColleagues: string;
+		rollFamily: string;
+		rollTeam: string;
+		rollCoworkers: string;
+		rollRivals: string;
+		// Why
+		whyKicker: string;
+		whyTitle: string;
+		whyFree: string;
+		whyFreeBody: string;
+		whyNoAds: string;
+		whyNoAdsBody: string;
+		whyOpenSource: string;
+		whyOpenSourceBody: string;
+		// Ticker
+		tickerFree: string;
+		tickerNoAds: string;
+		tickerOpenSource: string;
+		// Two modes
+		twoWaysKicker: string;
+		twoWaysTitle: string;
+		twoWaysAccent: string;
+		// Forecast mode
+		forecastLabel: string;
+		forecastBody: string;
+		forecastLocksKickoff: string;
+		forecastGroupsLabel: string;
+		forecastKnockoutLabel: string;
+		forecastAdvances: string;
+		forecastThird: string;
+		// Tips mode
+		tipsLabel: string;
+		tipsBody: string;
+		tipsEditableUntil: string;
+		// Leagues
+		leaguesKicker: string;
+		leaguesTitle: string;
+		leaguesBody: string;
+		leaguesPrivate: string;
+		leaguesLeaderboards: string;
+		leaguesAi: string;
+		leaguesJoinCode: string;
+		// Points
+		pointsKicker: string;
+		pointsTitle: string;
+		pointsAccent: string;
+		pointsPerMatch: string;
+		pointsMax: string;
+		pointsCorrectResult: string;
+		pointsExactScore: string;
+		pointsTotalGoals: string;
+		pointsGoalDiff: string;
+		pointsKoNote: string;
+		pointsFcGroups: string;
+		pointsEachCall: string;
+		pointsPosition: string;
+		pointsAdvancer: string;
+		pointsPerfect: string;
+		pointsGroupNote: string;
+		pointsFcReach: string;
+		pointsPerTeam: string;
+		pointsReachNote: string;
+		// AI
+		aiKicker: string;
+		aiTitle: string;
+		aiTitleAccent: string;
+		aiBody: string;
+		// Final CTA
+		finalKickoff: string;
+		finalMakePicks: string;
+		// Footer
+		footer: string;
+	};
+	notify: {
+		title: string;
+		body: string;
+		enablePush: string;
+		installForPush: string;
+		iphoneHint: string;
+		pushBlocked: string;
+		dontShowAgain: string;
+		fineTuneSettings: string;
+		maybeLater: string;
+	};
+	owner: {
+		title: string;
+		kicker: string;
+		refresh: string;
+		restricted: string;
+		loadError: string;
+		users: string;
+		totalUsers: string;
+		botsExcluded: string;
+		newLast24h: string;
+		active: string;
+		activeHint: string;
+		leagues: string;
+		leaguesHint: string;
+		activeLeaguesHint: string;
+		notifications: string;
+		pushEnabled: string;
+		optedOut: string;
+		optedOutHint: string;
+	};
 	dev: {
 		title: string;
 		testHarness: string;
@@ -318,6 +486,9 @@ export interface Translations {
 		reset: string;
 		resetDesc: string;
 		resetEverything: string;
+		testPushDesc: string;
+		testEmails: string;
+		testEmailsDesc: string;
 	};
 	userMenu: {
 		settings: string;

@@ -78,6 +78,7 @@ export function ordinal(n: number): string {
 
 export function stageLabel(stage: string): string {
 	const map: Record<string, string> = {
+		group: 'stages.groupStage',
 		R32: 'stages.R32',
 		R16: 'stages.R16',
 		QF: 'stages.QF',

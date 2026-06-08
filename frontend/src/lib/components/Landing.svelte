@@ -3,6 +3,7 @@
 	import { Confetti } from 'svelte-confetti';
 	import { auth } from '$lib/auth.svelte';
 	import { countdown } from '$lib/countdown.svelte';
+	import { t } from '$lib/i18n.svelte';
 	import Countdown from './Countdown.svelte';
 	import {
 		Telescope,
@@ -26,48 +27,48 @@
 	// The landing is only mounted for signed-out visitors, but keep the primary
 	// CTA honest if an authed user ever lands here (e.g. via a stale link).
 	let primaryHref = $derived(auth.isAuthed ? '/' : '/register');
-	let primaryLabel = $derived(auth.isAuthed ? 'Back to the app' : 'Join for free');
+	let primaryLabel = $derived(auth.isAuthed ? t('landing.backToApp') : t('landing.joinForFree'));
 
 	// The hero headline rolls "friends" through these (drop in from the top).
 	// Keep the longest one as the width sizer (.roll-size) below.
-	const rollWords = ['friends.', 'colleagues.', 'family.', 'team.', 'coworkers.', 'rivals.'];
+	const rollKeys = ['rollFriends', 'rollColleagues', 'rollFamily', 'rollTeam', 'rollCoworkers', 'rollRivals'];
 
-	const why = [
+	const why = $derived([
 		{
 			icon: Gift,
-			title: 'Free',
-			body: 'Every feature, every match. No premium tier, no paywall, no catch.'
+			title: t('landing.whyFree'),
+			body: t('landing.whyFreeBody')
 		},
 		{
 			icon: Ban,
-			title: 'No ads',
-			body: 'NEVER. Not a single banner or tracker. Your data stays yours — we just keep score.'
+			title: t('landing.whyNoAds'),
+			body: t('landing.whyNoAdsBody')
 		},
 		{
 			icon: Code,
-			title: 'Open source',
-			body: 'Built in the open under GPLv3. Read it, host it, fork it yourself.'
+			title: t('landing.whyOpenSource'),
+			body: t('landing.whyOpenSourceBody')
 		}
-	];
+	]);
 
 	// Per-match scoring — mirrors the live config legend (max 6 / game).
-	const tipPoints = [
-		{ label: 'Correct result', pts: '3' },
-		{ label: 'Exact score', pts: '+1' },
-		{ label: 'Total goals', pts: '+1' },
-		{ label: 'Goal difference', pts: '+1' }
-	];
+	const tipPoints = $derived([
+		{ label: t('landing.pointsCorrectResult'), pts: '3' },
+		{ label: t('landing.pointsExactScore'), pts: '+1' },
+		{ label: t('landing.pointsTotalGoals'), pts: '+1' },
+		{ label: t('landing.pointsGoalDiff'), pts: '+1' }
+	]);
 	// Broadcast lower-third ticker — repeated enough that one copy overflows the
 	// widest container, so the two identical copies scroll seamlessly (-50%).
-	const ticker = ['Free', 'No ads', 'Open source'];
-	const tickerRun = Array.from({ length: 5 }, () => ticker).flat();
+	const tickerKeys = ['tickerFree', 'tickerNoAds', 'tickerOpenSource'];
+	const tickerRun = Array.from({ length: 5 }, () => tickerKeys).flat();
 
 	// Forecast group-stage scoring.
-	const groups = [
-		{ r: 'Position', p: '1' },
-		{ r: 'Advancer', p: '+1' },
-		{ r: 'Perfect', p: '+2' }
-	];
+	const groups = $derived([
+		{ r: t('landing.pointsPosition'), p: '1' },
+		{ r: t('landing.pointsAdvancer'), p: '+1' },
+		{ r: t('landing.pointsPerfect'), p: '+2' }
+	]);
 	// Forecast knockout-reach escalation.
 	const reach = [
 		{ r: 'R32', p: '1' },
@@ -179,38 +180,37 @@
 	<!-- ============ HERO ============ -->
 	<header class="hero">
 		<p class="kicker hero-kick">
-			<span>FIFA World Cup 2026</span><span class="dates"
-				>11 Jun – 19 Jul <span class="flags">· 🇨🇦 🇲🇽 🇺🇸</span></span
+			<span>{t('landing.worldCup')}</span><span class="dates"
+				>{t('landing.dates')} <span class="flags">· 🇨🇦 🇲🇽 🇺🇸</span></span
 			>
 		</p>
 		<h1 class="head">
-			Predict the <span class="wm"
+			{t('landing.predictThe')} <span class="wm"
 				>WM<span class="wm-note"
 					><span class="wm-arrow" aria-hidden="true"></span><span class="wm-note-text"
-						>abbr. <em>„Weltmeisterschaft“</em> — German for World&nbsp;Cup</span
+						>abbr. <em>„Weltmeisterschaft"</em> — German for World&nbsp;Cup</span
 					></span
 				></span
 			>.<br /><span class="grad"
-				>Beat your <span class="roll" aria-hidden="true"
-					><span class="roll-size">colleagues.</span><span class="drum"
-						>{#each rollWords as w, i (w)}<b class="face" style="--i:{i}"
-								><span>{w}</span></b
-							>{/each}</span
+				>{t('landing.beatYour')} <span class="roll" aria-hidden="true"
+					><span class="roll-size">{t('landing.rollCoworkers')}</span><span class="drum"
+						>{#each rollKeys as rk, i (rk)}<b class="face" style="--i:{i}"
+							><span>{t(`landing.${rk}`)}</span></b
+						>{/each}</span
 					></span
-				><span class="sr-only">friends.</span></span
+				><span class="sr-only">{t('landing.rollFriends')}</span></span
 			>
 		</h1>
 		<p class="tldr">
-			<span class="tl">TL;DR</span>&nbsp;
-			A free prediction game for the World Cup. <br>Call the full tournament before kickoff,
-			tip every match along the way, and climb the leaderboards with your mates.
+			<span class="tl">{t('landing.tldr')}</span>&nbsp;
+			{t('landing.tldrBody')}
 		</p>
 
 		<div class="hero-actions">
 			<div class="cta">
 				<a class="btn big" href={primaryHref}>{primaryLabel} <ArrowRight size={18} /></a>
 				{#if !auth.isAuthed}
-					<a class="btn secondary big" href="/login">Sign in</a>
+					<a class="btn secondary big" href="/login">{t('landing.signIn')}</a>
 				{/if}
 			</div>
 			{#if countdown.ready && !countdown.locked}
@@ -221,10 +221,10 @@
 		</div>
 
 		<dl class="stats digits">
-			<div><dt>48</dt><dd>Nations</dd></div>
-			<div><dt>104</dt><dd>Matches</dd></div>
-			<div><dt>12</dt><dd>Groups</dd></div>
-			<div><dt>1</dt><dd>Winner</dd></div>
+			<div><dt>48</dt><dd>{t('landing.nations')}</dd></div>
+			<div><dt>104</dt><dd>{t('landing.matches')}</dd></div>
+			<div><dt>12</dt><dd>{t('landing.groups')}</dd></div>
+			<div><dt>1</dt><dd>{t('landing.winner')}</dd></div>
 		</dl>
 	</header>
 
@@ -233,8 +233,8 @@
 		<div class="track">
 			{#each [0, 1] as copy (copy)}
 				<span class="run">
-					{#each tickerRun as t, k (k)}
-						<b>{t}</b><i>·</i>
+					{#each tickerRun as tk, k (k)}
+						<b>{t(`landing.${tk}`)}</b><i>·</i>
 					{/each}
 				</span>
 			{/each}
@@ -243,8 +243,8 @@
 
 	<!-- ============ WHY ============ -->
 	<section class="block">
-		<p class="kicker">Why this app</p>
-		<h2>No money. No ads. No nonsense.</h2>
+		<p class="kicker">{t('landing.whyKicker')}</p>
+		<h2>{t('landing.whyTitle')}</h2>
 		<div class="grid3">
 			{#each why as w (w.title)}
 				{@const Icon = w.icon}
@@ -261,41 +261,39 @@
 
 	<!-- ============ TWO MODES ============ -->
 	<section class="block">
-		<p class="kicker">Two ways to play</p>
-		<h2>One big call. <span class="grad">104 small ones.</span></h2>
+		<p class="kicker">{t('landing.twoWaysKicker')}</p>
+		<h2>{t('landing.twoWaysTitle')} <span class="grad">{t('landing.twoWaysAccent')}</span></h2>
 		<div class="modes">
 			<!-- Forecast: copy + live group/knockout pickers -->
 			<div class="mode-row card">
 				<div class="mode-copy">
 					<span class="ic"><Telescope size={22} /></span>
-					<h3>Forecast</h3>
+					<h3>{t('landing.forecastLabel')}</h3>
 					<p class="muted">
-						One pre-tournament prediction: full group standings 1–4, the eight
-						best-third advancers and the entire knockout bracket. Locks at the
-						opening kickoff — then scores tick in stage by stage.
+						{t('landing.forecastBody')}
 					</p>
-					<span class="pill ok"><Lock size={13} /> Locks at first kickoff</span>
+					<span class="pill ok"><Lock size={13} /> {t('landing.forecastLocksKickoff')}</span>
 				</div>
 				<div class="mode-demo">
 					<div class="gdemo card">
-						<p class="glabel">Groups</p>
-						{#each groupOrder as t, i (t.name)}
+						<p class="glabel">{t('landing.forecastGroupsLabel')}</p>
+						{#each groupOrder as tm, i (tm.name)}
 							<div class="grow">
 								<span class="gpos digits">{i + 1}</span>
-								<img class="gflag" src={t.flag} alt={t.code} />
-								<span class="gnm">{t.name}</span>
+								<img class="gflag" src={tm.flag} alt={tm.code} />
+								<span class="gnm">{tm.name}</span>
 								<span class="gtag">
-									{#if i < 2}<span class="pill ok">advances</span>
-									{:else if i === 2}<span class="pill">3rd</span>{/if}
+									{#if i < 2}<span class="pill ok">{t('landing.forecastAdvances')}</span>
+									{:else if i === 2}<span class="pill">{t('landing.forecastThird')}</span>{/if}
 								</span>
 								<span class="gord">
 									<button
-										aria-label="move {t.name} up"
+										aria-label="move {tm.name} up"
 										disabled={i === 0}
 										onclick={() => moveTeam(i, -1)}><ChevronUp size={16} /></button
 									>
 									<button
-										aria-label="move {t.name} down"
+										aria-label="move {tm.name} down"
 										disabled={i === 3}
 										onclick={() => moveTeam(i, 1)}><ChevronDown size={16} /></button
 									>
@@ -304,7 +302,7 @@
 						{/each}
 					</div>
 					<div class="kdemo card">
-						<p class="glabel">Knockout</p>
+						<p class="glabel">{t('landing.forecastKnockoutLabel')}</p>
 						<div class="kmatch">
 							<button
 								class="kteam"
@@ -314,7 +312,7 @@
 								<img class="gflag" src={groupOrder[0].flag} alt={groupOrder[0].code} />
 								<span class="kn">{groupOrder[0].name}</span>
 							</button>
-							<span class="kvs">vs</span>
+							<span class="kvs">{t('common.vs')}</span>
 							<button
 								class="kteam"
 								class:win={koPick === 'second'}
@@ -332,13 +330,11 @@
 			<div class="mode-row reverse card">
 				<div class="mode-copy">
 					<span class="ic alt"><Volleyball size={22} /></span>
-					<h3>Tips</h3>
+					<h3>{t('landing.tipsLabel')}</h3>
 					<p class="muted">
-						Predict the score of every match, editable right up to kickoff.
-						Knockouts go deeper — 90′, extra time, then penalties. Once a game
-						starts your tip locks and you can see what everyone else picked.
+						{t('landing.tipsBody')}
 					</p>
-					<span class="pill"><Check size={13} /> Editable until kickoff</span>
+					<span class="pill"><Check size={13} /> {t('landing.tipsEditableUntil')}</span>
 				</div>
 				<div class="mode-demo">
 					<div class="tdemo card">
@@ -359,7 +355,7 @@
 							<div class="tmeta">
 								<span class="muted">Semi-Final · Tue, Jul 08, 08:00 PM</span>
 								<span class="tspacer"></span>
-								<span class="pill ok"><Check size={12} /> tipped</span>
+								<span class="pill ok"><Check size={12} /> {t('common.tipped')}</span>
 								<ChevronUp size={16} class="tcv" />
 							</div>
 						</div>
@@ -386,7 +382,7 @@
 								</span>
 							</div>
 							<button class="btn tsave" bind:this={saveBtn} onclick={saveTip}>
-								{#if savedFlash}<Check size={16} /> Saved{:else}Save tip{/if}
+								{#if savedFlash}<Check size={16} /> {t('common.saved')}{:else}{t('tipCard.saveTip')}{/if}
 							</button>
 						</div>
 					</div>
@@ -397,23 +393,21 @@
 
 	<!-- ============ LEAGUES ============ -->
 	<section class="block">
-		<p class="kicker">Bragging rights</p>
-		<h2>Play in leagues.</h2>
+		<p class="kicker">{t('landing.leaguesKicker')}</p>
+		<h2>{t('landing.leaguesTitle')}</h2>
 		<div class="card leagues">
 			<div class="lg-copy">
 				<p class="muted">
-					Spin up a competition and compete against your friends in your private league.
-					Each league has its own leaderboard with stats, scores and comprehensive tiebreaker rules. Share your league's code with your friends to join. Everyone's auto-entered into a
-					global league too — so you're never playing alone.
+					{t('landing.leaguesBody')}
 				</p>
 				<div class="lg-tags">
-					<span class="pill"><Users size={13} /> Private leagues</span>
-					<span class="pill"><Trophy size={13} /> Live leaderboards</span>
-					<span class="pill"><Sparkles size={13} /> AI opponents</span>
+					<span class="pill"><Users size={13} /> {t('landing.leaguesPrivate')}</span>
+					<span class="pill"><Trophy size={13} /> {t('landing.leaguesLeaderboards')}</span>
+					<span class="pill"><Sparkles size={13} /> {t('landing.leaguesAi')}</span>
 				</div>
 			</div>
 			<div class="invite" aria-hidden="true">
-				<span class="invite-lbl">Join code</span>
+				<span class="invite-lbl">{t('landing.leaguesJoinCode')}</span>
 				<span class="invite-code digits">WM2026</span>
 			</div>
 		</div>
@@ -421,27 +415,27 @@
 
 	<!-- ============ POINTS ============ -->
 	<section class="block">
-		<p class="kicker">How points work</p>
-		<h2>Six points a game. <span class="grad">Max.</span></h2>
+		<p class="kicker">{t('landing.pointsKicker')}</p>
+		<h2>{t('landing.pointsTitle')} <span class="grad">{t('landing.pointsAccent')}</span></h2>
 		<div class="pts-grid">
 			<div class="card score tips">
 				<div class="score-head">
-					<span class="pill">Per match</span>
-					<span class="max digits">6<small>max</small></span>
+					<span class="pill">{t('landing.pointsPerMatch')}</span>
+					<span class="max digits">6<small>{t('landing.pointsMax')}</small></span>
 				</div>
 				<ul class="score-list">
-					{#each tipPoints as t (t.label)}
-						<li><span>{t.label}</span><b class="digits">{t.pts}</b></li>
+					{#each tipPoints as tp (tp.label)}
+						<li><span>{tp.label}</span><b class="digits">{tp.pts}</b></li>
 					{/each}
 				</ul>
 				<p class="muted fine">
-					<Target size={13} /> Knockout score points use the after-extra-time result.
+					<Target size={13} /> {t('landing.pointsKoNote')}
 				</p>
 			</div>
 			<div class="card score">
 				<div class="score-head">
-					<span class="pill ok">Forecast groups</span>
-					<span class="muted fine">each correct call</span>
+					<span class="pill ok">{t('landing.pointsFcGroups')}</span>
+					<span class="muted fine">{t('landing.pointsEachCall')}</span>
 				</div>
 				<div class="reach">
 					{#each groups as g (g.r)}
@@ -452,14 +446,13 @@
 					{/each}
 				</div>
 				<p class="muted fine">
-					<Sparkles size={13} /> Each team in its right slot, plus every predicted
-					advancer — a whole group nailed earns the bonus.
+					<Sparkles size={13} /> {t('landing.pointsGroupNote')}
 				</p>
 			</div>
 			<div class="card score">
 				<div class="score-head">
-					<span class="pill ok">Forecast reach</span>
-					<span class="muted fine">per team that gets there</span>
+					<span class="pill ok">{t('landing.pointsFcReach')}</span>
+					<span class="muted fine">{t('landing.pointsPerTeam')}</span>
 				</div>
 				<div class="reach">
 					{#each reach as r (r.r)}
@@ -470,7 +463,7 @@
 					{/each}
 				</div>
 				<p class="muted fine">
-					<Trophy size={13} /> Climbs each round a predicted team keeps surviving.
+					<Trophy size={13} /> {t('landing.pointsReachNote')}
 				</p>
 			</div>
 		</div>
@@ -478,17 +471,11 @@
 
 	<!-- ============ AI STANDOFF ============ -->
 	<section class="block">
-		<p class="kicker">Man vs machine</p>
-		<h2>You vs the <span class="grad">world's best AI.</span></h2>
+		<p class="kicker">{t('landing.aiKicker')}</p>
+		<h2>{t('landing.aiTitle')} <span class="grad">{t('landing.aiTitleAccent')}</span></h2>
 		<div class="card ai">
 			<p class="muted ai-lead">
-				The biggest names in AI each call the whole tournament and tip every
-				single match — then line up on the same leaderboard as you. Same locks,
-				same blind picks, no second-guessing once the whistle blows.
-				<br>
-				Drop them
-				into your league and settle it: who really reads the game best — you,
-				your mates, or the machines?
+				{@html t('landing.aiBody')}
 			</p>
 			<div class="ai-roster">
 				{#each aiModels as m (m.name)}
@@ -507,18 +494,18 @@
 	<!-- ============ FINAL CTA ============ -->
 	<section class="block final">
 		<div class="card cta-card">
-			<h2>Kickoff is coming.</h2>
-			<p class="muted">Make your picks before the ball starts rolling.</p>
+			<h2>{t('landing.finalKickoff')}</h2>
+			<p class="muted">{t('landing.finalMakePicks')}</p>
 			<Countdown variant="cta" />
 			<div class="cta">
 				<a class="btn big" href={primaryHref}>{primaryLabel} <ArrowRight size={18} /></a>
 				{#if !auth.isAuthed}
-					<a class="btn secondary big" href="/login">I already have an account</a>
+					<a class="btn secondary big" href="/login">{t('landing.iHaveAccount')}</a>
 				{/if}
 			</div>
 		</div>
 		<p class="foot muted">
-			WM Tips · open source · made for the love of the game · by <a href="https://floholz.com" target="_blank" rel="noopener">floholz</a>
+			{t('landing.footer')} <a href="https://floholz.com" target="_blank" rel="noopener">floholz</a>
 		</p>
 	</section>
 </div>
@@ -664,7 +651,7 @@
 	   word) fixes the slot width so every face left-aligns under it; the trailing
 	   space sits at the line end, so it's invisible. */
 	.roll {
-		--n: 6; /* number of faces (rollWords.length) */
+		--n: 6; /* number of faces (rollKeys.length) */
 		--slot: 2.4s; /* time each word rests facing the viewer */
 		--theta: 60deg; /* 360 / n */
 		--r: 0.866em; /* prism apothem = (faceHeight/2) / tan(theta/2) */

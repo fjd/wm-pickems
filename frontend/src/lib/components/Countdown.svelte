@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { countdown } from '$lib/countdown.svelte';
+	import { t } from '$lib/i18n.svelte';
 	import { Lock } from '@lucide/svelte';
 
 	let { variant = 'hero' }: { variant?: 'hero' | 'cta' | 'bar' } = $props();
@@ -11,20 +12,20 @@
 	{#if variant === 'bar'}
 		<div class="cd-bar">
 			<Lock size={13} />
-			<span class="lbl">Forecast &amp; first match lock in</span>
+			<span class="lbl">{t('countdown.forecastLockIn')}</span>
 			<b class="digits">{p.days}d {pad(p.hours)}h {pad(p.mins)}m {pad(p.secs)}s</b>
 		</div>
 	{:else}
 		<div class="cd cd-{variant}">
-			<span class="kick"><Lock size={11} /> Locks in</span>
+			<span class="kick"><Lock size={11} /> {t('countdown.locksIn')}</span>
 			<div class="units digits">
-				<span class="u"><b>{pad(p.days)}</b><i>days</i></span>
+				<span class="u"><b>{pad(p.days)}</b><i>{t('countdown.days')}</i></span>
 				<span class="sep">:</span>
-				<span class="u"><b>{pad(p.hours)}</b><i>hrs</i></span>
+				<span class="u"><b>{pad(p.hours)}</b><i>{t('countdown.hrs')}</i></span>
 				<span class="sep">:</span>
-				<span class="u"><b>{pad(p.mins)}</b><i>min</i></span>
+				<span class="u"><b>{pad(p.mins)}</b><i>{t('countdown.min')}</i></span>
 				<span class="sep">:</span>
-				<span class="u"><b>{pad(p.secs)}</b><i>sec</i></span>
+				<span class="u"><b>{pad(p.secs)}</b><i>{t('countdown.sec')}</i></span>
 			</div>
 		</div>
 	{/if}

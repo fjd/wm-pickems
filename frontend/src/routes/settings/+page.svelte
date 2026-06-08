@@ -29,33 +29,33 @@
 	const NOTIFY_EVENTS = [
 		{
 			key: 'kickoff_countdown',
-			label: 'Countdown to kickoff',
-			hint: 'A daily reminder in the final days before the World Cup kicks off.'
+			labelKey: 'settings.notifyKickoffCountdown',
+			hintKey: 'settings.notifyKickoffCountdownHint'
 		},
 		{
 			key: 'stage_starting',
-			label: 'Stage starting soon',
-			hint: 'When the next stage (group stage, knockout rounds) is about to begin.'
+			labelKey: 'settings.notifyStageStarting',
+			hintKey: 'settings.notifyStageStartingHint'
 		},
 		{
 			key: 'tips_reminder',
-			label: 'Tip reminders',
-			hint: "Before upcoming matches if you haven't entered a tip yet."
+			labelKey: 'settings.notifyTipsReminder',
+			hintKey: 'settings.notifyTipsReminderHint'
 		},
 		{
 			key: 'forecast_reminder',
-			label: 'Forecast deadline',
-			hint: "Before the tournament starts if your Forecast isn't finished."
+			labelKey: 'settings.notifyForecastReminder',
+			hintKey: 'settings.notifyForecastReminderHint'
 		},
 		{
 			key: 'results_recap',
-			label: 'Results recap',
-			hint: 'A daily summary of how your points and ranking moved.'
+			labelKey: 'settings.notifyResultsRecap',
+			hintKey: 'settings.notifyResultsRecapHint'
 		},
 		{
 			key: 'league_lead',
-			label: 'Took the lead',
-			hint: 'When you climb to #1 in one of your leagues.'
+			labelKey: 'settings.notifyLeagueLead',
+			hintKey: 'settings.notifyLeagueLeadHint'
 		}
 	];
 
@@ -78,8 +78,8 @@
 			const { sent, total } = await push.test();
 			testMsg =
 				sent > 0
-					? `Test sent to ${sent}/${total} device(s) — watch for a notification.`
-					: `No device accepted it (${total} tried).`;
+					? t('settings.testSent', { sent, total })
+					: t('settings.testNoDevice', { total });
 		} catch (e: unknown) {
 			testMsg = (e as { message?: string })?.message ?? 'Test failed.';
 		} finally {
@@ -102,7 +102,7 @@
 			prefs = prev; // revert on failure
 			notifyError =
 				(err as { message?: string })?.message ??
-				'Could not save notification settings.';
+				t('settings.couldNotSaveNotify');
 		} finally {
 			notifyBusy = false;
 		}
@@ -258,26 +258,23 @@
 	</section>
 
 	<section class="card">
-		<h3>Notifications</h3>
+		<h3>{t('settings.notifications')}</h3>
 		<p class="muted small">
-			Choose how we reach you for each event. Email goes to
-			<strong>{auth.user?.email ?? ''}</strong>; push arrives on this device.
+			{@html t('settings.notifyDesc', { email: auth.user?.email ?? '' })}
 		</p>
 
 		<div class="push-device">
 			{#if !push.supported}
 				<p class="muted small">
-					Push isn't supported in this browser. On iPhone/iPad, add the app to
-					your Home Screen first.
+					{t('settings.pushNotSupported')}
 				</p>
 			{:else if push.blocked}
 				<p class="muted small">
-					Push is blocked in your browser settings — re-allow notifications for
-					this site to enable it.
+					{t('settings.pushBlocked')}
 				</p>
 			{:else if push.subscribed}
 				<div class="push-row">
-					<span class="ok small">✓ Push enabled on this device</span>
+					<span class="ok small">{t('settings.pushEnabledLabel')}</span>
 					<div class="push-actions">
 						<button
 							type="button"
@@ -285,7 +282,7 @@
 							onclick={sendTest}
 							disabled={testBusy}
 						>
-							{testBusy ? 'Sending…' : 'Send test'}
+							{testBusy ? t('common.saving') : t('settings.sendTest')}
 						</button>
 						<button
 							type="button"
@@ -293,7 +290,7 @@
 							onclick={() => push.disable()}
 							disabled={push.busy}
 						>
-							{push.busy ? 'Working…' : 'Disable'}
+							{push.busy ? t('common.saving') : t('settings.disable')}
 						</button>
 					</div>
 				</div>
@@ -305,7 +302,7 @@
 					onclick={() => push.enable()}
 					disabled={push.busy}
 				>
-					{push.busy ? 'Enabling…' : 'Enable push on this device'}
+					{push.busy ? t('common.saving') : t('settings.enablePushDevice')}
 				</button>
 			{/if}
 			{#if push.error}<p class="error small">{push.error}</p>{/if}
@@ -315,21 +312,21 @@
 		<ul class="notify-list">
 			<li class="notify-row notify-head">
 				<span></span>
-				<span class="col-label">Email</span>
-				<span class="col-label">Push</span>
+				<span class="col-label">{t('settings.emailCol')}</span>
+				<span class="col-label">{t('settings.pushCol')}</span>
 			</li>
 			{#each NOTIFY_EVENTS as ev (ev.key)}
 				<li class="notify-row">
 					<div class="notify-text">
-						<span class="notify-label">{ev.label}</span>
-						<span class="muted notify-hint">{ev.hint}</span>
+						<span class="notify-label">{t(ev.labelKey)}</span>
+						<span class="muted notify-hint">{t(ev.hintKey)}</span>
 					</div>
 					{#each ['email', 'push'] as const as ch}
 						<button
 							type="button"
 							role="switch"
 							aria-checked={isOn(ev.key, ch)}
-							aria-label={`${ev.label} — ${ch}`}
+							aria-label={`${t(ev.labelKey)} — ${ch}`}
 							class="toggle"
 							class:on={isOn(ev.key, ch)}
 							onclick={() => toggleNotify(ev.key, ch)}
@@ -342,7 +339,7 @@
 			{/each}
 		</ul>
 		{#if push.supported && !push.subscribed}
-			<p class="muted hint">Enable push above to use the Push toggles.</p>
+			<p class="muted hint">{t('settings.enablePushHint')}</p>
 		{/if}
 	</section>
 

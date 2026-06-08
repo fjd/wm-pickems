@@ -3,6 +3,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import { api, type LeagueSummary } from '$lib/api';
 	import { t } from '$lib/i18n.svelte';
+	import { stageLabel } from '$lib/i18n.svelte';
 	import { tipsStore, isLocked, teamsResolved, type Match } from '$lib/tips.svelte';
 	import { countdown } from '$lib/countdown.svelte';
 	import { serverClock } from '$lib/serverclock.svelte';
@@ -66,21 +67,8 @@
 	const byKick = (a: Match, b: Match) =>
 		new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
 
-	function stageLabel(stage: string): string {
-		return (
-			{
-				group: 'Group stage',
-				R32: 'Round of 32',
-				R16: 'Round of 16',
-				QF: 'Quarter-finals',
-				SF: 'Semi-finals',
-				'3RD': 'Third-place play-off',
-				FINAL: 'Final'
-			}[stage] ?? ''
-		);
-	}
 	function roundOf(m: Match): string {
-		return m.stage === 'group' ? `Group ${m.groupLetter} · ${m.roundLabel}` : m.roundLabel;
+		return m.stage === 'group' ? `${t('common.group', { letter: m.groupLetter ?? '' })} · ${m.roundLabel}` : m.roundLabel;
 	}
 	function fmtKick(iso: string): string {
 		return new Date(iso).toLocaleString(undefined, {
@@ -93,8 +81,8 @@
 	}
 	// A team slot — resolved team, or the KO placeholder label ("W73", "1A").
 	function slot(id: string, label: string) {
-		const t = id ? tipsStore.team(id) : undefined;
-		return { name: t?.name ?? label ?? 'TBD', iso2: t?.iso2 ?? '', code: t?.fifaCode ?? '' };
+		const tm = id ? tipsStore.team(id) : undefined;
+		return { name: tm?.name ?? label ?? 'TBD', iso2: tm?.iso2 ?? '', code: tm?.fifaCode ?? '' };
 	}
 
 	let started = $derived(countdown.locked); // first kickoff has passed
@@ -124,28 +112,30 @@
 	);
 
 	// Smart next moves — only what's actually still outstanding.
+	type Move = { href: string; icon: typeof Telescope; titleKey: string; subKey: string; params?: Record<string, string | number> };
 	let moves = $derived.by(() => {
-		const out: { href: string; icon: typeof Telescope; title: string; sub: string }[] = [];
+		const out: Move[] = [];
 		if (forecastChecked && !countdown.locked && !hasForecast)
 			out.push({
 				href: '/forecast',
 				icon: Telescope,
-				title: 'Fill in your forecast',
-				sub: 'Your full tournament call — locks at the opening kickoff'
+				titleKey: 'home.moveForecastTitle',
+				subKey: 'home.moveForecastSub'
 			});
 		if (tipsStore.loaded && untipped > 0)
 			out.push({
 				href: '/tips',
 				icon: Volleyball,
-				title: `Tip ${untipped} open ${untipped === 1 ? 'match' : 'matches'}`,
-				sub: 'Score predictions, editable until each kickoff'
+				titleKey: untipped === 1 ? 'home.moveTipsTitleOne' : 'home.moveTipsTitleMany',
+				subKey: 'home.moveTipsSub',
+				params: { n: untipped }
 			});
 		if (leaguesLoaded && leagues.length === 0)
 			out.push({
 				href: '/leagues',
 				icon: Trophy,
-				title: 'Create or join a league',
-				sub: 'Play against your friends'
+				titleKey: 'home.moveLeagueTitle',
+				subKey: 'home.moveLeagueSub'
 			});
 		return out;
 	});
@@ -166,23 +156,23 @@
 		<!-- ===== Tournament progress / pre-tournament countdown ===== -->
 		<section class="card prog">
 			{#if !countdown.ready || !tipsStore.loaded}
-				<p class="muted">Loading…</p>
+				<p class="muted">{t('common.loading')}</p>
 			{:else if countdown.kickoff && !countdown.locked}
-				<p class="kicker2">Kickoff in</p>
+				<p class="kicker2">{t('home.kickoffIn')}</p>
 				<div class="cd">
-					<span class="u"><b class="digits">{pad(countdown.parts.days)}</b><i>days</i></span>
-					<span class="u"><b class="digits">{pad(countdown.parts.hours)}</b><i>hrs</i></span>
-					<span class="u"><b class="digits">{pad(countdown.parts.mins)}</b><i>min</i></span>
-					<span class="u"><b class="digits">{pad(countdown.parts.secs)}</b><i>sec</i></span>
+					<span class="u"><b class="digits">{pad(countdown.parts.days)}</b><i>{t('countdown.days')}</i></span>
+					<span class="u"><b class="digits">{pad(countdown.parts.hours)}</b><i>{t('countdown.hrs')}</i></span>
+					<span class="u"><b class="digits">{pad(countdown.parts.mins)}</b><i>{t('countdown.min')}</i></span>
+					<span class="u"><b class="digits">{pad(countdown.parts.secs)}</b><i>{t('countdown.sec')}</i></span>
 				</div>
 				<p class="muted fine">The opening match kicks off {fmtKick(new Date(countdown.kickoff).toISOString())}.</p>
 			{:else}
 				<div class="prog-head">
-					<span class="phase-lbl">{allDone ? 'Champions crowned' : phase}</span>
+					<span class="phase-lbl">{allDone ? t('home.championsCrowned') : phase}</span>
 					<span class="pct digits">{progress}%</span>
 				</div>
 				<div class="bar"><span style="width:{progress}%"></span></div>
-				<p class="muted fine">{finished} of {total} matches played</p>
+				<p class="muted fine">{t('home.matchesPlayed', { finished, total })}</p>
 			{/if}
 		</section>
 
@@ -192,7 +182,7 @@
 			{@const A = slot(nextMatch.awayTeam, nextMatch.awayLabel)}
 			<a class="card next" href="/tips">
 				<div class="row">
-					<h3>Next up</h3>
+					<h3>{t('home.nextUp')}</h3>
 					<div class="spacer"></div>
 					<span class="muted small">{roundOf(nextMatch)}</span>
 				</div>
@@ -201,7 +191,7 @@
 						<Flag iso2={H.iso2} code={H.code} />
 						<span class="nm-name">{H.name}</span>
 					</span>
-					<span class="nm-vs">vs</span>
+					<span class="nm-vs">{t('common.vs')}</span>
 					<span class="nm-team right">
 						<span class="nm-name">{A.name}</span>
 						<Flag iso2={A.iso2} code={A.code} />
@@ -211,11 +201,11 @@
 					<span class="muted small"><Clock size={14} /> {fmtKick(nextMatch.kickoff)}</span>
 					<div class="spacer"></div>
 					{#if nextTipped}
-						<span class="pill ok"><Check size={12} /> Tipped</span>
+						<span class="pill ok"><Check size={12} /> {t('common.tipped')}</span>
 					{:else if teamsResolved(nextMatch)}
-						<span class="pill act">Tip it →</span>
+						<span class="pill act">{t('home.tipIt')}</span>
 					{:else}
-						<span class="pill">Teams TBD</span>
+						<span class="pill">{t('home.teamsTbd')}</span>
 					{/if}
 				</div>
 			</a>
@@ -225,9 +215,9 @@
 		<section class="card">
 			<h3>{t('home.nextMoves')}</h3>
 			{#if !ready}
-				<p class="muted">Loading…</p>
+				<p class="muted">{t('common.loading')}</p>
 			{:else if allCaught}
-				<p class="caught"><span class="ci"><Check size={18} /></span> You're all caught up — nothing to do but watch.</p>
+				<p class="caught"><span class="ci"><Check size={18} /></span> {t('home.allCaughtUp')}</p>
 			{:else}
 				<div class="moves">
 					{#each moves as m (m.href)}
@@ -235,7 +225,7 @@
 						<a class="move" href={m.href}>
 							<span class="mi"><Icon size={20} /></span>
 							<span class="mt">
-								<span class="title">{t(m.titleKey)}</span>
+								<span class="title">{t(m.titleKey, m.params)}</span>
 								<span class="muted sub">{t(m.subKey)}</span>
 							</span>
 							<ChevronRight size={18} class="cr" />
@@ -282,8 +272,8 @@
 			<a class="move" href="/welcome">
 				<span class="mi"><CircleHelp size={20} /></span>
 				<span class="mt">
-					<span class="title">How does it work?</span>
-					<span class="muted sub">Scoring, forecasts, tips &amp; leagues — explained.</span>
+					<span class="title">{t('home.howDoesItWork')}</span>
+					<span class="muted sub">{t('home.howDoesItWorkSub')}</span>
 				</span>
 				<ChevronRight size={18} class="cr" />
 			</a>

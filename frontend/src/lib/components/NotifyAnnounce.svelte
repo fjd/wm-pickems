@@ -6,6 +6,7 @@
 	// (localStorage). Once push is enabled it never shows again regardless.
 	import { push } from '$lib/push.svelte';
 	import { pwa } from '$lib/pwa.svelte';
+	import { t } from '$lib/i18n.svelte';
 	import { BellRing, X } from '@lucide/svelte';
 
 	const KEY = 'notify-announce-v1';
@@ -53,34 +54,29 @@
 		aria-label="Close"
 		onclick={close}
 	></button>
-	<div class="sheet" role="dialog" aria-label="Notifications are here">
-		<button class="x" aria-label="Dismiss" onclick={close}><X size={16} /></button>
+	<div class="sheet" role="dialog" aria-label={t('notify.title')}>
+		<button class="x" aria-label={t('common.dismiss')} onclick={close}><X size={16} /></button>
 
 		<div class="icon"><BellRing size={22} /></div>
-		<h3>Notifications are here ⚽</h3>
+		<h3>{t('notify.title')}</h3>
 		<p class="body">
-			WM Tips can now nudge you before kickoff and picks lock, recap
-			your matchday, and ping you when you hit&nbsp;#1.
-			<br>
-			Email reminders are <strong>already enabled</strong>. Turn on push
-			for instant alerts on this device.
+			{@html t('notify.body')}
 		</p>
 
 		{#if push.supported && !push.blocked}
 			<button class="btn" onclick={enable} disabled={push.busy}>
-				{push.busy ? 'Enabling…' : 'Enable push notifications'}
+				{push.busy ? t('common.saving') : t('notify.enablePush')}
 			</button>
 		{:else if !pwa.installed}
 			<button class="btn" onclick={() => pwa.install()}>
-				Install the app for push
+				{t('notify.installForPush')}
 			</button>
 			<p class="hint muted">
-				On iPhone, add WM Tips to your Home Screen first, then turn on push.
+				{t('notify.iphoneHint')}
 			</p>
 		{:else if push.blocked}
 			<p class="hint muted">
-				Push is blocked in your browser settings — re-allow notifications for
-				this site, then enable it in Settings.
+				{t('notify.pushBlocked')}
 			</p>
 		{/if}
 
@@ -88,12 +84,12 @@
 
 		<label class="dsa">
 			<input type="checkbox" bind:checked={dontShowAgain} />
-			<span>Don't show this again</span>
+			<span>{t('notify.dontShowAgain')}</span>
 		</label>
 
 		<div class="foot">
-			<a href="/settings" onclick={close}>Fine-tune in Settings</a>
-			<button class="later" onclick={close}>Maybe later</button>
+			<a href="/settings" onclick={close}>{t('notify.fineTuneSettings')}</a>
+			<button class="later" onclick={close}>{t('notify.maybeLater')}</button>
 		</div>
 	</div>
 {/if}

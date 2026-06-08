@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { auth } from '$lib/auth.svelte';
 	import { api, type OwnerStats } from '$lib/api';
+	import { t } from '$lib/i18n.svelte';
 	import { Users, Trophy, Bell, RefreshCw } from '@lucide/svelte';
 
 	let stats = $state<OwnerStats | null>(null);
@@ -21,7 +22,7 @@
 		try {
 			stats = await api.ownerStats();
 		} catch {
-			error = 'Could not load stats.';
+			error = t('owner.loadError');
 		} finally {
 			loaded = true;
 			busy = false;
@@ -35,70 +36,70 @@
 
 <div class="head">
 	<div>
-		<p class="kicker">App owner</p>
-		<h1>Owner stats</h1>
+		<p class="kicker">{t('owner.kicker')}</p>
+		<h1>{t('owner.title')}</h1>
 	</div>
 	{#if auth.isOwner}
-		<button class="btn ghost refresh" onclick={load} disabled={busy} title="Refresh">
-			<RefreshCw size={16} class={busy ? 'spin' : ''} /> Refresh
+		<button class="btn ghost refresh" onclick={load} disabled={busy} title={t('owner.refresh')}>
+			<RefreshCw size={16} class={busy ? 'spin' : ''} /> {t('owner.refresh')}
 		</button>
 	{/if}
 </div>
 
 {#if !auth.isOwner}
-	<p class="muted">Restricted.</p>
+	<p class="muted">{t('owner.restricted')}</p>
 {:else if !loaded}
-	<p class="muted">Loading…</p>
+	<p class="muted">{t('common.loading')}</p>
 {:else if error}
 	<p class="err">{error}</p>
 {:else if stats}
 	<section class="card">
-		<h2 class="sec"><Users size={18} /> Users</h2>
+		<h2 class="sec"><Users size={18} /> {t('owner.users')}</h2>
 		<div class="grid">
 			<div class="stat">
 				<span class="num digits">{stats.users}</span>
-				<span class="lbl">Total users</span>
-				<span class="hint">bots excluded</span>
+				<span class="lbl">{t('owner.totalUsers')}</span>
+				<span class="hint">{t('owner.botsExcluded')}</span>
 			</div>
 			<div class="stat">
 				<span class="num digits">+{stats.usersLast24h}</span>
-				<span class="lbl">New · last 24h</span>
+				<span class="lbl">{t('owner.newLast24h')}</span>
 			</div>
 			<div class="stat">
 				<span class="num digits">{stats.activeUsers}</span>
-				<span class="lbl">Active</span>
-				<span class="hint">≥3 tips or a full forecast</span>
+				<span class="lbl">{t('owner.active')}</span>
+				<span class="hint">{t('owner.activeHint')}</span>
 			</div>
 		</div>
 	</section>
 
 	<section class="card">
-		<h2 class="sec"><Trophy size={18} /> Leagues</h2>
+		<h2 class="sec"><Trophy size={18} /> {t('owner.leagues')}</h2>
 		<div class="grid">
 			<div class="stat">
 				<span class="num digits">{stats.leagues}</span>
-				<span class="lbl">Leagues</span>
-				<span class="hint">user-created (Global excluded)</span>
+				<span class="lbl">{t('owner.leagues')}</span>
+				<span class="hint">{t('owner.leaguesHint')}</span>
 			</div>
 			<div class="stat">
 				<span class="num digits">{stats.activeLeagues}</span>
-				<span class="lbl">Active</span>
-				<span class="hint">&gt;1 member &amp; some tips</span>
+				<span class="lbl">{t('owner.active')}</span>
+				<span class="hint">{t('owner.activeLeaguesHint')}</span>
 			</div>
 		</div>
 	</section>
 
 	<section class="card">
-		<h2 class="sec"><Bell size={18} /> Notifications</h2>
+		<h2 class="sec"><Bell size={18} /> {t('owner.notifications')}</h2>
 		<div class="grid">
 			<div class="stat">
 				<span class="num digits">{stats.pushEnabled}</span>
-				<span class="lbl">Push enabled</span>
+				<span class="lbl">{t('owner.pushEnabled')}</span>
 			</div>
 			<div class="stat">
 				<span class="num digits">{stats.notifyDisabled}</span>
-				<span class="lbl">Opted out</span>
-				<span class="hint">disabled ≥1 notification</span>
+				<span class="lbl">{t('owner.optedOut')}</span>
+				<span class="hint">{t('owner.optedOutHint')}</span>
 			</div>
 		</div>
 	</section>

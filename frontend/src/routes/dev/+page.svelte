@@ -213,9 +213,7 @@
 	<section class="card">
 		<h3>{t('dev.reset')}</h3>
 		<p class="muted small">
-			Send a sample of each notification to this device (needs push enabled in
-			Settings). Use it to preview the icon, headline and copy on real
-			hardware.
+			{t('dev.testPushDesc')}
 		</p>
 		<div class="presets">
 			{#each sampleEvents as s (s.key)}
@@ -227,10 +225,9 @@
 	</section>
 
 	<section class="card">
-		<h3>Test emails</h3>
+		<h3>{t('dev.testEmails')}</h3>
 		<p class="muted small">
-			Send a sample of each email to your account's address to check
-			rendering in a real mail client.
+			{t('dev.testEmailsDesc')}
 		</p>
 		<div class="presets">
 			{#each sampleEvents as s (s.key)}
