@@ -8,6 +8,7 @@ package tips
 
 import (
 	"net/http"
+	"sort"
 	"sync/atomic"
 	"time"
 
@@ -169,6 +170,11 @@ func Register(app core.App, se *core.ServeEvent) {
 		if err != nil {
 			return err
 		}
+
+		// On a finished match we can attach each tip's points (and sort by them).
+		cfg, cfgErr := scoring.DefaultConfig(app)
+		scored := finished(match) && cfgErr == nil
+
 		rows := make([]map[string]any, 0)
 		for _, t := range allTips {
 			uid := t.GetString("user")
@@ -179,7 +185,7 @@ func Register(app core.App, se *core.ServeEvent) {
 			if err != nil {
 				continue
 			}
-			rows = append(rows, map[string]any{
+			row := map[string]any{
 				"userId":    uid,
 				"name":      u.GetString("name"),
 				"ftHome":    t.GetInt("ftHome"),
@@ -189,6 +195,16 @@ func Register(app core.App, se *core.ServeEvent) {
 				"penWinner": t.GetString("penWinner"),
 				"advancer":  t.GetString("advancer"),
 				"rationale": t.GetString("rationale"),
+			}
+			if scored {
+				row["points"] = scoring.ScoreTip(cfg, match, t)
+			}
+			rows = append(rows, row)
+		}
+		// Finished matches: order friends best-first.
+		if scored {
+			sort.SliceStable(rows, func(i, j int) bool {
+				return rows[i]["points"].(int) > rows[j]["points"].(int)
 			})
 		}
 
@@ -197,8 +213,9 @@ func Register(app core.App, se *core.ServeEvent) {
 		// whole userbase (global, not league-scoped) who scored a perfect tip
 		// — the maximum points for this match (correct result + exact reference
 		// score; KO games are compared against the after-extra-time score). A
-		// fun "who nailed it" stat without dumping everyone's tips.
-		if cfg, err := scoring.DefaultConfig(app); err == nil && finished(match) {
+		// fun "who nailed it" stat without dumping everyone's tips. Always sent
+		// when finished (even with count 0) so the UI can say "no perfect tips".
+		if scored {
 			max := cfg.MaxMatchPoints()
 			names := make([]string, 0, 10)
 			total := 0

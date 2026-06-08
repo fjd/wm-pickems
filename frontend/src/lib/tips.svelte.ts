@@ -51,6 +51,8 @@ export interface FriendTip {
 	etAway: number;
 	penWinner: string;
 	advancer: string;
+	// Points this tip earned — only present once the match is finished.
+	points?: number;
 }
 
 // Up to 10 names of players (across the whole app) who scored a perfect tip

@@ -274,21 +274,32 @@
 												winner={winnerSide(f.advancer)}
 											/></td
 										>
+										{#if f.points !== undefined}
+											<td class="fpts digits" class:ok={f.points > 0}
+												>{f.points > 0 ? '+' : ''}{f.points}&thinsp;pt</td
+											>
+										{/if}
 									</tr>
 								{/each}
 							</tbody>
 						</table>
 					{/if}
-					{#if perfect && perfect.count > 0}
-						<div class="exact">
-							<span class="exhead">
-								<Target size={14} /> Perfect tip · {perfect.points}&thinsp;pts
-							</span>
-							<span class="exnames">
-								{perfect.names.join(', ')}{#if perfect.count > perfect.names.length}
-									&nbsp;+{perfect.count - perfect.names.length} more{/if}
-							</span>
-						</div>
+					{#if perfect}
+						{#if perfect.count > 0}
+							<div class="exact">
+								<span class="exhead">
+									<Target size={14} /> Perfect tip · {perfect.points}&thinsp;pts
+								</span>
+								<span class="exnames">
+									{perfect.names.join(', ')}{#if perfect.count > perfect.names.length}
+										&nbsp;+{perfect.count - perfect.names.length} more{/if}
+								</span>
+							</div>
+						{:else}
+							<p class="muted small">
+								<Target size={13} /> No perfect tips for this match.
+							</p>
+						{/if}
 					{/if}
 				{/if}
 			{:else}
@@ -532,7 +543,22 @@
 		padding: 0.4rem 0.3rem;
 		border-bottom: 1px solid var(--border);
 	}
+	.friends td:first-child {
+		width: 100%; /* name takes the slack; score + points hug the right */
+	}
 	.num {
+		font-weight: 700;
+		text-align: right;
+		white-space: nowrap;
+	}
+	.fpts {
+		text-align: right;
+		white-space: nowrap;
+		padding-left: 0.7rem;
+		color: var(--muted);
+	}
+	.fpts.ok {
+		color: var(--accent);
 		font-weight: 700;
 	}
 	.small {
