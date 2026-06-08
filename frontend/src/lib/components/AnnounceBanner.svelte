@@ -89,6 +89,7 @@
 		{#each visible as a (a.id)}
 			{@const Icon = icon[a.level] ?? Megaphone}
 			{#if a.persistent && collapsed.has(a.id)}
+				<!-- collapsed: a slim, tappable ribbon -->
 				<button
 					class="ribbon {a.level}"
 					onclick={() => toggleCollapse(a.id)}
@@ -98,26 +99,31 @@
 					<span class="rtitle">{a.title}</span>
 					<ChevronDown size={16} class="rchev" />
 				</button>
-			{:else}
-				<div class="banner {a.level}" role="status">
+			{:else if a.persistent}
+				<!-- persistent + expanded: the whole card collapses on click -->
+				<button
+					class="banner tap {a.level}"
+					title="Collapse"
+					onclick={() => toggleCollapse(a.id)}
+				>
 					<span class="ico"><Icon size={18} /></span>
-					<div class="text">
+					<span class="text">
 						<strong class="t">{a.title}</strong>
 						<span class="b">{a.body}</span>
-					</div>
-					{#if a.persistent}
-						<button
-							class="x"
-							aria-label="Collapse"
-							onclick={() => toggleCollapse(a.id)}
-						>
-							<ChevronUp size={16} />
-						</button>
-					{:else}
-						<button class="x" aria-label="Dismiss" onclick={() => dismiss(a.id)}>
-							<X size={16} />
-						</button>
-					{/if}
+					</span>
+					<span class="x" aria-hidden="true"><ChevronUp size={16} /></span>
+				</button>
+			{:else}
+				<!-- dismissible: static card, only the X removes it -->
+				<div class="banner {a.level}" role="status">
+					<span class="ico"><Icon size={18} /></span>
+					<span class="text">
+						<strong class="t">{a.title}</strong>
+						<span class="b">{a.body}</span>
+					</span>
+					<button class="x" aria-label="Dismiss" onclick={() => dismiss(a.id)}>
+						<X size={16} />
+					</button>
 				</div>
 			{/if}
 		{/each}
@@ -140,6 +146,13 @@
 		background: var(--surface);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-sm);
+	}
+	/* Persistent expanded card is a button — the whole thing collapses on click. */
+	.banner.tap {
+		width: 100%;
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
 	}
 
 	/* Info — calm and neutral: flat surface, thin grey rule, outlined icon. */
@@ -264,5 +277,18 @@
 		background: var(--warning);
 		color: #20160a;
 		border-color: transparent;
+	}
+
+	/* On mobile the collapsed ribbon spans edge-to-edge — break out of the
+	   app-shell's 1rem gutter (which is safe: the shell is overflow-x: clip).
+	   Inner padding stays 1rem so the text still lines up with page content. */
+	@media (max-width: 899px) {
+		.ribbon {
+			margin-inline: -1rem;
+			padding-inline: 1rem;
+			border-radius: 0;
+			border-left: none;
+			border-right: none;
+		}
 	}
 </style>
