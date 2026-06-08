@@ -16,6 +16,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/hook"
 
 	"github.com/floholz/wm-pickems/internal/announce"
+	"github.com/floholz/wm-pickems/internal/chat"
 	"github.com/floholz/wm-pickems/internal/dev"
 	"github.com/floholz/wm-pickems/internal/forecast"
 	"github.com/floholz/wm-pickems/internal/leagues"
@@ -58,6 +59,7 @@ func main() {
 		notify.Register(e.App, e)
 		stats.Register(e.App, e)
 		announce.Register(e.App, e)
+		chat.Register(e.App, e)
 		dev.Register(e.App, e)
 
 		// Serve the web manifest with the correct MIME so it installs as a

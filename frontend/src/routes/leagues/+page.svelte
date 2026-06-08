@@ -2,12 +2,13 @@
 	import { api, type LeagueSummary } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import { goto } from '$app/navigation';
-	import { Users, Globe, ChevronRight } from '@lucide/svelte';
+	import { Users, Globe, ChevronRight, MessageSquare } from '@lucide/svelte';
 
 	type Rank = { rank: number; total: number };
 
 	let leagues = $state<LeagueSummary[]>([]);
 	let ranks = $state<Record<string, Rank | null>>({});
+	let unread = $state<Record<string, number>>({});
 	let loaded = $state(false);
 	let newName = $state('');
 	let joinCode = $state('');
@@ -26,6 +27,10 @@
 		try {
 			leagues = (await api.myLeagues()).leagues;
 			leagues.forEach((l) => loadRank(l.id));
+			api
+				.chatUnread()
+				.then((r) => (unread = r.unread))
+				.catch(() => {});
 		} catch {
 			/* ignore */
 		} finally {
@@ -97,6 +102,12 @@
 				{/if}
 				<span class="lname">{l.name}</span>
 				{#if l.role === 'owner'}<span class="pill">owner</span>{/if}
+				{#if unread[l.id]}
+					<span class="cbadge" title="Unread messages">
+						<MessageSquare size={12} />
+						{unread[l.id] > 99 ? '99+' : unread[l.id]}
+					</span>
+				{/if}
 				<span class="spacer"></span>
 				<span class="standing" title="Your placement · players">
 					<Users size={15} />
@@ -206,6 +217,19 @@
 	}
 	.spacer {
 		flex: 1;
+	}
+	.cbadge {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		flex-shrink: 0;
+		padding: 0.1rem 0.45rem;
+		border-radius: var(--radius-pill);
+		background: var(--accent);
+		color: var(--accent-fg);
+		font-size: 0.72rem;
+		font-weight: 800;
+		font-variant-numeric: tabular-nums;
 	}
 	/* Combined right-hand indicator: people icon + your placement (#rank/size).
 	   The /size doubles as the member count, so no separate count is shown. */

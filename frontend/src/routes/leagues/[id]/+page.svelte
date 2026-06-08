@@ -20,7 +20,8 @@
 		UserMinus,
 		UserPlus,
 		Bot,
-		ShieldCheck
+		ShieldCheck,
+		MessageSquare
 	} from '@lucide/svelte';
 
 	interface Cfg {
@@ -70,6 +71,10 @@
 	let error = $state('');
 	let tab = $state<'total' | 'tipsPoints' | 'forecastPoints'>('total');
 
+	// Chat (private leagues only).
+	let canChat = $state(false);
+	let chatUnread = $state(0);
+
 	// Owner-only management.
 	let isOwner = $state(false);
 	let isPrivate = $state(false);
@@ -99,6 +104,13 @@
 				invite = me?.inviteCode ?? '';
 				isOwner = me?.role === 'owner';
 				isPrivate = me?.private ?? false;
+				canChat = !!me && me.inviteCode !== 'GLOBAL';
+				if (canChat) {
+					api
+						.chatUnread()
+						.then((r) => (chatUnread = r.unread[lid] ?? 0))
+						.catch(() => {});
+				}
 			})
 			.catch(() => (error = 'Could not load this league.'))
 			.finally(() => (loaded = true));
@@ -270,7 +282,7 @@
 				<h1>{league.name}</h1>
 			{/if}
 		</div>
-		{#if isOwner || (invite && invite !== 'GLOBAL')}
+		{#if canChat || isOwner || (invite && invite !== 'GLOBAL')}
 			<div class="lactions">
 				{#if editing}
 					<button
@@ -286,6 +298,19 @@
 						aria-label="Done editing"><X size={18} /></button
 					>
 				{:else}
+					{#if canChat}
+						<a
+							class="btn secondary icon chatbtn"
+							href={`/leagues/${id}/chat`}
+							aria-label="League chat"
+							title="Chat"
+						>
+							<MessageSquare size={18} />
+							{#if chatUnread > 0}
+								<span class="cdot">{chatUnread > 9 ? '9+' : chatUnread}</span>
+							{/if}
+						</a>
+					{/if}
 					{#if invite && invite !== 'GLOBAL'}
 						<button
 							class="btn secondary sharebtn"
@@ -648,6 +673,25 @@
 	.icon {
 		width: auto;
 		padding: 0.6rem;
+	}
+	.chatbtn {
+		position: relative;
+	}
+	.cdot {
+		position: absolute;
+		top: -5px;
+		right: -5px;
+		min-width: 17px;
+		height: 17px;
+		padding: 0 0.2rem;
+		display: grid;
+		place-items: center;
+		border-radius: 999px;
+		background: var(--accent);
+		color: var(--accent-fg);
+		font-size: 0.65rem;
+		font-weight: 800;
+		font-variant-numeric: tabular-nums;
 	}
 	/* Header "Share" toggle: reveals the invite/share card. Filled accent when
 	   the card is open so the toggle state is obvious. */

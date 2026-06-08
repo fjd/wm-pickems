@@ -43,6 +43,20 @@ export interface BotSummary {
 	botKind?: string;
 }
 
+export interface ChatMessage {
+	id: string;
+	user: string; // sender user id
+	text: string;
+	created: string; // RFC3339
+}
+
+export interface ChatMember {
+	userId: string;
+	name: string;
+	avatar?: string;
+	role?: string;
+}
+
 export type AnnounceLevel = 'info' | 'success' | 'warn';
 
 export interface Announcement {
@@ -137,6 +151,21 @@ export const api = {
 		post<{ ok: boolean; already?: boolean }>(`/api/leagues/${id}/bots/add`, {
 			userId
 		}),
+	// League chat (private leagues only).
+	chatHistory: (leagueId: string, before?: string) =>
+		get<{ messages: ChatMessage[]; hasMore: boolean }>(
+			`/api/leagues/${leagueId}/chat${before ? `?before=${encodeURIComponent(before)}` : ''}`
+		),
+	chatMembers: (leagueId: string) =>
+		get<{ members: ChatMember[] }>(`/api/leagues/${leagueId}/members`),
+	chatPost: (leagueId: string, text: string) =>
+		post<ChatMessage>(`/api/leagues/${leagueId}/chat`, { text }),
+	chatDelete: (leagueId: string, msgId: string) =>
+		del<{ ok: boolean }>(`/api/leagues/${leagueId}/chat/${msgId}`),
+	chatMarkRead: (leagueId: string) =>
+		post<{ ok: boolean }>(`/api/leagues/${leagueId}/chat/read`, {}),
+	chatUnread: () => get<{ unread: Record<string, number> }>('/api/chat/unread'),
+
 	// Owner-only app stats dashboard.
 	ownerStats: () => get<OwnerStats>('/api/stats/owner'),
 
