@@ -49,6 +49,11 @@
 			key: 'league_lead',
 			label: 'Took the lead',
 			hint: 'When you climb to #1 in one of your leagues.'
+		},
+		{
+			key: 'league_chat',
+			label: 'League chat',
+			hint: 'New messages in your league chats — push is prompt; email is a periodic digest.'
 		}
 	];
 

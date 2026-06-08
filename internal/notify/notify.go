@@ -102,6 +102,7 @@ func Register(app core.App, se *core.ServeEvent) {
 		if al := readConfig(app).Allowlist; len(al) > 0 {
 			log.Printf("[notify] allowlist active — only %d address(es) will be emailed", len(al))
 		}
+		registerChatCron(app, r)
 	}
 
 	// Dev-only manual trigger so the flow can be exercised against the virtual
@@ -115,6 +116,13 @@ func Register(app core.App, se *core.ServeEvent) {
 				return e.JSON(500, map[string]any{"error": err.Error(), "result": res})
 			}
 			return e.JSON(http.StatusOK, res)
+		}).Bind(apis.RequireAuth())
+
+		// Run the chat-notification sweep on demand.
+		se.Router.POST("/api/dev/chat/notify", func(e *core.RequestEvent) error {
+			ctx, cancel := context.WithTimeout(e.Request.Context(), 60*time.Second)
+			defer cancel()
+			return e.JSON(http.StatusOK, map[string]any{"sent": r.chatPass(ctx)})
 		}).Bind(apis.RequireAuth())
 
 		// Render an email in the browser (no auth, dev-only) for fast visual
