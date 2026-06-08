@@ -150,7 +150,47 @@ func simulate(app core.App, simNow time.Time) error {
 			break
 		}
 	}
+	if err := backfillBotAdvancers(app); err != nil {
+		return err
+	}
 	return scoring.Recompute(app)
+}
+
+// backfillBotAdvancers sets the advancer on dev tips whose knockout match has
+// since resolved its teams. Bot tips are created before the bracket is known,
+// so they store no advancer; without it their knockout "correct result" never
+// scores. Dev KO tips are decisive, so the advancer is the higher-scoring side.
+// Only empty-advancer tips are touched — real user KO tips always carry one.
+func backfillBotAdvancers(app core.App) error {
+	kos, err := app.FindRecordsByFilter("matches",
+		"stage != 'group' && homeTeam != '' && awayTeam != ''", "", 0, 0)
+	if err != nil {
+		return err
+	}
+	tips.SetBypass(true)
+	defer tips.SetBypass(false)
+	for _, m := range kos {
+		ts, err := app.FindRecordsByFilter("tips",
+			"match = {:m} && advancer = ''", "", 0, 0, map[string]any{"m": m.Id})
+		if err != nil {
+			return err
+		}
+		for _, t := range ts {
+			fh, fa := t.GetInt("ftHome"), t.GetInt("ftAway")
+			if fh == fa {
+				continue // not decisive — winner unknowable from the score alone
+			}
+			if fh > fa {
+				t.Set("advancer", m.GetString("homeTeam"))
+			} else {
+				t.Set("advancer", m.GetString("awayTeam"))
+			}
+			if err := app.Save(t); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // makeBots creates `count` bot users, each with a complete consistent
@@ -183,58 +223,89 @@ func makeBots(app core.App, count int, leagueIDs []string) ([]string, error) {
 	defer forecast.SetBypass(false)
 	defer tips.SetBypass(false)
 
-	created := []string{}
+	// One transaction for the whole batch: ~100 tips/bot as individual saves is
+	// slow and can trip "database is locked" under any concurrent request, which
+	// left earlier batches half-created. Batching makes it fast and all-or-nothing.
+	var created []string
 	used := map[string]int{}
-	for i := 0; i < count; i++ {
-		rng := rand.New(rand.NewSource(time.Now().UnixNano() + int64(i*7919)))
-		name := botNames[rng.Intn(len(botNames))]
-		if used[name]++; used[name] > 1 {
-			name = fmt.Sprintf("%s %d", name, used[name])
-		}
-
-		u := core.NewRecord(usersCol)
-		u.SetEmail(fmt.Sprintf("bot-%d@dev.local", time.Now().UnixNano()+int64(i)))
-		u.SetRandomPassword()
-		u.Set("name", name)
-		u.Set("verified", true)
-		if err := app.Save(u); err != nil {
-			return created, err
-		}
-
-		order, thirds, bracket, err := scoring.RandomForecast(app, rng)
-		if err != nil {
-			return created, err
-		}
-		f := core.NewRecord(fcCol)
-		f.Set("user", u.Id)
-		f.Set("groupOrder", order)
-		f.Set("thirdQualifiers", thirds)
-		f.Set("bracket", bracket)
-		if err := app.Save(f); err != nil {
-			return created, err
-		}
-
-		for _, m := range matches {
-			t := core.NewRecord(tipsCol)
-			t.Set("user", u.Id)
-			t.Set("match", m.Id)
-			t.Set("ftHome", rng.Intn(5))
-			t.Set("ftAway", rng.Intn(5))
-			if err := app.Save(t); err != nil {
-				return created, err
+	err = app.RunInTransaction(func(tx core.App) error {
+		for i := 0; i < count; i++ {
+			rng := rand.New(rand.NewSource(time.Now().UnixNano() + int64(i*7919)))
+			name := botNames[rng.Intn(len(botNames))]
+			if used[name]++; used[name] > 1 {
+				name = fmt.Sprintf("%s %d", name, used[name])
 			}
-		}
 
-		for _, lid := range leagueIDs {
-			lm := core.NewRecord(lmCol)
-			lm.Set("league", lid)
-			lm.Set("user", u.Id)
-			lm.Set("role", "member")
-			if err := app.Save(lm); err != nil {
-				return created, err
+			u := core.NewRecord(usersCol)
+			u.SetEmail(fmt.Sprintf("bot-%d@dev.local", time.Now().UnixNano()+int64(i)))
+			u.SetRandomPassword()
+			u.Set("name", name)
+			u.Set("verified", true)
+			if err := tx.Save(u); err != nil {
+				return err
 			}
+
+			order, thirds, bracket, err := scoring.RandomForecast(tx, rng)
+			if err != nil {
+				return err
+			}
+			f := core.NewRecord(fcCol)
+			f.Set("user", u.Id)
+			f.Set("groupOrder", order)
+			f.Set("thirdQualifiers", thirds)
+			f.Set("bracket", bracket)
+			if err := tx.Save(f); err != nil {
+				return err
+			}
+
+			for _, m := range matches {
+				t := core.NewRecord(tipsCol)
+				t.Set("user", u.Id)
+				t.Set("match", m.Id)
+				fh, fa := rng.Intn(5), rng.Intn(5)
+				// Knockouts need a clear winner. The dev path bypasses
+				// validateAndDerive, and the teams often aren't resolved yet at
+				// generation time (so we can't store an advancer id) — keep the
+				// tip decisive so the scoreline's winner arrow still works, and
+				// set the advancer when the matchup is already known.
+				if m.GetString("stage") != "group" {
+					if fh == fa {
+						if rng.Intn(2) == 0 {
+							fh++
+						} else {
+							fa++
+						}
+					}
+					if home, away := m.GetString("homeTeam"), m.GetString("awayTeam"); home != "" && away != "" {
+						if fh > fa {
+							t.Set("advancer", home)
+						} else {
+							t.Set("advancer", away)
+						}
+					}
+				}
+				t.Set("ftHome", fh)
+				t.Set("ftAway", fa)
+				if err := tx.Save(t); err != nil {
+					return err
+				}
+			}
+
+			for _, lid := range leagueIDs {
+				lm := core.NewRecord(lmCol)
+				lm.Set("league", lid)
+				lm.Set("user", u.Id)
+				lm.Set("role", "member")
+				if err := tx.Save(lm); err != nil {
+					return err
+				}
+			}
+			created = append(created, name)
 		}
-		created = append(created, name)
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return created, nil
 }

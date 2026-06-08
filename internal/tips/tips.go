@@ -8,6 +8,7 @@ package tips
 
 import (
 	"net/http"
+	"sort"
 	"sync/atomic"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 
 	"github.com/floholz/wm-pickems/internal/clock"
+	"github.com/floholz/wm-pickems/internal/scoring"
 )
 
 func matchKickoff(m *core.Record) time.Time {
@@ -168,6 +170,11 @@ func Register(app core.App, se *core.ServeEvent) {
 		if err != nil {
 			return err
 		}
+
+		// On a finished match we can attach each tip's points (and sort by them).
+		cfg, cfgErr := scoring.DefaultConfig(app)
+		scored := finished(match) && cfgErr == nil
+
 		rows := make([]map[string]any, 0)
 		for _, t := range allTips {
 			uid := t.GetString("user")
@@ -178,7 +185,7 @@ func Register(app core.App, se *core.ServeEvent) {
 			if err != nil {
 				continue
 			}
-			rows = append(rows, map[string]any{
+			row := map[string]any{
 				"userId":    uid,
 				"name":      u.GetString("name"),
 				"ftHome":    t.GetInt("ftHome"),
@@ -188,15 +195,69 @@ func Register(app core.App, se *core.ServeEvent) {
 				"penWinner": t.GetString("penWinner"),
 				"advancer":  t.GetString("advancer"),
 				"rationale": t.GetString("rationale"),
+			}
+			if scored {
+				row["points"] = scoring.ScoreTip(cfg, match, t)
+			}
+			rows = append(rows, row)
+		}
+		// Finished matches: order friends best-first.
+		if scored {
+			sort.SliceStable(rows, func(i, j int) bool {
+				return rows[i]["points"].(int) > rows[j]["points"].(int)
 			})
 		}
-		return e.JSON(http.StatusOK, map[string]any{"locked": true, "tips": rows})
+
+		resp := map[string]any{"locked": true, "tips": rows}
+		// Once the match is finished, also surface up to 10 people from the
+		// whole userbase (global, not league-scoped) who scored a perfect tip
+		// — the maximum points for this match (correct result + exact reference
+		// score; KO games are compared against the after-extra-time score). A
+		// fun "who nailed it" stat without dumping everyone's tips. Always sent
+		// when finished (even with count 0) so the UI can say "no perfect tips".
+		if scored {
+			max := cfg.MaxMatchPoints()
+			names := make([]string, 0, 10)
+			total := 0
+			for _, t := range allTips {
+				if scoring.ScoreTip(cfg, match, t) != max {
+					continue
+				}
+				total++
+				if len(names) < 10 {
+					if u, err := app.FindRecordById("users", t.GetString("user")); err == nil {
+						names = append(names, u.GetString("name"))
+					}
+				}
+			}
+			resp["perfect"] = map[string]any{"count": total, "names": names, "points": max}
+		}
+		return e.JSON(http.StatusOK, resp)
 	}).Bind(apis.RequireAuth())
 }
 
+// finished reports whether a match has a final result recorded.
+func finished(m *core.Record) bool {
+	return m.GetString("status") == "finished" || m.GetString("finalizedAt") != ""
+}
+
+// globalLeagueID returns the id of the auto-managed "Global" league (the one
+// every user belongs to), or "" if it doesn't exist yet.
+func globalLeagueID(app core.App) string {
+	g, err := app.FindFirstRecordByFilter("leagues",
+		"inviteCode = {:c}", map[string]any{"c": "GLOBAL"})
+	if err != nil {
+		return ""
+	}
+	return g.Id
+}
+
 // sharedLeagueUserIDs returns the set of user ids that share at least one
-// League with the given user.
+// League with the given user. The auto-managed "Global" league is excluded —
+// it contains everyone, so counting it would expose the entire userbase's
+// picks. Friends' picks are private-league only.
 func sharedLeagueUserIDs(app core.App, userID string) (map[string]bool, error) {
+	globalID := globalLeagueID(app)
 	mine, err := app.FindRecordsByFilter("league_members",
 		"user = {:u}", "", 0, 0, map[string]any{"u": userID})
 	if err != nil {
@@ -204,8 +265,12 @@ func sharedLeagueUserIDs(app core.App, userID string) (map[string]bool, error) {
 	}
 	out := map[string]bool{}
 	for _, lm := range mine {
+		lid := lm.GetString("league")
+		if lid == globalID {
+			continue
+		}
 		peers, err := app.FindRecordsByFilter("league_members",
-			"league = {:l}", "", 0, 0, map[string]any{"l": lm.GetString("league")})
+			"league = {:l}", "", 0, 0, map[string]any{"l": lid})
 		if err != nil {
 			return nil, err
 		}

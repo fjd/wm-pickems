@@ -1,0 +1,10 @@
+{{if eq .DaysLeft 0}}Football is here — the World Cup 2026 starts today.{{else if eq .DaysLeft 1}}1 more day until the World Cup 2026.{{else}}{{.DaysLeft}} days until the World Cup 2026.{{end}}
+
+First kickoff is {{.WhenText}}.
+
+{{if eq .DaysLeft 0}}This is your last call: get your tips in for the opening matches and lock in your Forecast before the first whistle.{{else if eq .DaysLeft 1}}Take a moment now to get your tips in and finish your Forecast — it locks at the first kickoff.{{else}}Don't leave it to the last minute — get your tips in and finish your Forecast before it locks at the first kickoff.{{end}}
+
+Open WM Tips: {{.CTAUrl}}
+
+—
+Manage your notifications: {{.SettingsUrl}}

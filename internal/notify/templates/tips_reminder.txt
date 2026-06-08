@@ -1,0 +1,11 @@
+Don't forget your tips
+
+You haven't entered a score prediction for {{if eq .Count 1}}this upcoming match{{else}}these upcoming matches{{end}}.
+Tips lock at kickoff, so get them in soon:
+{{range .Matches}}
+- {{.Home}} vs {{.Away}} ({{.WhenText}}){{end}}
+
+Enter your tips: {{.CTAUrl}}
+
+—
+Manage your notifications: {{.SettingsUrl}}

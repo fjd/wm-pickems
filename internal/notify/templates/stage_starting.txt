@@ -1,0 +1,10 @@
+{{.StageName}} starts in ~{{.StartsIn}}
+
+The next stage of the tournament is almost here. First kickoff is {{.WhenText}}.
+
+Get your score predictions in before each match locks at kickoff.
+
+Open your tips: {{.CTAUrl}}
+
+—
+Manage your notifications: {{.SettingsUrl}}

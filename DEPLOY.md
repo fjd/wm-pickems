@@ -15,7 +15,31 @@ cp .env.example .env
 | `HTTP_PORT` | no | Host port (default `8090`). |
 | `API_FOOTBALL_KEY` | optional | Only used if it's a **paid** API-Football plan (the free tier has no WC2026 access). |
 | `RESULTS_SOURCE` | no | `auto` (default): API-Football if its key reaches WC2026, else the free **openfootball** JSON. Force with `apifootball` / `openfootball`. Manual override always works. openfootball is community-updated (hours, not real-time). |
+| `MAIL_PROVIDER` | optional | Email transport: `mailjet` \| `smtp` \| `log` \| blank (auto). Auto = Mailjet if its keys are set, else PocketBase SMTP if enabled, else a log-only sink. |
+| `MAILJET_API_KEY` / `MAILJET_SECRET` | optional | Mailjet Send API credentials (needed when using the `mailjet` provider). |
+| `MAIL_FROM` / `MAIL_FROM_NAME` | optional | Sender identity (must be a verified Mailjet sender). Falls back to PocketBase's configured sender. |
+| `NOTIFY_CRON` | no | Override the notify scheduler cadence (default `*/15 * * * *`). |
+| `NOTIFY_DISABLED` | no | Set to `1`/`true` to switch the scheduler off — no automated mail/push is sent. Handy for local testing; dev manual-trigger routes still work. |
+| `NOTIFY_ALLOWLIST` | optional | Comma-separated emails for a gradual rollout — only these addresses get mail. Empty = everyone. |
+| `NOTIFY_LOG_LEVEL` | no | `debug` logs a per-pass heartbeat; default logs only passes that sent/failed mail (plus allowlist changes & errors). |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | optional | Web Push keys. Auto-generated & stored in the DB if unset; pin them to keep keys stable across a `pb_data` wipe (regenerating invalidates existing subscriptions). |
+| `VAPID_SUBJECT` | no | VAPID JWT contact (`mailto:` / `https:`). Defaults to `mailto:<sender address>`. |
 | `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD` | optional | Convenience only — see superuser step below. |
+
+**Notifications.** The app sends reminders before each stage kicks off, before
+the Forecast locks, before untipped matches, and a daily results recap — over
+**email** (when a mail provider is configured) and **Web Push** (when the user
+enables it on a device). Each user manages these per-event and per-channel under
+**Settings → Notifications**; push works on installed PWAs / supported browsers
+(iOS requires the app be added to the Home Screen first). The reminder lead time (default **12h**), recap hour, and the
+rollout allowlist are tunable at runtime via the `notify_config` row in the
+`app_meta` collection (PocketBase dashboard), no redeploy needed. With no
+provider set, emails are logged only (not delivered).
+
+*Gradual rollout:* set `NOTIFY_ALLOWLIST` (or `notify_config.allowlist`, which
+wins when set) to your own address plus a few friends to limit who receives mail
+while you trial the feature; clear it to open delivery to all users. The list is
+matched case-insensitively against each user's email.
 
 ## 2. Run
 

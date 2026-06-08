@@ -73,6 +73,52 @@
 		}
 	}
 
+	const sampleEvents = [
+		{ key: 'tips_reminder', label: '⚽ Tip reminder' },
+		{ key: 'results_recap', label: '🏆 Results recap' },
+		{ key: 'stage_starting', label: '🏟 Stage starting' },
+		{ key: 'forecast_reminder', label: '⏰ Forecast deadline' },
+		{ key: 'league_lead', label: '🥇 Took the lead' },
+		{ key: 'kickoff_countdown', label: '📅 Countdown to kickoff' }
+	];
+
+	async function sendSample(event: string) {
+		busy = true;
+		msg = '';
+		try {
+			const r = await pb.send<{ sent: number; total: number }>(
+				'/api/dev/push/sample',
+				{ method: 'POST', body: { event } }
+			);
+			msg = `Sent to ${r.sent}/${r.total} device(s) — watch for the notification.`;
+		} catch (e: unknown) {
+			msg =
+				(e as { message?: string })?.message ??
+				'Failed — is push enabled on this device?';
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function sendEmail(event: string) {
+		busy = true;
+		msg = '';
+		try {
+			const r = await pb.send<{ to: string; provider: string }>(
+				'/api/dev/notify/email',
+				{ method: 'POST', body: { event } }
+			);
+			msg =
+				r.provider === 'log'
+					? `Provider is "log" — nothing delivered. Set a mail provider to actually send.`
+					: `Email sent to ${r.to} via ${r.provider} — check your inbox.`;
+		} catch (e: unknown) {
+			msg = (e as { message?: string })?.message ?? 'Failed to send email.';
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function reset() {
 		busy = true;
 		msg = '';
@@ -162,6 +208,37 @@
 		<button class="btn" disabled={busy} onclick={genBots}>
 			{t('dev.generate', { count: botCount, plural: botCount === 1 ? '' : 's' })}
 		</button>
+	</section>
+
+	<section class="card">
+		<h3>{t('dev.reset')}</h3>
+		<p class="muted small">
+			Send a sample of each notification to this device (needs push enabled in
+			Settings). Use it to preview the icon, headline and copy on real
+			hardware.
+		</p>
+		<div class="presets">
+			{#each sampleEvents as s (s.key)}
+				<button class="chip" disabled={busy} onclick={() => sendSample(s.key)}
+					>{s.label}</button
+				>
+			{/each}
+		</div>
+	</section>
+
+	<section class="card">
+		<h3>Test emails</h3>
+		<p class="muted small">
+			Send a sample of each email to your account's address to check
+			rendering in a real mail client.
+		</p>
+		<div class="presets">
+			{#each sampleEvents as s (s.key)}
+				<button class="chip" disabled={busy} onclick={() => sendEmail(s.key)}
+					>{s.label}</button
+				>
+			{/each}
+		</div>
 	</section>
 
 	<section class="card">

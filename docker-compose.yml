@@ -9,10 +9,24 @@ services:
     environment:
       - WMP_DEV=${WMP_DEV:-}
       - API_FOOTBALL_KEY=${API_FOOTBALL_KEY:-}
+      - RESULTS_SOURCE=${RESULTS_SOURCE:-}
       - PB_ADMIN_EMAIL=${PB_ADMIN_EMAIL:-}
       - PB_ADMIN_PASSWORD=${PB_ADMIN_PASSWORD:-}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      # Email notifications (see .env.example).
+      - MAIL_PROVIDER=${MAIL_PROVIDER:-}
+      - MAILJET_API_KEY=${MAILJET_API_KEY:-}
+      - MAILJET_SECRET=${MAILJET_SECRET:-}
+      - MAIL_FROM=${MAIL_FROM:-}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-}
+      - NOTIFY_CRON=${NOTIFY_CRON:-}
+      - NOTIFY_DISABLED=${NOTIFY_DISABLED:-}
+      - NOTIFY_ALLOWLIST=${NOTIFY_ALLOWLIST:-}
+      - NOTIFY_LOG_LEVEL=${NOTIFY_LOG_LEVEL:-}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_SUBJECT=${VAPID_SUBJECT:-}
     volumes:
       - pb_data:/pb_data
     networks: [wmpickems]

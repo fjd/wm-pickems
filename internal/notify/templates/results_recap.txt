@@ -1,0 +1,13 @@
+Matchday recap
+
+{{.Finalized}} match{{if ne .Finalized 1}}es{{end}} wrapped up. Here's how it moved your standing:
+
+  +{{.PointsGained}} points earned
+  {{.Total}} total points
+{{range .Ranks}}
+  {{.League}}: #{{.Rank}} of {{.Of}}{{end}}
+
+See the leaderboard: {{.CTAUrl}}
+
+—
+Manage your notifications: {{.SettingsUrl}}

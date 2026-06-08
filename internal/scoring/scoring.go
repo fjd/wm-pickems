@@ -95,6 +95,28 @@ func (c tipComponents) points() int {
 	return c.Tendency + c.Exact + c.TotalGoals + c.GoalDiff
 }
 
+// MaxMatchPoints returns the maximum points a single Tip can earn under cfg
+// (i.e. a "perfect" tip: correct result + exact reference score).
+func (c Config) MaxMatchPoints() int {
+	return c.Match.Tendency + c.Match.Exact + c.Match.TotalGoals + c.Match.GoalDiff
+}
+
+// DefaultConfig returns the loaded default scoring config.
+func DefaultConfig(app core.App) (Config, error) {
+	def, err := app.FindFirstRecordByFilter("scoring_configs", "isDefault = true")
+	if err != nil {
+		return Config{}, err
+	}
+	return loadConfig(def), nil
+}
+
+// ScoreTip returns the points a Tip earns for a finished match under cfg. It
+// uses the same reference-score rule as the leaderboard, so knockout games
+// scored in extra time are compared against the after-ET score.
+func ScoreTip(cfg Config, match, tip *core.Record) int {
+	return scoreTip(cfg, match, tip).points()
+}
+
 // MatchResult / TipPrediction are the plain inputs to the pure scorer, so the
 // rules are unit-testable without a database.
 type MatchResult struct {

@@ -8,8 +8,10 @@
 	import NavLinks from '$lib/components/NavLinks.svelte';
 	import PwaInstallButton from '$lib/components/PwaInstallButton.svelte';
 	import PwaInstallBanner from '$lib/components/PwaInstallBanner.svelte';
+	import NotifyAnnounce from '$lib/components/NotifyAnnounce.svelte';
 	import { serverClock } from '$lib/serverclock.svelte';
 	import { locale } from '$lib/i18n.svelte';
+	import { CircleHelp } from '@lucide/svelte';
 
 	let { children } = $props();
 
@@ -33,17 +35,22 @@
 	//   /confirm-password-reset/<t>  email reset target (must work even for
 	//                                a still-signed-in user whose token was
 	//                                requested by someone with their email)
+	//   /welcome                     chrome-less landing/help page (any auth state)
 	let isPublic = $derived(
 		path.startsWith('/join') ||
-			path.startsWith('/confirm-password-reset/')
+			path.startsWith('/confirm-password-reset/') ||
+			path === '/welcome'
 	);
+	// The home route doubles as the public landing page for signed-out
+	// visitors (app home once authed) — never bounce anon users away from it.
+	let isLanding = $derived(path === '/');
 	// No app chrome on the standalone auth / invite / reset screens.
 	let chrome = $derived(auth.isAuthed && !isAuthPage && !isPublic);
 
 	// SPA auth guard.
 	$effect(() => {
 		const invite = $page.url.searchParams.get('invite');
-		if (!auth.isAuthed && !isAuthPage && !isPublic) {
+		if (!auth.isAuthed && !isAuthPage && !isPublic && !isLanding) {
 			goto('/login', { replaceState: true });
 		}
 		// Already signed in: skip the auth pages. If they arrived via an
@@ -55,19 +62,26 @@
 </script>
 
 {#if chrome}
-	<!-- Mobile: top header (logo / install / user menu) -->
+	<!-- Mobile: top header (logo / help / install / user menu) -->
 	<header class="topbar">
 		<Logo />
 		<div class="spacer"></div>
+		<a class="topbar-help" href="/welcome" aria-label="What is WM Tips?">
+			<CircleHelp size={20} />
+		</a>
 		<PwaInstallButton />
 		<UserMenu align="right" />
 	</header>
 
-	<!-- Desktop: left rail (logo top, links, user menu bottom) -->
+	<!-- Desktop: left rail (logo top, links, help + user menu bottom) -->
 	<aside class="siderail">
 		<div class="rail-logo"><Logo /></div>
 		<NavLinks variant="rail" />
 		<div class="spacer"></div>
+		<a class="rail-help" href="/welcome">
+			<CircleHelp size={20} />
+			<span>How does it work?</span>
+		</a>
 		<div class="rail-user"><UserMenu align="left" up showName /></div>
 	</aside>
 
@@ -78,6 +92,7 @@
 <div class="app-shell" class:with-chrome={chrome}>
 	{#if chrome}
 		<PwaInstallBanner />
+		<NotifyAnnounce />
 	{/if}
 	{@render children()}
 </div>

@@ -1,0 +1,11 @@
+Your Forecast locks in ~{{.StartsIn}}
+
+The first match kicks off {{.WhenText}}, and your one-time Forecast
+(group standings + bracket) locks for good at that moment.
+
+It looks like yours isn't finished yet — finish it now so it counts.
+
+Finish your Forecast: {{.CTAUrl}}
+
+—
+Manage your notifications: {{.SettingsUrl}}

@@ -3,7 +3,14 @@
 	import { serverClock } from '$lib/serverclock.svelte';
 	import { t } from '$lib/i18n.svelte';
 	import Avatar from './Avatar.svelte';
-	import { LogOut, ChevronDown, FlaskConical, Settings, Shield } from '@lucide/svelte';
+	import {
+		LogOut,
+		ChevronDown,
+		FlaskConical,
+		Settings,
+		Shield,
+		Crown
+	} from '@lucide/svelte';
 
 	let {
 		align = 'right' as 'right' | 'left',
@@ -57,8 +64,20 @@
 					<FlaskConical size={17} /> {t('userMenu.devTools')}
 				</a>
 			{/if}
+			{#if auth.isOwner}
+				<a class="item" href="/owner" onclick={() => (open = false)}>
+					<Crown size={17} /> Owner stats
+				</a>
+			{/if}
 			{#if auth.isAdmin}
-				<a class="item" href="/_/" onclick={() => (open = false)}>
+
+				<a
+					class="item"
+					href="/_/"
+					target="_blank"
+					rel="noopener"
+					onclick={() => (open = false)}
+				>
 					<Shield size={17} /> {t('userMenu.adminDashboard')}
 				</a>
 			{/if}

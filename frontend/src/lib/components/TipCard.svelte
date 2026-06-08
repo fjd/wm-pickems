@@ -4,12 +4,14 @@
 		isLocked,
 		teamsResolved,
 		type Match,
-		type FriendTip
+		type FriendTip,
+		type PerfectScorers
 	} from '$lib/tips.svelte';
 	import Flag from './Flag.svelte';
+	import Scoreline from './Scoreline.svelte';
 	import Stepper from './Stepper.svelte';
 	import { t, locale } from '$lib/i18n.svelte';
-	import { Lock, ChevronDown, Check, Users } from '@lucide/svelte';
+	import { Lock, ChevronDown, Check, Users, Target } from '@lucide/svelte';
 
 	let {
 		match,
@@ -26,9 +28,6 @@
 	let played = $derived(match.status === 'finished' || !!match.finalizedAt);
 	let live = $derived(match.status === 'live');
 	let pts = $derived(tipsStore.scores[match.id]);
-	let advancedName = $derived(
-		isKO && match.advancer ? (tipsStore.team(match.advancer)?.name ?? '') : ''
-	);
 
 	let ftH = $state(0);
 	let ftA = $state(0);
@@ -109,17 +108,22 @@
 	}
 
 	let friends = $state<FriendTip[] | null>(null);
+	let perfect = $state<PerfectScorers | null>(null);
 	let friendsBusy = $state(false);
 	async function toggleFriends() {
 		if (friends !== null) {
 			friends = null;
+			perfect = null;
 			return;
 		}
 		friendsBusy = true;
 		try {
-			friends = await tipsStore.friends(match.id);
+			const r = await tipsStore.friends(match.id);
+			friends = r.tips;
+			perfect = r.perfect;
 		} catch {
 			friends = [];
+			perfect = null;
 		} finally {
 			friendsBusy = false;
 		}
@@ -133,6 +137,13 @@
 	}
 	let H = $derived(label('home'));
 	let A = $derived(label('away'));
+
+	// Map an advancing team id to its side, for the Scoreline winner arrow.
+	function winnerSide(advancer: string): '' | 'home' | 'away' {
+		if (advancer && advancer === match.homeTeam) return 'home';
+		if (advancer && advancer === match.awayTeam) return 'away';
+		return '';
+	}
 </script>
 
 <div class="tc card" class:locked>
@@ -147,9 +158,27 @@
 			</span>
 			<span class="score digits">
 				{#if played || live}
-					<b>{match.ftHome}</b><span class="cln">:</span><b>{match.ftAway}</b>
+					<b
+						><Scoreline
+							home={match.ftHome}
+							away={match.ftAway}
+							etHome={match.etHome}
+							etAway={match.etAway}
+							et={isKO && played && match.ftHome === match.ftAway}
+							winner={winnerSide(match.advancer)}
+						/></b
+					>
 				{:else if existing}
-					<span class="pred">{existing.ftHome}<span class="cln">:</span>{existing.ftAway}</span>
+					<span class="pred"
+						><Scoreline
+							home={existing.ftHome}
+							away={existing.ftAway}
+							etHome={existing.etHome}
+							etAway={existing.etAway}
+							et={isKO && existing.ftHome === existing.ftAway}
+							winner={winnerSide(existing.advancer)}
+						/></span
+					>
 				{:else}
 					<span class="muted">–:–</span>
 				{/if}
@@ -190,23 +219,19 @@
 			{#if isKO && !resolved}
 				<p class="muted">{t('tipCard.openNotDecided')}</p>
 			{:else if locked}
-				{#if played && advancedName}
-					<p class="resline muted">
-						{t('tipCard.result')} <b>{match.ftHome}:{match.ftAway}</b> · {t('tipCard.advanced')}
-						<b>{advancedName}</b>
-					</p>
-				{/if}
 				{#if existing}
 					<div class="yourtip" class:scored={played}>
 						<span class="ylabel">{t('tipCard.yourTip')}</span>
 						<span class="yscore digits"
-							>{existing.ftHome}<span class="cln">:</span>{existing.ftAway}</span
+							><Scoreline
+								home={existing.ftHome}
+								away={existing.ftAway}
+								etHome={existing.etHome}
+								etAway={existing.etAway}
+								et={isKO && existing.ftHome === existing.ftAway}
+								winner={winnerSide(existing.advancer)}
+							/></span
 						>
-						{#if isKO && existing.advancer}
-							<span class="yadv"
-								>→ {tipsStore.team(existing.advancer)?.name ?? '—'}</span
-							>
-						{/if}
 						<span class="spacer"></span>
 						{#if played && pts !== undefined}
 							<span class="ypts" class:ok={pts > 0}
@@ -235,36 +260,58 @@
 								{#each friends as f (f.userId)}
 									<tr>
 										<td>{f.name}</td>
-										<td class="num">{f.ftHome}:{f.ftAway}</td>
-										<td class="muted">
-											{#if f.advancer}
-												→ {tipsStore.team(f.advancer)?.name ?? ''}
-											{/if}
-										</td>
+										<td class="num digits"
+											><Scoreline
+												home={f.ftHome}
+												away={f.ftAway}
+												etHome={f.etHome}
+												etAway={f.etAway}
+												et={isKO && f.ftHome === f.ftAway}
+												winner={winnerSide(f.advancer)}
+											/></td
+										>
+										{#if f.points !== undefined}
+											<td class="fpts digits" class:ok={f.points > 0}
+												>{f.points > 0 ? '+' : ''}{f.points}&thinsp;pt</td
+											>
+										{/if}
 									</tr>
 								{/each}
 							</tbody>
 						</table>
 					{/if}
+					{#if perfect}
+						{#if perfect.count > 0}
+							<div class="exact">
+								<span class="exhead">
+									<Target size={14} /> Perfect tip · {perfect.points}&thinsp;pts
+								</span>
+								<span class="exnames">
+									{perfect.names.join(', ')}{#if perfect.count > perfect.names.length}
+										&nbsp;+{perfect.count - perfect.names.length} more{/if}
+								</span>
+							</div>
+						{:else}
+							<p class="muted small">
+								<Target size={13} /> No perfect tips for this match.
+							</p>
+						{/if}
+					{/if}
 				{/if}
 			{:else}
 				<!-- Editable -->
 				<div class="enter">
-					<span class="el">{H.name}</span>
 					<Stepper bind:value={ftH} />
 					<span class="sep">:</span>
 					<Stepper bind:value={ftA} />
-					<span class="el right">{A.name}</span>
 				</div>
 
 				{#if ftTie}
 					<div class="phase">{t('tipCard.afterExtraTime')}</div>
 					<div class="enter">
-						<span class="el">{H.name}</span>
 						<Stepper bind:value={etH} min={ftH} />
 						<span class="sep">:</span>
 						<Stepper bind:value={etA} min={ftA} />
-						<span class="el right">{A.name}</span>
 					</div>
 				{/if}
 
@@ -316,6 +363,7 @@
 		text-align: left;
 		padding: 0.85rem 1rem;
 		display: block;
+		cursor: pointer;
 	}
 	.teams {
 		display: grid;
@@ -372,14 +420,6 @@
 		justify-content: center;
 		gap: 0.6rem;
 		margin: 0.8rem 0;
-	}
-	.el {
-		flex: 1;
-		font-weight: 600;
-		font-size: 0.9rem;
-	}
-	.el.right {
-		text-align: right;
 	}
 	.sep {
 		font-weight: 800;
@@ -447,10 +487,6 @@
 		color: var(--muted);
 		font-size: 0.95rem;
 	}
-	.resline {
-		margin: 0.4rem 0 0.7rem;
-		font-size: 0.9rem;
-	}
 	.yourtip {
 		display: flex;
 		align-items: center;
@@ -475,10 +511,6 @@
 	.yscore {
 		font-size: 1.25rem;
 		font-weight: 800;
-	}
-	.yadv {
-		font-size: 0.85rem;
-		color: var(--muted);
 	}
 	.ypts {
 		font-family: var(--font-mono);
@@ -507,10 +539,47 @@
 		padding: 0.4rem 0.3rem;
 		border-bottom: 1px solid var(--border);
 	}
+	.friends td:first-child {
+		width: 100%; /* name takes the slack; score + points hug the right */
+	}
 	.num {
+		font-weight: 700;
+		text-align: right;
+		white-space: nowrap;
+	}
+	.fpts {
+		text-align: right;
+		white-space: nowrap;
+		padding-left: 0.7rem;
+		color: var(--muted);
+	}
+	.fpts.ok {
+		color: var(--accent);
 		font-weight: 700;
 	}
 	.small {
 		font-size: 0.85rem;
+	}
+	.exact {
+		margin-top: 0.7rem;
+		padding: 0.55rem 0.7rem;
+		border: 1px solid var(--accent);
+		border-radius: 0.5rem;
+		background: var(--accent);
+		color: var(--accent-fg);
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+	.exhead {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		font-size: 0.85rem;
+		font-weight: 600;
+	}
+	.exnames {
+		font-size: 0.9rem;
+		line-height: 1.4;
 	}
 </style>

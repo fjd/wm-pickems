@@ -4,108 +4,105 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"sort"
 	"strings"
-	"time"
-
-	"github.com/anthropics/anthropic-sdk-go"
 )
 
-// Brain wraps the Anthropic client. The large, never-changing tournament
-// reference (teams, group memberships, knockout skeleton) lives in a single
-// cached system prompt so every prediction call reuses it as a prompt-cache
-// prefix — only the per-call task in the user turn varies.
+// Brain turns the shared prompt/schema logic into predictions over a pluggable
+// completer (the provider transport). It owns everything provider-agnostic —
+// prompt assembly, JSON schemas, response parsing — so swapping Claude for an
+// OpenRouter-fronted model (GPT, Gemini, …) is just a different completer; the
+// prompts, schemas, and repair logic downstream are identical.
+//
+// The large, never-changing tournament reference (teams, group memberships,
+// knockout skeleton) lives in the completer's system prompt so every prediction
+// call reuses it as a prompt-cache prefix — only the per-call task varies.
 type Brain struct {
-	client    anthropic.Client
-	model     string
-	system    string // static reference, identical across all calls (cache prefix)
-	results   string // results-so-far summary, fed into tip prompts (the feedback loop)
-	rationale bool   // ask for + log a one-line reason per prediction
-	log       *slog.Logger
+	comp      completer // provider transport (Anthropic native, or OpenRouter)
+	results   string    // results-so-far summary, fed into tip prompts (the feedback loop)
+	rationale bool      // ask for + log a one-line reason per prediction
 }
 
-func NewBrain(model, reference, results string, rationale bool, log *slog.Logger) *Brain {
-	return &Brain{
-		client:    anthropic.NewClient(), // reads ANTHROPIC_API_KEY
-		model:     model,
-		system:    reference,
-		results:   results,
-		rationale: rationale,
-		log:       log,
-	}
+func NewBrain(comp completer, results string, rationale bool) *Brain {
+	return &Brain{comp: comp, results: results, rationale: rationale}
 }
 
-// complete runs one streamed request with adaptive thinking, a cached system
-// prompt, and a Structured Outputs JSON-schema constraint, returning the
-// concatenated final text. Streaming avoids HTTP timeouts on larger outputs and
-// lets thinking run without a fixed budget. The schema constrains the reply so
-// the text is guaranteed valid JSON matching it (no fences/preamble to strip).
-// The schema sits in OutputConfig (not the cached system prefix), so caching is
-// unaffected.
-// adaptiveThinking returns the adaptive-thinking config for models that support
-// it (Opus 4.6+/Sonnet 4.6). Haiku 4.5 has no adaptive thinking — the API 400s —
-// so it runs with thinking omitted (fine, and cheaper/faster for dev runs).
-func adaptiveThinking(model string) anthropic.ThinkingConfigParamUnion {
-	if strings.Contains(strings.ToLower(model), "haiku") {
-		return anthropic.ThinkingConfigParamUnion{} // omitted
-	}
-	return anthropic.ThinkingConfigParamUnion{OfAdaptive: &anthropic.ThinkingConfigAdaptiveParam{}}
+// completer is the provider transport: one structured request (cached system
+// prefix + task user message, constrained to schema) returning the final text,
+// which the schema guarantees is valid JSON (no fences/preamble to strip).
+// anthropicCompleter speaks the native Anthropic API (prompt caching + adaptive
+// thinking); openrouterCompleter speaks the OpenAI-compatible wire format
+// OpenRouter exposes as one key over every provider.
+type completer interface {
+	complete(ctx context.Context, label, task string, schema map[string]any) (string, error)
 }
 
-func (b *Brain) complete(ctx context.Context, label, task string, schema map[string]any) (string, error) {
-	start := time.Now()
-	stream := b.client.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.Model(b.model),
-		MaxTokens: 32000,
-		Thinking:  adaptiveThinking(b.model),
-		System: []anthropic.TextBlockParam{{
-			Text:         b.system,
-			CacheControl: anthropic.NewCacheControlEphemeralParam(),
-		}},
-		OutputConfig: anthropic.OutputConfigParam{
-			Format: anthropic.JSONOutputFormatParam{Schema: schema},
-		},
-		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(anthropic.NewTextBlock(task)),
-		},
-	})
-	msg := anthropic.Message{}
-	for stream.Next() {
-		msg.Accumulate(stream.Current())
-	}
-	if err := stream.Err(); err != nil {
-		return "", err
-	}
-	var sb strings.Builder
-	for _, block := range msg.Content {
-		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
-			sb.WriteString(t.Text)
-		}
-	}
-	b.log.Info("ai_call",
-		"task", label,
-		"model", b.model,
-		"in", msg.Usage.InputTokens,
-		"out", msg.Usage.OutputTokens,
-		"cache_read", msg.Usage.CacheReadInputTokens,
-		"cache_create", msg.Usage.CacheCreationInputTokens,
-		"dur_ms", time.Since(start).Milliseconds(),
-	)
-	return sb.String(), nil
+// fallbackCompleter is an optional capability: a completer that can degrade its
+// structured-output strategy when the strict json_schema path fails (an HTTP
+// error, or a reply that won't parse). Only openrouterCompleter implements it —
+// for the spottier providers (DeepSeek/Grok/Kimi); the native Anthropic
+// transport always honors json_schema, so it doesn't need to.
+type fallbackCompleter interface {
+	completer
+	// degrade switches to the looser mode (JSON mode + schema in the prompt) and
+	// returns true if a switch happened — false if already degraded.
+	degrade() bool
 }
 
-// completeStructured runs complete() with a JSON-schema constraint and unmarshals
-// the (schema-guaranteed valid) reply into out.
+// completeStructured runs one completer call constrained to schema and unmarshals
+// the reply into out. The Tier-1 providers (Claude/GPT/Gemini) honor strict
+// json_schema, so the first attempt parses cleanly. For the spottier providers,
+// the first attempt may HTTP-error (schema unsupported) or return JSON that won't
+// parse; if the transport can degrade to a looser mode, we switch and retry once.
+// extractJSON unwraps any code-fenced/prefixed reply, and the downstream repair
+// logic (repairOrder/chooseThirds/selectTip) is the final safety net.
 func (b *Brain) completeStructured(ctx context.Context, label, task string, schema map[string]any, out any) error {
-	raw, err := b.complete(ctx, label, task, schema)
-	if err != nil {
-		return err
+	raw, err := b.comp.complete(ctx, label, task, schema)
+	if err == nil {
+		err = json.Unmarshal([]byte(extractJSON(raw)), out)
+		if err == nil {
+			return nil
+		}
+		err = fmt.Errorf("not valid JSON: %w; got %.200q", err, strings.TrimSpace(raw))
 	}
-	if err := json.Unmarshal([]byte(raw), out); err != nil {
-		return fmt.Errorf("structured output for %s not valid JSON: %w; got %.200q", label, err, strings.TrimSpace(raw))
+	// First attempt failed. If the transport can degrade its structured-output
+	// strategy, switch to the looser mode and retry once.
+	fb, ok := b.comp.(fallbackCompleter)
+	if !ok || !fb.degrade() {
+		return fmt.Errorf("structured output for %s: %w", label, err)
+	}
+	raw, err = b.comp.complete(ctx, label, task, schema)
+	if err != nil {
+		return fmt.Errorf("structured output for %s (after fallback): %w", label, err)
+	}
+	if err := json.Unmarshal([]byte(extractJSON(raw)), out); err != nil {
+		return fmt.Errorf("structured output for %s not valid JSON after fallback: %w; got %.200q", label, err, strings.TrimSpace(raw))
 	}
 	return nil
+}
+
+// extractJSON best-effort-unwraps a JSON object from a model reply: it trims
+// whitespace, strips a ```json … ``` code fence, and otherwise falls back to the
+// span from the first "{" to the last "}". Clean JSON (the strict-schema path)
+// passes through unchanged; this only rescues the looser JSON-mode replies.
+func extractJSON(s string) string {
+	s = strings.TrimSpace(s)
+	if rest, ok := strings.CutPrefix(s, "```"); ok {
+		rest = strings.TrimPrefix(rest, "json")
+		rest = strings.TrimPrefix(rest, "JSON")
+		if i := strings.LastIndex(rest, "```"); i >= 0 {
+			rest = rest[:i]
+		}
+		s = strings.TrimSpace(rest)
+	}
+	if !strings.HasPrefix(s, "{") {
+		if i := strings.Index(s, "{"); i >= 0 {
+			if j := strings.LastIndex(s, "}"); j > i {
+				s = s[i : j+1]
+			}
+		}
+	}
+	return s
 }
 
 // ---- JSON schema helpers (Structured Outputs) ----

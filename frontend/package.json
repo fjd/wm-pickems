@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@lucide/svelte": "^1.16.0",
-    "pocketbase": "^0.26.0"
+    "pocketbase": "^0.26.0",
+    "svelte-confetti": "^2.3.2"
   }
 }

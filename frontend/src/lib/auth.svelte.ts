@@ -8,7 +8,9 @@ class Auth {
 		name: string;
 		email: string;
 		avatarUrl: string | null;
-		role: string; // "admin" | "bot"; empty => normal member
+		role: string; // "owner" | "admin" | "bot"; empty => normal member
+		// Per-event email toggles; absent/missing entries default to ON.
+		notifyPrefs: Record<string, { email?: boolean }>;
 	} | null>(null);
 
 	constructor() {
@@ -33,7 +35,9 @@ class Auth {
 			name: (r.name as string) || r.email,
 			email: r.email,
 			avatarUrl,
-			role: (r.role as string) || 'member'
+			role: (r.role as string) || 'member',
+			notifyPrefs:
+				(r.notifyPrefs as Record<string, { email?: boolean }>) || {}
 		};
 	}
 
@@ -41,11 +45,16 @@ class Auth {
 		return this.user !== null;
 	}
 
-	// App-level admin (role=admin), the trust boundary for future admin-only
-	// UI. Distinct from a PocketBase superuser. The server enforces the marker;
-	// this is only for showing/hiding admin affordances.
+	// App-level admin, the trust boundary for admin-only UI. Distinct from a
+	// PocketBase superuser. The server enforces the marker; this is only for
+	// showing/hiding admin affordances. Owner inherits admin.
 	get isAdmin() {
-		return this.user?.role === 'admin';
+		return this.user?.role === 'admin' || this.user?.role === 'owner';
+	}
+
+	// App owner (role=owner) — unlocks the owner stats page.
+	get isOwner() {
+		return this.user?.role === 'owner';
 	}
 
 	async login(identity: string, password: string) {
@@ -68,6 +77,13 @@ class Auth {
 		body.set('name', opts.name.trim());
 		if (opts.avatarFile) body.set('avatar', opts.avatarFile);
 		await pb.collection('users').update(this.user.id, body);
+		await pb.collection('users').authRefresh();
+	}
+
+	// Save the per-event email notification toggles onto the user record.
+	async updateNotifyPrefs(prefs: Record<string, { email?: boolean }>) {
+		if (!this.user) throw new Error('Not signed in.');
+		await pb.collection('users').update(this.user.id, { notifyPrefs: prefs });
 		await pb.collection('users').authRefresh();
 	}
 

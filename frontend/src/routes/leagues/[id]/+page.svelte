@@ -5,6 +5,7 @@
 	import { pb } from '$lib/pb';
 	import { t } from '$lib/i18n.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import {
 		Eye,
 		EyeOff,
@@ -195,9 +196,17 @@
 			mgmtBusy = false;
 		}
 	}
-	async function removeMember(userId: string, name: string) {
-		if (!league) return;
-		if (!confirm(t('errors.removeMember', { name }))) return;
+	// Two-step removal: clicking the button opens a confirm dialog; confirming
+	// runs the actual call. removeTarget holds the pending member (and drives
+	// the dialog's open state + message).
+	let removeTarget = $state<{ userId: string; name: string } | null>(null);
+
+	function requestRemove(userId: string, name: string) {
+		removeTarget = { userId, name };
+	}
+	async function confirmRemove() {
+		if (!league || !removeTarget) return;
+		const { userId } = removeTarget;
 		mgmtBusy = true;
 		mgmtError = '';
 		try {
@@ -209,6 +218,7 @@
 			mgmtError = t('errors.couldNotRemoveMember');
 		} finally {
 			mgmtBusy = false;
+			removeTarget = null;
 		}
 	}
 
@@ -428,7 +438,7 @@
 										disabled={mgmtBusy}
 										onclick={(e) => {
 											e.stopPropagation();
-											removeMember(r.userId, r.name);
+											requestRemove(r.userId, r.name);
 										}}
 									>
 										<UserMinus size={15} />
@@ -572,6 +582,20 @@
 		</details>
 	{/if}
 {/if}
+
+<ConfirmDialog
+	open={removeTarget !== null}
+	title="Remove member"
+	message={removeTarget
+		? `Remove ${removeTarget.name} from this league?`
+		: ''}
+	confirmLabel="Remove"
+	cancelLabel="Cancel"
+	danger
+	busy={mgmtBusy}
+	onconfirm={confirmRemove}
+	oncancel={() => (removeTarget = null)}
+/>
 
 <style>
 	.back {

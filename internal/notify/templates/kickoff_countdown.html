@@ -1,0 +1,16 @@
+{{define "subject"}}{{if eq .DaysLeft 0}}Football is here — the World Cup 2026 starts today{{else if eq .DaysLeft 1}}1 more day until the World Cup 2026{{else}}{{.DaysLeft}} days until the World Cup 2026{{end}}{{end}}
+{{define "pushTitle"}}{{if eq .DaysLeft 0}}Football is here ⚽{{else if eq .DaysLeft 1}}1 more day ⚽{{else}}{{.DaysLeft}} days to kickoff ⚽{{end}}{{end}}
+{{define "pushBody"}}{{if eq .DaysLeft 0}}The World Cup 2026 starts today. Last call for your tips and Forecast!{{else if eq .DaysLeft 1}}Kickoff is tomorrow — don't forget your tips and Forecast.{{else}}The World Cup is almost here. Get your tips and Forecast in.{{end}}{{end}}
+{{define "preheader"}}{{if eq .DaysLeft 0}}It's here — make sure your tips and Forecast are in.{{else}}Don't forget your tips and Forecast before kickoff.{{end}}{{end}}
+{{define "content"}}
+<div style="font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#c8fb50;">Countdown to kickoff</div>
+<h1 style="margin:7px 0 14px;font-size:27px;line-height:1.12;font-weight:800;color:#f3f5fb;">{{if eq .DaysLeft 0}}Football is here.{{else if eq .DaysLeft 1}}1 more day.{{else}}{{.DaysLeft}} days to go.{{end}}</h1>
+<p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#aeb6d0;">
+{{if eq .DaysLeft 0}}The World Cup 2026 starts today. This is your last call — make sure your tips for the opening matches are in and your Forecast is locked in before kickoff.{{else if eq .DaysLeft 1}}The World Cup 2026 kicks off tomorrow. Take a moment now to get your tips in and finish your Forecast before it locks at the first whistle.{{else}}The World Cup 2026 is almost here. Don't leave it to the last minute — get your tips in and finish your Forecast before it locks at the first kickoff.{{end}}
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+<td bgcolor="#181d2e" style="background:#181d2e;border:1px solid #283047;border-radius:12px;padding:14px 18px;">
+<span style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#8b93b0;">First kickoff</span><br>
+<span style="font-size:17px;font-weight:700;color:#f3f5fb;">{{.WhenText}}</span>
+</td></tr></table>
+{{end}}
