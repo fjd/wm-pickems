@@ -89,6 +89,7 @@
 						user: string;
 						text: string;
 						created: string;
+						deleted?: boolean;
 					};
 					if (e.action === 'create') {
 						if (messages.some((m) => m.id === r.id)) return; // echo of our own post
@@ -96,6 +97,12 @@
 						messages = [...messages, { id: r.id, user: r.user, text: r.text, created: r.created }];
 						scrollToBottom();
 						if (r.user !== me) api.chatMarkRead(id).catch(() => {});
+					} else if (e.action === 'update') {
+						// Soft-delete: text is cleared in the payload; keep any `original`
+						// an admin already has (realtime never carries it).
+						messages = messages.map((m) =>
+							m.id === r.id ? { ...m, text: r.text ?? '', deleted: r.deleted ?? m.deleted } : m
+						);
 					} else if (e.action === 'delete') {
 						messages = messages.filter((m) => m.id !== r.id);
 					}
@@ -157,8 +164,9 @@
 
 	async function remove(m: ChatMessage) {
 		try {
-			await api.chatDelete(id, m.id);
-			messages = messages.filter((x) => x.id !== m.id);
+			const res = await api.chatDelete(id, m.id);
+			// Soft-delete: replace with the cleared/annotated version in place.
+			messages = messages.map((x) => (x.id === m.id ? { ...x, ...res } : x));
 		} catch {
 			/* ignore */
 		}
@@ -226,9 +234,17 @@
 						{#if !grouped && !mine}
 							<span class="who">{mem?.name ?? 'Member'}</span>
 						{/if}
-						<div class="bubble">
-							<span class="msgtext">{m.text}</span>
-							{#if mine || owner}
+						<div class="bubble" class:deleted={m.deleted}>
+							{#if m.deleted}
+								{#if m.original}
+									<span class="msgtext"><span class="modtag">deleted</span> {m.original}</span>
+								{:else}
+									<span class="msgtext gone">message deleted</span>
+								{/if}
+							{:else}
+								<span class="msgtext">{m.text}</span>
+							{/if}
+							{#if (mine || owner) && !m.deleted}
 								<button class="del" title="Delete" aria-label="Delete" onclick={() => remove(m)}>
 									<Trash2 size={13} />
 								</button>
@@ -399,6 +415,31 @@
 		white-space: pre-wrap;
 		word-break: break-word;
 		min-width: 0;
+	}
+	.bubble.deleted {
+		background: var(--surface);
+		border-style: dashed;
+	}
+	.row.mine .bubble.deleted {
+		background: var(--surface);
+		border-color: var(--border);
+	}
+	.gone {
+		color: var(--muted);
+		font-style: italic;
+	}
+	/* Admin-only view of a deleted message's original text. */
+	.modtag {
+		font-size: 0.6rem;
+		font-weight: 800;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--danger);
+		border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border));
+		border-radius: var(--radius-pill);
+		padding: 0 0.35rem;
+		margin-right: 0.35rem;
+		vertical-align: 1px;
 	}
 	.del {
 		display: none;

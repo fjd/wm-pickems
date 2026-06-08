@@ -13,6 +13,8 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+
+	"github.com/floholz/wm-pickems/internal/users"
 )
 
 const (
@@ -65,9 +67,10 @@ func Register(app core.App, se *core.ServeEvent) {
 		if err != nil {
 			return err
 		}
+		mod := users.IsAdmin(e.Auth) // admins see deleted originals for moderation
 		out := make([]map[string]any, 0, len(recs))
 		for _, r := range recs {
-			out = append(out, msgView(r))
+			out = append(out, msgView(r, mod))
 		}
 		return e.JSON(http.StatusOK, map[string]any{"messages": out, "hasMore": len(recs) == pageSize})
 	})
@@ -103,11 +106,13 @@ func Register(app core.App, se *core.ServeEvent) {
 			return err
 		}
 		markRead(app, lid, e.Auth.Id) // sender is caught up by definition
-		return e.JSON(http.StatusOK, msgView(rec))
+		return e.JSON(http.StatusOK, msgView(rec, false))
 	})
 
-	// DELETE /api/leagues/{id}/chat/{msgId} — author or league owner removes a
-	// message (fires the realtime delete event).
+	// DELETE /api/leagues/{id}/chat/{msgId} — author or league owner soft-deletes
+	// a message: the live text is cleared (members + realtime see only "message
+	// deleted") and the original is stashed in the hidden origText field for
+	// admin moderation. Fires a realtime update event.
 	g.DELETE("/leagues/{id}/chat/{msgId}", func(e *core.RequestEvent) error {
 		lid := e.Request.PathValue("id")
 		lg, err := authorize(app, e, lid)
@@ -121,10 +126,17 @@ func Register(app core.App, se *core.ServeEvent) {
 		if rec.GetString("user") != e.Auth.Id && lg.GetString("owner") != e.Auth.Id {
 			return apis.NewForbiddenError("not allowed", nil)
 		}
-		if err := app.Delete(rec); err != nil {
-			return err
+		if !rec.GetBool("deleted") {
+			rec.Set("origText", rec.GetString("text"))
+			rec.Set("text", "")
+			rec.Set("deleted", true)
+			rec.Set("deletedBy", e.Auth.Id)
+			rec.Set("deletedAt", time.Now().UTC())
+			if err := app.Save(rec); err != nil {
+				return err
+			}
 		}
-		return e.JSON(http.StatusOK, map[string]any{"ok": true})
+		return e.JSON(http.StatusOK, msgView(rec, users.IsAdmin(e.Auth)))
 	})
 
 	// POST /api/leagues/{id}/chat/read — mark this league's chat read (to now).
@@ -230,13 +242,27 @@ func unreadCount(app core.App, leagueID, userID, since string) int {
 	return len(recs)
 }
 
-func msgView(r *core.Record) map[string]any {
-	return map[string]any{
+// msgView serialises a message. For soft-deleted messages the live text is
+// already empty; `mod` (the requester is an app-admin) adds the original text +
+// who/when for moderation.
+func msgView(r *core.Record, mod bool) map[string]any {
+	v := map[string]any{
 		"id":      r.Id,
 		"user":    r.GetString("user"),
 		"text":    r.GetString("text"),
 		"created": r.GetDateTime("created").Time().UTC().Format(time.RFC3339Nano),
 	}
+	if r.GetBool("deleted") {
+		v["deleted"] = true
+		if mod {
+			v["original"] = r.GetString("origText")
+			v["deletedBy"] = r.GetString("deletedBy")
+			if dt := r.GetDateTime("deletedAt"); !dt.IsZero() {
+				v["deletedAt"] = dt.Time().UTC().Format(time.RFC3339)
+			}
+		}
+	}
+	return v
 }
 
 func userView(u *core.Record) map[string]any {

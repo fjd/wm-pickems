@@ -46,8 +46,13 @@ export interface BotSummary {
 export interface ChatMessage {
 	id: string;
 	user: string; // sender user id
-	text: string;
+	text: string; // empty when deleted
 	created: string; // RFC3339
+	deleted?: boolean;
+	// Moderation fields, returned only to app-admins for deleted messages:
+	original?: string;
+	deletedBy?: string;
+	deletedAt?: string;
 }
 
 export interface ChatMember {
