@@ -116,7 +116,7 @@ func (r *Runner) chatPass(ctx context.Context) int {
 				Body:  senderName + ": " + preview,
 				URL:   toPath(base.url + "/leagues/" + lid + "/chat"),
 				Tag:   "chat:" + lid,
-				Icon:  "/icons/notif/default.png",
+				Icon:  "/icons/notif/push-icon-chat.png",
 			}
 			rec := newLedgerRow(ncol, uid, chatEvent, dedupKey, "push")
 			if err := r.app.Save(rec); err != nil {
@@ -137,6 +137,106 @@ func (r *Runner) chatPass(ctx context.Context) int {
 		}
 	}
 	return sent
+}
+
+// registerChatDigestCron schedules the periodic unread-chat email digest
+// (default every 6h; CHAT_DIGEST_CRON overrides). Email-only — no push.
+func registerChatDigestCron(app core.App, r *Runner) {
+	expr := os.Getenv("CHAT_DIGEST_CRON")
+	if expr == "" {
+		expr = "0 */6 * * *"
+	}
+	app.Cron().MustAdd("chat-digest", expr, func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		defer cancel()
+		r.chatDigestPass(ctx)
+	})
+	log.Printf("[chat] email digest enabled (%s)", expr)
+}
+
+// chatDigestPass emails each user a summary of their unread chat across private
+// leagues. Deduped on the globally-latest unread message id, so a user who
+// hasn't read (and has no new messages) isn't nagged again next window.
+func (r *Runner) chatDigestPass(ctx context.Context) int {
+	ncol, err := r.notificationsCol()
+	if err != nil {
+		return 0
+	}
+	base := r.base()
+
+	allUsers, err := r.app.FindRecordsByFilter("users", "id != ''", "", 0, 0)
+	if err != nil {
+		return 0
+	}
+	mems, _ := r.app.FindRecordsByFilter("league_members", "id != ''", "", 0, 0)
+	byUser := map[string][]string{}
+	for _, m := range mems {
+		byUser[m.GetString("user")] = append(byUser[m.GetString("user")], m.GetString("league"))
+	}
+	lName := map[string]string{}
+	lGlobal := map[string]bool{}
+	if lgs, err := r.app.FindRecordsByFilter("leagues", "id != ''", "", 0, 0); err == nil {
+		for _, lg := range lgs {
+			lName[lg.Id] = lg.GetString("name")
+			lGlobal[lg.Id] = lg.GetString("inviteCode") == "GLOBAL"
+		}
+	}
+
+	res := &Result{}
+	for _, u := range allUsers {
+		if users.IsBot(u) || u.Email() == "" {
+			continue
+		}
+		var lines []chatLine
+		total := 0
+		latestID := ""
+		var latestAt time.Time
+		for _, lid := range byUser[u.Id] {
+			if lGlobal[lid] {
+				continue
+			}
+			n := r.chatUnread(lid, u.Id)
+			if n == 0 {
+				continue
+			}
+			total += n
+			lines = append(lines, chatLine{League: lName[lid], Count: n})
+			if mid, at := r.latestUnread(lid, u.Id); at.After(latestAt) {
+				latestAt, latestID = at, mid
+			}
+		}
+		if total == 0 {
+			continue
+		}
+		data := tplData{
+			AppName:     base.appName,
+			BaseURL:     base.url,
+			SettingsUrl: base.url + "/settings",
+			CTAText:     "Open your chats",
+			CTAUrl:      base.url + "/leagues",
+			ChatTotal:   total,
+			ChatLeagues: lines,
+		}
+		r.dispatchEmail(ctx, res, ncol, u, chatEvent, "chatdigest:"+u.Id+":"+latestID, data)
+	}
+	return res.Sent
+}
+
+// latestUnread returns the newest unread (by another member, non-deleted)
+// message in a league for a user, used as the digest dedup discriminator.
+func (r *Runner) latestUnread(leagueID, userID string) (string, time.Time) {
+	filter := "league = {:l} && user != {:u} && deleted = false"
+	params := dbx.Params{"l": leagueID, "u": userID}
+	if rec, err := r.app.FindFirstRecordByFilter("league_reads",
+		"league = {:l} && user = {:u}", dbx.Params{"l": leagueID, "u": userID}); err == nil {
+		filter += " && created > {:s}"
+		params["s"] = rec.GetDateTime("lastRead").String()
+	}
+	recs, err := r.app.FindRecordsByFilter("league_messages", filter, "-created", 1, 0, params)
+	if err != nil || len(recs) == 0 {
+		return "", time.Time{}
+	}
+	return recs[0].Id, recs[0].GetDateTime("created").Time()
 }
 
 func (r *Runner) lastReadAt(leagueID, userID string) time.Time {

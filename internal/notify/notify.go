@@ -103,6 +103,7 @@ func Register(app core.App, se *core.ServeEvent) {
 			log.Printf("[notify] allowlist active — only %d address(es) will be emailed", len(al))
 		}
 		registerChatCron(app, r)
+		registerChatDigestCron(app, r)
 	}
 
 	// Dev-only manual trigger so the flow can be exercised against the virtual
@@ -123,6 +124,13 @@ func Register(app core.App, se *core.ServeEvent) {
 			ctx, cancel := context.WithTimeout(e.Request.Context(), 60*time.Second)
 			defer cancel()
 			return e.JSON(http.StatusOK, map[string]any{"sent": r.chatPass(ctx)})
+		}).Bind(apis.RequireAuth())
+
+		// Run the chat email-digest sweep on demand.
+		se.Router.POST("/api/dev/chat/digest", func(e *core.RequestEvent) error {
+			ctx, cancel := context.WithTimeout(e.Request.Context(), 90*time.Second)
+			defer cancel()
+			return e.JSON(http.StatusOK, map[string]any{"sent": r.chatDigestPass(ctx)})
 		}).Bind(apis.RequireAuth())
 
 		// Render an email in the browser (no auth, dev-only) for fast visual
@@ -592,6 +600,10 @@ func (r *Runner) sampleData(event string) tplData {
 		d.Title = "New: live match tracker is here"
 		d.Body = "We just shipped a live tracker so you can follow scores in real time. Open the app to check it out and get your tips in before kickoff."
 		d.CTAText, d.CTAUrl = "Open WM Tips", base.url+"/"
+	case "league_chat":
+		d.ChatTotal = 5
+		d.ChatLeagues = []chatLine{{League: "Squad", Count: 3}, {League: "Office Pool", Count: 2}}
+		d.CTAText, d.CTAUrl = "Open your chats", base.url+"/leagues"
 	case "kickoff_countdown":
 		d.DaysLeft = 3
 		d.WhenText = when
