@@ -170,12 +170,12 @@ func Register(app core.App, se *core.ServeEvent) {
 		return e.JSON(200, map[string]any{"status": "ok", "source": source, "updated": n})
 	}).Bind(apis.RequireSuperuserAuth())
 
-	// Owner-gated sync dashboard: live status + a manual "sync now" button.
+	// Admin-gated sync dashboard: live status + a manual "sync now" button.
 	sg := se.Router.Group("/api/admin/sync")
 	sg.Bind(apis.RequireAuth())
 	sg.BindFunc(func(e *core.RequestEvent) error {
-		if e.Auth == nil || !users.IsOwner(e.Auth) {
-			return apis.NewForbiddenError("owner only", nil)
+		if e.Auth == nil || !users.IsAdmin(e.Auth) {
+			return apis.NewForbiddenError("admin only", nil)
 		}
 		return e.Next()
 	})

@@ -9,7 +9,9 @@
 		Settings,
 		Shield,
 		Crown,
-		Megaphone
+		Megaphone,
+		LayoutDashboard,
+		ExternalLink
 	} from '@lucide/svelte';
 
 	let {
@@ -68,6 +70,9 @@
 				<a class="item" href="/admin" onclick={() => (open = false)}>
 					<Megaphone size={17} /> Announcements
 				</a>
+				<a class="item" href="/console" onclick={() => (open = false)}>
+					<LayoutDashboard size={17} /> Admin area
+				</a>
 			{/if}
 			{#if auth.isOwner}
 				<a class="item" href="/owner" onclick={() => (open = false)}>
@@ -83,6 +88,7 @@
 					onclick={() => (open = false)}
 				>
 					<Shield size={17} /> PB Dashboard
+					<ExternalLink size={14} class="ext" />
 				</a>
 			{/if}
 			<button class="item" onclick={() => auth.logout()}>
@@ -177,5 +183,10 @@
 	}
 	.item:hover {
 		background: var(--surface);
+	}
+	/* External-link affordance pushed to the right edge of the row. */
+	:global(.item .ext) {
+		margin-left: auto;
+		color: var(--muted);
 	}
 </style>
