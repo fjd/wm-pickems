@@ -6,6 +6,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import { api, type ChatMessage, type ChatMember, type GifResult } from '$lib/api';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import ChatGif from '$lib/components/ChatGif.svelte';
 	import { ArrowLeft, SendHorizontal, Trash2, Search, X } from '@lucide/svelte';
 
 	let id = $derived($page.params.id ?? '');
@@ -381,7 +382,7 @@
 									<span class="msgtext gone">message deleted</span>
 								{/if}
 							{:else if m.gif}
-								<img class="msggif" src={m.gif} alt="GIF" loading="lazy" />
+								<ChatGif src={m.gif} />
 							{:else}
 								<span class="msgtext">{m.text}</span>
 							{/if}
@@ -689,12 +690,6 @@
 		background: var(--surface-2);
 		border-color: var(--border);
 	}
-	.msggif {
-		display: block;
-		max-width: min(220px, 60vw);
-		height: auto;
-		border-radius: 11px;
-	}
 	.del {
 		display: none; /* revealed on hover (or tap, on touch); stays while armed */
 		align-items: center;
@@ -799,14 +794,18 @@
 	.gifbtn {
 		position: absolute;
 		right: 0.45rem;
-		bottom: 0.5rem;
-		padding: 0.15rem 0.4rem;
+		bottom: 0.55rem;
+		display: inline-flex;
+		align-items: center;
+		height: 1.5rem;
+		padding: 0 0.45rem;
 		background: transparent;
 		border: none;
 		border-radius: var(--radius-sm);
 		color: var(--muted);
 		font-weight: 800;
 		font-size: 0.72rem;
+		line-height: 1;
 		letter-spacing: 0.04em;
 		cursor: pointer;
 	}
@@ -864,28 +863,31 @@
 		color: var(--muted);
 		cursor: pointer;
 	}
+	/* Masonry — GIFs keep their aspect ratio and pack into columns (Giphy-style),
+	   so rows never mismatch. */
 	.gifgrid {
 		flex: 1;
 		min-height: 0;
 		overflow-y: auto;
 		overscroll-behavior: contain;
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 0.4rem;
+		columns: 3;
+		column-gap: 0.4rem;
 	}
 	.gifcell {
+		display: block;
+		width: 100%;
+		margin: 0 0 0.4rem;
 		padding: 0;
 		border: 1px solid var(--border);
 		border-radius: 8px;
 		overflow: hidden;
 		background: var(--surface-2);
 		cursor: pointer;
-		aspect-ratio: 1;
+		break-inside: avoid;
 	}
 	.gifcell img {
 		width: 100%;
-		height: 100%;
-		object-fit: cover;
+		height: auto;
 		display: block;
 	}
 	.gifcell:hover {
