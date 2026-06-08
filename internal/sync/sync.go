@@ -26,10 +26,14 @@ const cronExpr = "*/30 * * * *"
 // nameAliases maps API-Football names that differ from the openfootball seed
 // names to the seeded team name.
 var nameAliases = map[string]string{
-	football.NormalizeName("Korea Republic"): football.NormalizeName("South Korea"),
-	football.NormalizeName("Czechia"):        football.NormalizeName("Czech Republic"),
-	football.NormalizeName("USA"):            football.NormalizeName("United States"),
-	football.NormalizeName("IR Iran"):        football.NormalizeName("Iran"),
+	football.NormalizeName("Korea Republic"):     football.NormalizeName("South Korea"),
+	football.NormalizeName("Czechia"):            football.NormalizeName("Czech Republic"),
+	football.NormalizeName("USA"):                football.NormalizeName("United States"),
+	football.NormalizeName("IR Iran"):            football.NormalizeName("Iran"),
+	football.NormalizeName("Türkiye"):            football.NormalizeName("Turkey"),
+	football.NormalizeName("Turkiye"):            football.NormalizeName("Turkey"), // ü-less, in case the API sends a folded form
+	football.NormalizeName("Cape Verde Islands"): football.NormalizeName("Cape Verde"),
+	football.NormalizeName("Congo DR"):           football.NormalizeName("DR Congo"),
 }
 
 func canonName(s string) string {
