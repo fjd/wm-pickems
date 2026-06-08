@@ -17,6 +17,7 @@
 		Target,
 		Check,
 		Sparkles,
+		MessageSquare,
 		ChevronUp,
 		ChevronDown,
 		Minus,
@@ -406,9 +407,14 @@
 					Each league has its own leaderboard with stats, scores and comprehensive tiebreaker rules. Share your league's code with your friends to join. Everyone's auto-entered into a
 					global league too — so you're never playing alone.
 				</p>
+				<p class="muted">
+					Every private league has its own <strong>chat</strong> — talk trash,
+					react to results and rally your mates without leaving the app.
+				</p>
 				<div class="lg-tags">
 					<span class="pill"><Users size={13} /> Private leagues</span>
 					<span class="pill"><Trophy size={13} /> Live leaderboards</span>
+					<span class="pill"><MessageSquare size={13} /> League chat</span>
 					<span class="pill"><Sparkles size={13} /> AI opponents</span>
 				</div>
 			</div>
@@ -1191,6 +1197,10 @@
 	.lg-copy p {
 		margin: 0 0 0.9rem;
 		line-height: 1.55;
+	}
+	.lg-copy strong {
+		color: var(--text);
+		font-weight: 700;
 	}
 	.lg-tags {
 		display: flex;
