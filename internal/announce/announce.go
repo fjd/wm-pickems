@@ -85,6 +85,7 @@ func Register(app core.App, se *core.ServeEvent) {
 		rec.Set("level", level)
 		rec.Set("active", body.activeOrDefault())
 		rec.Set("highPriority", body.HighPriority != nil && *body.HighPriority)
+		rec.Set("persistent", body.Persistent != nil && *body.Persistent)
 		if err := app.Save(rec); err != nil {
 			return err
 		}
@@ -115,6 +116,9 @@ func Register(app core.App, se *core.ServeEvent) {
 		}
 		if body.HighPriority != nil {
 			rec.Set("highPriority", *body.HighPriority)
+		}
+		if body.Persistent != nil {
+			rec.Set("persistent", *body.Persistent)
 		}
 		if err := app.Save(rec); err != nil {
 			return err
@@ -167,6 +171,7 @@ type payload struct {
 	Level        *string `json:"level"`
 	Active       *bool   `json:"active"`
 	HighPriority *bool   `json:"highPriority"`
+	Persistent   *bool   `json:"persistent"`
 }
 
 func (p payload) normalize() (title, body, level string, err error) {
@@ -210,6 +215,7 @@ func view(r *core.Record) map[string]any {
 		"level":        r.GetString("level"),
 		"active":       r.GetBool("active"),
 		"highPriority": r.GetBool("highPriority"),
+		"persistent":   r.GetBool("persistent"),
 		"notifiedAt":   notifiedAt(r),
 		"created":      r.GetDateTime("created").Time().UTC().Format(time.RFC3339),
 	}

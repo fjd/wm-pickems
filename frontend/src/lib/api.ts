@@ -52,6 +52,7 @@ export interface Announcement {
 	level: AnnounceLevel;
 	active: boolean;
 	highPriority: boolean; // high-urgency push when broadcast
+	persistent: boolean; // can't be dismissed — only collapsed
 	notifiedAt: string; // RFC3339, empty if never broadcast
 	created: string;
 }
@@ -62,6 +63,7 @@ export interface AnnouncePayload {
 	level?: AnnounceLevel;
 	active?: boolean;
 	highPriority?: boolean;
+	persistent?: boolean;
 }
 
 export interface SyncLastRun {

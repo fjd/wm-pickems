@@ -16,7 +16,8 @@
 		Trash2,
 		Check,
 		Plus,
-		Zap
+		Zap,
+		Pin
 	} from '@lucide/svelte';
 
 	// Gate: anyone who isn't an owner/admin goes home. auth hydrates
@@ -36,6 +37,7 @@
 	let level = $state<AnnounceLevel>('info');
 	let active = $state(true);
 	let highPriority = $state(false);
+	let persistent = $state(false);
 	let saving = $state(false);
 	let formError = $state('');
 
@@ -76,6 +78,7 @@
 		level = 'info';
 		active = true;
 		highPriority = false;
+		persistent = false;
 		formError = '';
 	}
 
@@ -86,6 +89,7 @@
 		level = a.level;
 		active = a.active;
 		highPriority = a.highPriority;
+		persistent = a.persistent;
 		formError = '';
 		if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
@@ -98,7 +102,14 @@
 		}
 		saving = true;
 		try {
-			const payload = { title: title.trim(), body: body.trim(), level, active, highPriority };
+			const payload = {
+				title: title.trim(),
+				body: body.trim(),
+				level,
+				active,
+				highPriority,
+				persistent
+			};
 			if (editId) {
 				const updated = await api.updateAnnouncement(editId, payload);
 				items = items.map((a) => (a.id === editId ? updated : a));
@@ -215,6 +226,14 @@
 			Only affects "Send as notification": delivers at high urgency (reaches
 			dozing phones promptly) and keeps the alert on screen until tapped.
 		</p>
+		<label class="chk hp">
+			<input type="checkbox" bind:checked={persistent} />
+			<span><Pin size={14} /> Persistent</span>
+		</label>
+		<p class="hp-hint">
+			Can't be dismissed — users can only collapse it to a slim ribbon. Stays
+			until you hide or delete it.
+		</p>
 		{#if formError}<p class="err">{formError}</p>{/if}
 		<div class="actions">
 			{#if editId}
@@ -244,6 +263,11 @@
 							<span class="pill on">Live</span>
 						{:else}
 							<span class="pill off">Hidden</span>
+						{/if}
+						{#if a.persistent}
+							<span class="pill pin" title="Persistent — users can only collapse it">
+								<Pin size={12} /> Persistent
+							</span>
 						{/if}
 						{#if a.highPriority}
 							<span class="pill hp" title="High-priority push when broadcast">
@@ -462,6 +486,10 @@
 	.pill.hp {
 		color: var(--warning);
 		border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+	}
+	.pill.pin {
+		color: var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 	}
 	.when {
 		margin-left: auto;

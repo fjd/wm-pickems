@@ -1,30 +1,43 @@
 <script lang="ts">
-	// In-app announcement banner: shows active announcements written by an
-	// owner/admin in the Admin console. Each is dismissed per-id in localStorage
-	// so it stays gone once read, but a new announcement (new id) always shows.
+	// In-app announcement banners written by an admin in the Admin console.
+	// Two kinds:
+	//  - dismissible (default): an X removes it for good (per-id in localStorage);
+	//    a new announcement (new id) always shows.
+	//  - persistent: can't be dismissed — only collapsed to a slim ribbon and
+	//    re-expanded. Collapsed state is remembered per-id. It stays until an
+	//    admin deactivates it.
 	// Multiple active announcements stack, newest first.
 	import { onMount } from 'svelte';
 	import { api, type Announcement } from '$lib/api';
-	import { Megaphone, Info, TriangleAlert, X } from '@lucide/svelte';
+	import {
+		Megaphone,
+		Info,
+		TriangleAlert,
+		X,
+		ChevronUp,
+		ChevronDown
+	} from '@lucide/svelte';
 
-	const KEY = 'announce-dismissed-v1';
+	const DISMISS_KEY = 'announce-dismissed-v1';
+	const COLLAPSE_KEY = 'announce-collapsed-v1';
 
 	let items = $state<Announcement[]>([]);
 	let dismissed = $state<Set<string>>(new Set());
+	let collapsed = $state<Set<string>>(new Set());
 
-	function loadDismissed(): Set<string> {
+	function loadSet(key: string): Set<string> {
 		try {
-			const raw = localStorage.getItem(KEY);
+			const raw = localStorage.getItem(key);
 			if (raw) return new Set(JSON.parse(raw) as string[]);
 		} catch {
-			/* private mode / bad json — treat as none dismissed */
+			/* private mode / bad json — treat as empty */
 		}
 		return new Set();
 	}
 
-	function persist() {
+	function persist(key: string, set: Set<string>) {
 		try {
-			localStorage.setItem(KEY, JSON.stringify([...dismissed]));
+			localStorage.setItem(key, JSON.stringify([...set]));
 		} catch {
 			/* ignore */
 		}
@@ -32,27 +45,41 @@
 
 	function dismiss(id: string) {
 		dismissed = new Set(dismissed).add(id);
-		persist();
+		persist(DISMISS_KEY, dismissed);
+	}
+
+	function toggleCollapse(id: string) {
+		const next = new Set(collapsed);
+		if (next.has(id)) next.delete(id);
+		else next.add(id);
+		collapsed = next;
+		persist(COLLAPSE_KEY, collapsed);
+	}
+
+	// Drop remembered ids that are no longer live so the sets don't grow forever.
+	function prune(key: string, set: Set<string>, live: Set<string>): Set<string> {
+		if (![...set].some((id) => !live.has(id))) return set;
+		const next = new Set([...set].filter((id) => live.has(id)));
+		persist(key, next);
+		return next;
 	}
 
 	onMount(async () => {
-		dismissed = loadDismissed();
+		dismissed = loadSet(DISMISS_KEY);
+		collapsed = loadSet(COLLAPSE_KEY);
 		try {
 			const res = await api.activeAnnouncements();
 			items = res.announcements;
-			// Drop dismissals for announcements that are gone/inactive so the set
-			// doesn't grow without bound.
-			const live = new Set(items.map((a) => a.id));
-			if ([...dismissed].some((id) => !live.has(id))) {
-				dismissed = new Set([...dismissed].filter((id) => live.has(id)));
-				persist();
-			}
+			const liveIds = new Set(items.map((a) => a.id));
+			dismissed = prune(DISMISS_KEY, dismissed, liveIds);
+			collapsed = prune(COLLAPSE_KEY, collapsed, liveIds);
 		} catch {
 			/* not signed in / offline — show nothing */
 		}
 	});
 
-	let visible = $derived(items.filter((a) => !dismissed.has(a.id)));
+	// Persistent items can't be dismissed; dismissible ones drop out once dismissed.
+	let visible = $derived(items.filter((a) => a.persistent || !dismissed.has(a.id)));
 
 	const icon = { info: Info, success: Megaphone, warn: TriangleAlert };
 </script>
@@ -61,16 +88,38 @@
 	<div class="stack">
 		{#each visible as a (a.id)}
 			{@const Icon = icon[a.level] ?? Megaphone}
-			<div class="banner {a.level}" role="status">
-				<span class="ico"><Icon size={18} /></span>
-				<div class="text">
-					<strong class="t">{a.title}</strong>
-					<span class="b">{a.body}</span>
-				</div>
-				<button class="x" aria-label="Dismiss" onclick={() => dismiss(a.id)}>
-					<X size={16} />
+			{#if a.persistent && collapsed.has(a.id)}
+				<button
+					class="ribbon {a.level}"
+					onclick={() => toggleCollapse(a.id)}
+					aria-label="Expand announcement"
+				>
+					<Icon size={15} />
+					<span class="rtitle">{a.title}</span>
+					<ChevronDown size={16} class="rchev" />
 				</button>
-			</div>
+			{:else}
+				<div class="banner {a.level}" role="status">
+					<span class="ico"><Icon size={18} /></span>
+					<div class="text">
+						<strong class="t">{a.title}</strong>
+						<span class="b">{a.body}</span>
+					</div>
+					{#if a.persistent}
+						<button
+							class="x"
+							aria-label="Collapse"
+							onclick={() => toggleCollapse(a.id)}
+						>
+							<ChevronUp size={16} />
+						</button>
+					{:else}
+						<button class="x" aria-label="Dismiss" onclick={() => dismiss(a.id)}>
+							<X size={16} />
+						</button>
+					{/if}
+				</div>
+			{/if}
 		{/each}
 	</div>
 {/if}
@@ -168,5 +217,52 @@
 	.x:hover {
 		color: var(--text);
 		background: var(--surface-2);
+	}
+
+	/* ---- collapsed persistent announcement: a slim ribbon (echoes the landing
+	   lock-countdown bar for the highlight level) ---- */
+	.ribbon {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		width: 100%;
+		padding: 0.5rem 0.8rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		background: var(--surface-2);
+		color: var(--text);
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+	}
+	.ribbon:hover {
+		filter: brightness(1.06);
+	}
+	.rtitle {
+		flex: 1;
+		min-width: 0;
+		font-weight: 700;
+		font-size: 0.9rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	:global(.ribbon .rchev) {
+		flex-shrink: 0;
+		opacity: 0.7;
+	}
+	.ribbon.info {
+		border-left: 3px solid color-mix(in srgb, var(--muted) 45%, var(--border));
+	}
+	.ribbon.success {
+		background: linear-gradient(90deg, var(--accent), var(--accent-2));
+		color: var(--accent-ink);
+		border-color: transparent;
+		font-weight: 700;
+	}
+	.ribbon.warn {
+		background: var(--warning);
+		color: #20160a;
+		border-color: transparent;
 	}
 </style>
