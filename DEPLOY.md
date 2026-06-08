@@ -15,6 +15,7 @@ cp .env.example .env
 | `HTTP_PORT` | no | Host port (default `8090`). |
 | `API_FOOTBALL_KEY` | optional | Only used if it's a **paid** API-Football plan (the free tier has no WC2026 access). |
 | `RESULTS_SOURCE` | no | `auto` (default): API-Football if its key reaches WC2026, else the free **openfootball** JSON. Force with `apifootball` / `openfootball`. Manual override always works. openfootball is community-updated (hours, not real-time). |
+| `SYNC_CRON` | no | Override the results-sync cadence (default `*/30 * * * *`). Tighten to e.g. `*/5 * * * *` for near-instant scores during matches; mind your plan's request quota. |
 | `MAIL_PROVIDER` | optional | Email transport: `mailjet` \| `smtp` \| `log` \| blank (auto). Auto = Mailjet if its keys are set, else PocketBase SMTP if enabled, else a log-only sink. |
 | `MAILJET_API_KEY` / `MAILJET_SECRET` | optional | Mailjet Send API credentials (needed when using the `mailjet` provider). |
 | `MAIL_FROM` / `MAIL_FROM_NAME` | optional | Sender identity (must be a verified Mailjet sender). Falls back to PocketBase's configured sender. |

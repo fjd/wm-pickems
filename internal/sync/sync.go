@@ -18,8 +18,9 @@ import (
 	"github.com/floholz/wm-pickems/internal/football"
 )
 
-// cronExpr runs the sync every 30 minutes => max 48 requests/day, comfortably
-// under the API-Football free tier (100/day).
+// cronExpr is the default sync cadence: every 30 minutes => max 48 requests/day,
+// comfortably under the API-Football free tier (100/day). Override at runtime
+// with the SYNC_CRON env var (see Register).
 const cronExpr = "*/30 * * * *"
 
 // nameAliases maps API-Football names that differ from the openfootball seed
@@ -80,15 +81,22 @@ func pickProvider(app core.App) (string, func(context.Context) error) {
 func Register(app core.App, se *core.ServeEvent) {
 	source, run := pickProvider(app)
 
+	// SYNC_CRON overrides the default cadence without a rebuild — e.g. tighten
+	// to "*/5 * * * *" for near-instant scores during matches.
+	expr := os.Getenv("SYNC_CRON")
+	if expr == "" {
+		expr = cronExpr
+	}
+
 	if run != nil {
-		app.Cron().MustAdd("results-sync", cronExpr, func() {
+		app.Cron().MustAdd("results-sync", expr, func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			if err := run(ctx); err != nil {
 				log.Printf("[sync] %v", err)
 			}
 		})
-		log.Printf("[sync] auto-sync enabled via %s (%s)", source, cronExpr)
+		log.Printf("[sync] auto-sync enabled via %s (%s)", source, expr)
 	} else {
 		log.Printf("[sync] no results source — manual override only")
 	}
