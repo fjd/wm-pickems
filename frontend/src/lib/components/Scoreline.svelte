@@ -44,11 +44,8 @@
 </script>
 
 <span class="adv l" class:on={side === 'home'}>◂</span
->{#if et}<span class="ninety">({home})</span>
-	{etHome}
-	<span class="cln">:</span>
-	{etAway}
-	<span class="ninety">({away})</span>{:else}{home}<span class="cln">:</span>{away}{/if}<span
+>{#if et}<span class="ninety">({home})</span> {etHome}<span class="cln">:</span>{etAway} <span
+		class="ninety">({away})</span>{:else}{home}<span class="cln">:</span>{away}{/if}<span
 	class="adv r"
 	class:on={side === 'away'}>▸</span
 >
