@@ -59,6 +59,8 @@
 
 	let revealed = $state(false);
 	let openRow = $state<string | null>(null);
+	// The invite/share card is hidden by default behind the header "Share" toggle.
+	let showShare = $state(false);
 
 	let id = $derived($page.params.id ?? '');
 	let league = $state<{ id: string; name: string } | null>(null);
@@ -85,6 +87,7 @@
 		cfg = null;
 		editing = false;
 		confirmRegen = false;
+		showShare = false;
 		mgmtError = '';
 		availableBots = [];
 		Promise.all([api.leaderboard(lid), api.myLeagues()])
@@ -267,7 +270,7 @@
 				<h1>{league.name}</h1>
 			{/if}
 		</div>
-		{#if isOwner}
+		{#if isOwner || (invite && invite !== 'GLOBAL')}
 			<div class="lactions">
 				{#if editing}
 					<button
@@ -283,11 +286,23 @@
 						aria-label="Done editing"><X size={18} /></button
 					>
 				{:else}
-					<button
-						class="btn secondary icon"
-						onclick={enterEdit}
-						aria-label="Manage league"><Settings size={18} /></button
-					>
+					{#if invite && invite !== 'GLOBAL'}
+						<button
+							class="btn secondary sharebtn"
+							class:active={showShare}
+							aria-pressed={showShare}
+							onclick={() => (showShare = !showShare)}
+						>
+							<Share2 size={16} /> Share
+						</button>
+					{/if}
+					{#if isOwner}
+						<button
+							class="btn secondary icon"
+							onclick={enterEdit}
+							aria-label="Manage league"><Settings size={18} /></button
+						>
+					{/if}
 				{/if}
 			</div>
 		{/if}
@@ -314,7 +329,7 @@
 		</section>
 	{/if}
 
-	{#if invite && invite !== 'GLOBAL'}
+	{#if invite && invite !== 'GLOBAL' && (showShare || editing)}
 		<section class="card invite">
 			<div class="irow">
 				<div class="ic">
@@ -633,6 +648,17 @@
 	.icon {
 		width: auto;
 		padding: 0.6rem;
+	}
+	/* Header "Share" toggle: reveals the invite/share card. Filled accent when
+	   the card is open so the toggle state is obvious. */
+	.sharebtn {
+		width: auto;
+		padding: 0.6rem 0.85rem;
+	}
+	.sharebtn.active {
+		color: var(--accent-fg);
+		background: var(--accent);
+		border-color: var(--accent);
 	}
 	.vis {
 		margin-bottom: 1rem;
