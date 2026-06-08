@@ -260,17 +260,17 @@
 			{:else}
 				{#each leagues as l (l.id)}
 					<a class="lrow" href={`/leagues/${l.id}`}>
-						{#if ranks[l.id]}
-							<span class="rankb" title="Your placement">
-								#{ranks[l.id]?.rank}<small>/{ranks[l.id]?.total}</small>
-							</span>
-						{:else}
-							<span class="rankb ghost">–</span>
-						{/if}
 						<span class="lname">{l.name}</span>
 						{#if l.role === 'owner'}<span class="pill">owner</span>{/if}
 						<span class="spacer"></span>
-						<span class="cnt"><Users size={15} /> {l.members}</span>
+						<span class="standing" title="Your placement · players">
+							<Users size={15} />
+							{#if ranks[l.id]}
+								<b class="rk">#{ranks[l.id]?.rank}</b><small>/{ranks[l.id]?.total}</small>
+							{:else}
+								<span class="cnt">{l.members}</span>
+							{/if}
+						</span>
 					</a>
 				{/each}
 			{/if}
@@ -496,31 +496,27 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.rankb {
+	/* Combined right-hand indicator: people icon + your placement (#rank/size).
+	   The /size doubles as the member count, so no separate count is shown. */
+	.standing {
 		display: inline-flex;
 		align-items: baseline;
-		justify-content: center;
-		min-width: 2.6rem;
-		padding: 0.2rem 0.4rem;
-		border-radius: var(--radius-sm);
-		background: var(--surface-2);
-		color: var(--accent);
-		font-weight: 700;
-		font-variant-numeric: tabular-nums;
-	}
-	.rankb small {
-		font-size: 0.7rem;
-		font-weight: 600;
-		color: var(--muted);
-	}
-	.rankb.ghost {
-		color: var(--muted);
-	}
-	.cnt {
-		display: inline-flex;
-		align-items: center;
 		gap: 0.3rem;
 		color: var(--muted);
+		font-variant-numeric: tabular-nums;
+	}
+	.standing :global(svg) {
+		align-self: center;
+	}
+	.rk {
+		color: var(--accent);
+		font-weight: 700;
+	}
+	.standing small {
+		font-size: 0.72rem;
+		font-weight: 600;
+	}
+	.cnt {
 		font-size: 0.9rem;
 	}
 </style>
