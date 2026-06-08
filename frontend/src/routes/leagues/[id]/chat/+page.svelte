@@ -137,6 +137,21 @@
 		};
 	});
 
+	// When the visual viewport resizes (the keyboard opening/closing shrinks the
+	// chat), re-pin to the latest message — otherwise the area shrinks under the
+	// old scroll position and the newest messages end up hidden below the fold.
+	// rAF so it runs after the layout (and the --kb bottom) has settled.
+	$effect(() => {
+		const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+		if (!vv) return;
+		const onResize = () =>
+			requestAnimationFrame(() => {
+				if (listEl) listEl.scrollTop = listEl.scrollHeight;
+			});
+		vv.addEventListener('resize', onResize);
+		return () => vv.removeEventListener('resize', onResize);
+	});
+
 	async function send() {
 		const body = text.trim();
 		if (!body || sending) return;
