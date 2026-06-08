@@ -172,6 +172,15 @@
 		}
 	}
 
+	// Keep the composer placeholder to one line: clip a long league name (at a
+	// word boundary where possible) so "Message <name>…" doesn't wrap/overflow.
+	function clipName(s: string, n = 20): string {
+		if (s.length <= n) return s;
+		const cut = s.slice(0, n).trimEnd();
+		const sp = cut.lastIndexOf(' ');
+		return sp >= 8 ? cut.slice(0, sp) : cut;
+	}
+
 	function fmtTime(iso: string): string {
 		const d = new Date(iso.replace(' ', 'T'));
 		return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
@@ -262,7 +271,7 @@
 			<textarea
 				bind:value={text}
 				onkeydown={onKeydown}
-				placeholder="Message {leagueName}…"
+				placeholder="Message {clipName(leagueName)}…"
 				rows="1"
 				maxlength="2000"
 			></textarea>
