@@ -57,7 +57,8 @@
 		height: auto;
 		border-radius: 11px;
 	}
-	.hidden {
+	/* Scoped above `.cg img/canvas` so it actually wins the cascade. */
+	.cg .hidden {
 		display: none;
 	}
 	.play {
