@@ -96,7 +96,11 @@ Restore by extracting back into the volume before `up`.
 ## 6. TLS / reverse proxy
 
 Terminate TLS at a proxy (Caddy/Traefik/nginx) and forward to the container
-port. Example Caddy:
+port. PocketBase's per-IP rate limiter is enabled and trusts `X-Forwarded-For`
+for the real client IP (set by Caddy/Traefik/nginx automatically). If you ever
+expose the container directly without a proxy, clear the trusted proxy headers
+in Dashboard → Settings → Application so the header can't be spoofed. Example
+Caddy:
 
 ```
 pickems.example.com {

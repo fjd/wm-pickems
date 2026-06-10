@@ -5,9 +5,15 @@
 // change role/botKind through the public API by a non-superuser is silently
 // reverted to the stored value. The fields are therefore only ever settable
 // from the PocketBase admin dashboard (which authenticates as a superuser).
+// It also throttles email-change requests, the one outbound-mail endpoint
+// PocketBase doesn't cool down itself.
 package users
 
-import "github.com/pocketbase/pocketbase/core"
+import (
+	"time"
+
+	"github.com/pocketbase/pocketbase/core"
+)
 
 // protected are the user fields only a superuser may write.
 var protected = []string{"role", "botKind"}
@@ -60,5 +66,33 @@ func Register(app core.App) {
 			}
 		}
 		return e.Next()
+	})
+
+	// Throttle email-change requests. PocketBase cools down verification and
+	// password-reset resends itself (2 min per account) but not email change —
+	// and that one emails an arbitrary NEW address, so an authed account could
+	// otherwise spam strangers' inboxes at request speed (spam complaints are
+	// what get ESP accounts suspended). Mirror PB's in-memory resend-key
+	// pattern: a short per-user cooldown plus a small daily cap. Memory-backed
+	// like PB's own, so it resets on restart — best-effort is enough here.
+	app.OnRecordRequestEmailChangeRequest("users").BindFunc(func(e *core.RecordRequestEmailChangeRequestEvent) error {
+		const dailyMax = 5
+		coolKey := "emailChangeCooldown:" + e.Record.Id
+		dayKey := "emailChangeDaily:" + e.Record.Id + ":" + time.Now().UTC().Format("2006-01-02")
+		if e.App.Store().Has(coolKey) {
+			return e.TooManyRequestsError("Please wait a couple of minutes before requesting another email change.", nil)
+		}
+		if n, _ := e.App.Store().Get(dayKey).(int); n >= dailyMax {
+			return e.TooManyRequestsError("Too many email change requests today — try again tomorrow.", nil)
+		}
+		if err := e.Next(); err != nil {
+			return err
+		}
+		e.App.Store().Set(coolKey, struct{}{})
+		time.AfterFunc(2*time.Minute, func() { e.App.Store().Remove(coolKey) })
+		n, _ := e.App.Store().Get(dayKey).(int)
+		e.App.Store().Set(dayKey, n+1)
+		time.AfterFunc(24*time.Hour, func() { e.App.Store().Remove(dayKey) })
+		return nil
 	})
 }
