@@ -34,11 +34,14 @@
 	//                                a still-signed-in user whose token was
 	//                                requested by someone with their email)
 	//   /confirm-verification/<t>    email verification target (same reasoning)
+	//   /confirm-email-change/<t>    email-change target (lands on the NEW
+	//                                address, possibly on a signed-out device)
 	//   /welcome                     chrome-less landing/help page (any auth state)
 	let isPublic = $derived(
 		path.startsWith('/join') ||
 			path.startsWith('/confirm-password-reset/') ||
 			path.startsWith('/confirm-verification/') ||
+			path.startsWith('/confirm-email-change/') ||
 			path === '/welcome'
 	);
 	// The home route doubles as the public landing page for signed-out

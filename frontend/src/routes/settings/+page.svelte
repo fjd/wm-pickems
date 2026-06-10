@@ -20,6 +20,36 @@
 	let resetSent = $state(false);
 	let resetError = $state('');
 
+	// Email change: PocketBase mails a confirmation link to the NEW address;
+	// nothing changes until it's confirmed there with the account password.
+	let newEmail = $state('');
+	let emailBusy = $state(false);
+	let emailSentTo = $state('');
+	let emailError = $state('');
+
+	async function sendEmailChange(e: Event) {
+		e.preventDefault();
+		emailError = '';
+		const target = newEmail.trim();
+		if (!target) return;
+		if (target.toLowerCase() === (auth.user?.email ?? '').toLowerCase()) {
+			emailError = 'That is already your current address.';
+			return;
+		}
+		emailBusy = true;
+		try {
+			await auth.requestEmailChange(target);
+			emailSentTo = target;
+			newEmail = '';
+		} catch (err: unknown) {
+			emailError =
+				(err as { message?: string })?.message ??
+				'Could not send the confirmation email.';
+		} finally {
+			emailBusy = false;
+		}
+	}
+
 	// Notification preferences. Each event defaults to ON when no pref is stored.
 	type Channel = 'email' | 'push';
 	let prefs = $state<Record<string, { email?: boolean; push?: boolean }>>({
@@ -232,6 +262,40 @@
 
 		<button class="btn" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
 	</form>
+
+	<section class="card">
+		<h3>Email</h3>
+		<p class="muted small">
+			You're signed in as <strong>{auth.user?.email ?? ''}</strong>. Enter a
+			new address and we'll send a confirmation link there — the change only
+			applies once you confirm it with your account password.
+		</p>
+		{#if emailError}<p class="error">{emailError}</p>{/if}
+		{#if emailSentTo}
+			<p class="ok">
+				Confirmation sent to <strong>{emailSentTo}</strong> — open it there to
+				finish the change.
+			</p>
+		{:else}
+			<form class="email-row" onsubmit={sendEmailChange}>
+				<input
+					class="input"
+					type="email"
+					bind:value={newEmail}
+					placeholder="new@example.com"
+					autocomplete="email"
+					required
+				/>
+				<button class="btn secondary" disabled={emailBusy}>
+					{emailBusy ? 'Sending…' : 'Change email'}
+				</button>
+			</form>
+			<p class="muted hint">
+				Signed in with Google and never set a password? Send yourself a reset
+				link below first — confirming the change requires it.
+			</p>
+		{/if}
+	</section>
 
 	<section class="card">
 		<h3>Password</h3>
@@ -463,6 +527,11 @@
 	}
 	.push-device {
 		margin: 0 0 0.5rem;
+	}
+	.email-row {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
 	}
 	.push-row {
 		display: flex;

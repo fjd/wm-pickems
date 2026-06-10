@@ -127,6 +127,21 @@ class Auth {
 		}
 	}
 
+	// Ask PocketBase to email a confirmation link to the new address. The
+	// change only applies once it's confirmed there (with the account
+	// password), and the new address counts as verified afterwards.
+	async requestEmailChange(newEmail: string) {
+		if (!this.user) throw new Error('Not signed in.');
+		await pb.collection('users').requestEmailChange(newEmail);
+	}
+
+	// Apply an email-change token (from the link emailed to the new address).
+	// PocketBase invalidates every session afterwards (tokenKey refresh), so
+	// callers should route the user to /login.
+	async confirmEmailChange(token: string, password: string) {
+		await pb.collection('users').confirmEmailChange(token, password);
+	}
+
 	async register(name: string, email: string, password: string) {
 		await pb.collection('users').create({
 			name,
