@@ -17,6 +17,7 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       # Email notifications (see .env.example).
       - MAIL_PROVIDER=${MAIL_PROVIDER:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
       - MAILJET_API_KEY=${MAILJET_API_KEY:-}
       - MAILJET_SECRET=${MAILJET_SECRET:-}
       - MAIL_FROM=${MAIL_FROM:-}

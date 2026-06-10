@@ -1,7 +1,7 @@
 // Package mailer is a provider-agnostic email transport. The notify layer talks
-// to the Sender interface only; the concrete provider (Mailjet, generic SMTP, or
-// a dev log sink) is chosen at boot from the environment, so swapping providers
-// never touches calling code.
+// to the Sender interface only; the concrete provider (Resend, Mailjet, generic
+// SMTP, or a dev log sink) is chosen at boot from the environment, so swapping
+// providers never touches calling code.
 package mailer
 
 import (
@@ -64,17 +64,22 @@ func resolveFrom(app core.App) from {
 }
 
 // Pick returns the active Sender, selected by MAIL_PROVIDER
-// (mailjet|smtp|log), else auto-detected: Mailjet when its keys are present,
-// generic SMTP when PocketBase SMTP is enabled, otherwise the log sink. It
-// always returns a usable Sender (never nil) and logs the choice.
+// (resend|mailjet|smtp|log), else auto-detected: Resend when its key is
+// present, Mailjet when its keys are present, generic SMTP when PocketBase
+// SMTP is enabled, otherwise the log sink. It always returns a usable Sender
+// (never nil) and logs the choice.
 func Pick(app core.App) Sender {
 	f := resolveFrom(app)
 	mode := strings.ToLower(strings.TrimSpace(os.Getenv("MAIL_PROVIDER")))
 
+	resendReady := os.Getenv("RESEND_API_KEY") != ""
 	mailjetReady := os.Getenv("MAILJET_API_KEY") != "" && os.Getenv("MAILJET_SECRET") != ""
 	smtpReady := app.Settings().SMTP.Enabled
 
 	switch mode {
+	case "resend":
+		log.Printf("[mailer] using resend (forced)")
+		return newResend(f)
 	case "mailjet":
 		s := newMailjet(f)
 		log.Printf("[mailer] using mailjet (forced)")
@@ -88,6 +93,9 @@ func Pick(app core.App) Sender {
 	}
 
 	switch {
+	case resendReady:
+		log.Printf("[mailer] using resend")
+		return newResend(f)
 	case mailjetReady:
 		log.Printf("[mailer] using mailjet")
 		return newMailjet(f)

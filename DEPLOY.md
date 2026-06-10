@@ -16,9 +16,10 @@ cp .env.example .env
 | `API_FOOTBALL_KEY` | optional | Only used if it's a **paid** API-Football plan (the free tier has no WC2026 access). |
 | `RESULTS_SOURCE` | no | `auto` (default): API-Football if its key reaches WC2026, else the free **openfootball** JSON. Force with `apifootball` / `openfootball`. Manual override always works. openfootball is community-updated (hours, not real-time). |
 | `SYNC_CRON` | no | Override the results-sync cadence (default `*/30 * * * *`). Tighten to e.g. `*/5 * * * *` for near-instant scores during matches; mind your plan's request quota. |
-| `MAIL_PROVIDER` | optional | Email transport: `mailjet` \| `smtp` \| `log` \| blank (auto). Auto = Mailjet if its keys are set, else PocketBase SMTP if enabled, else a log-only sink. |
+| `MAIL_PROVIDER` | optional | Email transport: `resend` \| `mailjet` \| `smtp` \| `log` \| blank (auto). Auto = Resend if its key is set, else Mailjet if its keys are set, else PocketBase SMTP if enabled, else a log-only sink. |
+| `RESEND_API_KEY` | optional | Resend API key (needed when using the `resend` provider). |
 | `MAILJET_API_KEY` / `MAILJET_SECRET` | optional | Mailjet Send API credentials (needed when using the `mailjet` provider). |
-| `MAIL_FROM` / `MAIL_FROM_NAME` | optional | Sender identity (must be a verified Mailjet sender). Falls back to PocketBase's configured sender. |
+| `MAIL_FROM` / `MAIL_FROM_NAME` | optional | Sender identity (must be on a verified domain/sender of your mail provider). Falls back to PocketBase's configured sender. |
 | `NOTIFY_CRON` | no | Override the notify scheduler cadence (default `*/15 * * * *`). |
 | `CHAT_NOTIFY_CRON` | no | Override the league-chat push cadence (default `* * * * *`, i.e. every minute). Batches a burst into one push per league with a per-user cooldown. |
 | `CHAT_DIGEST_CRON` | no | Override the league-chat **email** digest cadence (default `0 */6 * * *`, i.e. every 6h). One email per user summarising unread chat; deduped so it won't nag about the same unread. |
