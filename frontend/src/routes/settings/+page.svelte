@@ -49,6 +49,28 @@
 	const isOn = (key: string, ch: Channel) =>
 		!forcedOff(key, ch) && prefs[key]?.[ch] !== false;
 
+	// Email verification — unverified addresses receive no email at all, so the
+	// email toggles are locked until the account is verified.
+	let verifyBusy = $state(false);
+	let verifySent = $state(false);
+	let verifyError = $state('');
+	const unverified = $derived(!!auth.user && !auth.user.verified);
+
+	async function sendVerify() {
+		verifyError = '';
+		verifyBusy = true;
+		try {
+			await auth.requestVerification();
+			verifySent = true;
+		} catch (err: unknown) {
+			verifyError =
+				(err as { message?: string })?.message ??
+				'Could not send the verification email.';
+		} finally {
+			verifyBusy = false;
+		}
+	}
+
 	let testMsg = $state('');
 	let testBusy = $state(false);
 	async function sendTest() {
@@ -280,6 +302,28 @@
 			{#if push.error}<p class="error small">{push.error}</p>{/if}
 		</div>
 
+		{#if unverified}
+			<div class="paused-note small verify-note">
+				<p>
+					Your email isn't verified yet — email notifications stay off until
+					you confirm <strong>{auth.user?.email}</strong>.
+				</p>
+				{#if verifyError}<p class="error">{verifyError}</p>{/if}
+				{#if verifySent}
+					<p class="ok">Verification email sent — check your inbox.</p>
+				{:else}
+					<button
+						type="button"
+						class="btn secondary tiny"
+						onclick={sendVerify}
+						disabled={verifyBusy}
+					>
+						{verifyBusy ? 'Sending…' : 'Send verification email'}
+					</button>
+				{/if}
+			</div>
+		{/if}
+
 		{#if notifyError}<p class="error">{notifyError}</p>{/if}
 		{#if emailPaused || pushPaused}
 			<p class="paused-note small">
@@ -315,7 +359,10 @@
 							class:on={isOn(ev.key, ch)}
 							class:forced={forcedOff(ev.key, ch)}
 							onclick={() => toggleNotify(ev.key, ch)}
-							disabled={notifyBusy || forcedOff(ev.key, ch) || (ch === 'push' && !push.subscribed)}
+							disabled={notifyBusy ||
+								forcedOff(ev.key, ch) ||
+								(ch === 'push' && !push.subscribed) ||
+								(ch === 'email' && unverified)}
 						>
 							<span class="knob"></span>
 						</button>
@@ -469,6 +516,13 @@
 		background: color-mix(in srgb, var(--warning) 12%, transparent);
 		border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border));
 		color: var(--text);
+	}
+	.verify-note p {
+		margin: 0 0 0.6rem;
+	}
+	.verify-note .ok,
+	.verify-note .error {
+		margin: 0;
 	}
 	.knob {
 		display: block;

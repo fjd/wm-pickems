@@ -7,6 +7,9 @@ class Auth {
 		id: string;
 		name: string;
 		email: string;
+		// Email confirmed via the verification link (or Google OAuth, which
+		// verifies automatically). Unverified accounts receive no emails.
+		verified: boolean;
 		avatarUrl: string | null;
 		role: string; // "owner" | "admin" | "bot"; empty => normal member
 		// Per-event email toggles; absent/missing entries default to ON.
@@ -34,6 +37,7 @@ class Auth {
 			id: r.id,
 			name: (r.name as string) || r.email,
 			email: r.email,
+			verified: !!r.verified,
 			avatarUrl,
 			role: (r.role as string) || 'member',
 			notifyPrefs:
@@ -107,6 +111,22 @@ class Auth {
 			.confirmPasswordReset(token, password, passwordConfirm);
 	}
 
+	// Send (or re-send) the verification email for the signed-in account. The
+	// link lands on /confirm-verification/<token>.
+	async requestVerification() {
+		if (!this.user) throw new Error('Not signed in.');
+		await pb.collection('users').requestVerification(this.user.email);
+	}
+
+	// Apply a verification token (from the emailed link). Works signed-in or
+	// out; when signed in, re-pull the auth record so `verified` propagates.
+	async confirmVerification(token: string) {
+		await pb.collection('users').confirmVerification(token);
+		if (pb.authStore.isValid) {
+			await pb.collection('users').authRefresh();
+		}
+	}
+
 	async register(name: string, email: string, password: string) {
 		await pb.collection('users').create({
 			name,
@@ -115,6 +135,12 @@ class Auth {
 			passwordConfirm: password
 		});
 		await this.login(email, password);
+		// Kick off email verification right away; fire-and-forget so a mail
+		// hiccup never blocks account creation (the verify prompt and Settings
+		// both offer a resend).
+		pb.collection('users')
+			.requestVerification(email)
+			.catch(() => {});
 	}
 
 	logout() {

@@ -52,15 +52,24 @@ type rsAttachment struct {
 	ContentID   string `json:"content_id,omitempty"`
 }
 
+// rsAddr formats an address for Resend, which accepts "email@example.com" or
+// "Name <email@example.com>" — but rejects the bare "<email@example.com>" that
+// mail.Address.String() produces when the display name is empty.
+func rsAddr(name, email string) string {
+	if name == "" {
+		return email
+	}
+	// mail.Address takes care of quoting/encoding the display name.
+	return (&mail.Address{Name: name, Address: email}).String()
+}
+
 func (r *resend) Send(ctx context.Context, msg Message) (string, error) {
 	if r.from.email == "" {
 		return "", fmt.Errorf("resend: no sender address (set MAIL_FROM or PocketBase sender)")
 	}
 	payload := rsRequest{
-		// mail.Address takes care of quoting/encoding the display name in the
-		// "Name <addr>" friendly format Resend expects.
-		From:    (&mail.Address{Name: r.from.name, Address: r.from.email}).String(),
-		To:      []string{(&mail.Address{Name: msg.ToName, Address: msg.ToEmail}).String()},
+		From:    rsAddr(r.from.name, r.from.email),
+		To:      []string{rsAddr(msg.ToName, msg.ToEmail)},
 		Subject: msg.Subject,
 		HTML:    msg.HTML,
 		Text:    msg.Text,

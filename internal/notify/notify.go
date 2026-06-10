@@ -88,6 +88,18 @@ func Register(app core.App, se *core.ServeEvent) {
 	seedNotifyConfig(app)
 	r := New(app)
 
+	// Route PocketBase's own transactional mail (account verification, password
+	// reset, …) through the same provider, so one ESP carries all email and the
+	// PB SMTP settings stay untouched. Wired even when the scheduler is
+	// disabled — system mail must work regardless. The brand mark is attached
+	// to bodies that reference cid:mark (the branded templates from 0025).
+	mailer.RegisterSystemMail(app, r.sender, mailer.Inline{
+		ContentID:   "mark",
+		Filename:    "mark.png",
+		ContentType: "image/png",
+		Data:        markPNG,
+	})
+
 	// Global delivery-policy endpoints (read for all, write for admins). Wired
 	// unconditionally so the switches work even when the scheduler is disabled.
 	registerPolicy(app, se)
@@ -328,8 +340,11 @@ func (r *Runner) base() baseInfo {
 	return baseInfo{appName: name, url: url}
 }
 
-// eligibleUsers returns real (non-bot) users with an email address. When
-// allowlist is non-empty, only addresses on it are returned (gradual rollout).
+// eligibleUsers returns real (non-bot) users with a verified email address.
+// Unverified addresses are never emailed — bounces and spam reports to
+// unconfirmed (possibly mistyped) addresses are what get ESP accounts
+// suspended. When allowlist is non-empty, only addresses on it are returned
+// (gradual rollout).
 func (r *Runner) eligibleUsers(allowlist []string) ([]*core.Record, error) {
 	all, err := r.app.FindRecordsByFilter("users", "id != ''", "", 0, 0)
 	if err != nil {
@@ -344,7 +359,7 @@ func (r *Runner) eligibleUsers(allowlist []string) ([]*core.Record, error) {
 	}
 	out := make([]*core.Record, 0, len(all))
 	for _, u := range all {
-		if users.IsBot(u) || u.Email() == "" {
+		if users.IsBot(u) || u.Email() == "" || !u.Verified() {
 			continue
 		}
 		if allow != nil && !allow[strings.ToLower(u.Email())] {

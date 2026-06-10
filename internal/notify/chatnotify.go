@@ -192,7 +192,9 @@ func (r *Runner) chatDigestPass(ctx context.Context) int {
 
 	res := &Result{}
 	for _, u := range allUsers {
-		if users.IsBot(u) || u.Email() == "" {
+		// Same verified-only rule as eligibleUsers — never email unconfirmed
+		// addresses.
+		if users.IsBot(u) || u.Email() == "" || !u.Verified() {
 			continue
 		}
 		var lines []chatLine

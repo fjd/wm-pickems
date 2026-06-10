@@ -1,15 +1,13 @@
 <script lang="ts">
-	// Announcement that the notifications feature exists, nudging the user to
-	// install (if needed) and turn on push on this device. Closing hides it for
-	// the session but it returns on the next visit, so it can't be lost before
-	// it's read — only ticking "Don't show again" persists the dismissal
-	// (localStorage). Once push is enabled it never shows again regardless.
+	// Nudges email/password users to verify their address — unverified accounts
+	// receive no email notifications (deliverability protection: we never send
+	// to unconfirmed, possibly mistyped addresses). Mirrors NotifyAnnounce:
+	// closing hides it for the session but it returns on the next visit; only
+	// "Don't show again" persists the dismissal. Never shows once verified.
 	import { auth } from '$lib/auth.svelte';
-	import { push } from '$lib/push.svelte';
-	import { pwa } from '$lib/pwa.svelte';
-	import { BellRing, X } from '@lucide/svelte';
+	import { MailCheck, X } from '@lucide/svelte';
 
-	const KEY = 'notify-announce-v1';
+	const KEY = 'verify-announce-v1';
 
 	let dismissed = $state(true);
 	let dontShowAgain = $state(false);
@@ -20,6 +18,10 @@
 			dismissed = false;
 		}
 	}
+
+	let busy = $state(false);
+	let sent = $state(false);
+	let error = $state('');
 
 	function close() {
 		if (dontShowAgain) {
@@ -32,21 +34,26 @@
 		dismissed = true;
 	}
 
-	// Auto-dismiss once push is enabled on this device.
+	// Auto-dismiss once the account gets verified (e.g. in another tab).
 	$effect(() => {
-		if (push.subscribed) close();
+		if (auth.user?.verified) dismissed = true;
 	});
 
-	// Show only after the subscription check settled, and only if not already
-	// subscribed/dismissed. Unverified users see the verify-email prompt
-	// instead — never both sheets at once.
-	let open = $derived(
-		push.ready && !dismissed && !push.subscribed && !!auth.user?.verified
-	);
+	let open = $derived(!!auth.user && !auth.user.verified && !dismissed);
 
-	async function enable() {
-		await push.enable();
-		if (push.subscribed) close();
+	async function send() {
+		error = '';
+		busy = true;
+		try {
+			await auth.requestVerification();
+			sent = true;
+		} catch (err: unknown) {
+			error =
+				(err as { message?: string })?.message ??
+				'Could not send the verification email.';
+		} finally {
+			busy = false;
+		}
 	}
 </script>
 
@@ -57,38 +64,27 @@
 		aria-label="Close"
 		onclick={close}
 	></button>
-	<div class="sheet" role="dialog" aria-label="Notifications are here">
+	<div class="sheet" role="dialog" aria-label="Verify your email">
 		<button class="x" aria-label="Dismiss" onclick={close}><X size={16} /></button>
 
-		<div class="icon"><BellRing size={22} /></div>
-		<h3>Notifications are here ⚽</h3>
+		<div class="icon"><MailCheck size={22} /></div>
+		<h3>Verify your email 📬</h3>
 		<p class="body">
-			WM Tips can now nudge you before kickoff and picks lock, recap
-			your matchday, and ping you when you hit&nbsp;#1.
-			<br>
-			Email reminders are <strong>already enabled</strong>. Turn on push
-			for instant alerts on this device.
+			Kickoff reminders, matchday recaps and league alerts only go to
+			<strong>verified</strong> addresses. Confirm
+			<strong>{auth.user?.email}</strong> to keep receiving them — check your
+			inbox for the link, or send a fresh one below.
 		</p>
 
-		{#if push.supported && !push.blocked}
-			<button class="btn" onclick={enable} disabled={push.busy}>
-				{push.busy ? 'Enabling…' : 'Enable push notifications'}
+		{#if sent}
+			<p class="ok">Verification email sent — check your inbox.</p>
+		{:else}
+			<button class="btn" onclick={send} disabled={busy}>
+				{busy ? 'Sending…' : 'Send verification email'}
 			</button>
-		{:else if !pwa.installed}
-			<button class="btn" onclick={() => pwa.install()}>
-				Install the app for push
-			</button>
-			<p class="hint muted">
-				On iPhone, add WM Tips to your Home Screen first, then turn on push.
-			</p>
-		{:else if push.blocked}
-			<p class="hint muted">
-				Push is blocked in your browser settings — re-allow notifications for
-				this site, then enable it in Settings.
-			</p>
 		{/if}
 
-		{#if push.error}<p class="err">{push.error}</p>{/if}
+		{#if error}<p class="err">{error}</p>{/if}
 
 		<label class="dsa">
 			<input type="checkbox" bind:checked={dontShowAgain} />
@@ -96,7 +92,7 @@
 		</label>
 
 		<div class="foot">
-			<a href="/settings" onclick={close}>Fine-tune in Settings</a>
+			<a href="/settings" onclick={close}>Manage in Settings</a>
 			<button class="later" onclick={close}>Maybe later</button>
 		</div>
 	</div>
@@ -156,10 +152,10 @@
 	.btn {
 		width: 100%;
 	}
-	.hint {
-		margin: 0.7rem 0 0;
-		font-size: 0.82rem;
-		line-height: 1.45;
+	.ok {
+		margin: 0;
+		font-size: 0.92rem;
+		color: var(--success);
 	}
 	.err {
 		margin: 0.6rem 0 0;
