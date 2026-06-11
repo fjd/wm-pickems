@@ -121,6 +121,24 @@ func ExtID(round string, num int, group, team1, team2 string) string {
 	return "WC2026-K-" + stage
 }
 
+// displayNames overrides the stored display name for teams whose preferred label
+// differs from the openfootball seed name. The seed/openfootball name is kept for
+// all *matching* (byName fixture resolution + the ExtID slug that openfootball
+// live results map onto); only the user-facing `name` is swapped. Keep this in
+// sync with the rename migration that fixes already-seeded databases.
+var displayNames = map[string]string{
+	"Turkey": "Türkiye",
+}
+
+// displayName returns the preferred user-facing label for an openfootball team
+// name (the name itself when there's no override).
+func displayName(seedName string) string {
+	if d, ok := displayNames[seedName]; ok {
+		return d
+	}
+	return seedName
+}
+
 func slug(s string) string {
 	return strings.Map(func(r rune) rune {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
@@ -212,7 +230,9 @@ func Run(app core.App) error {
 				iso2 = h
 			}
 			rec.Set("fifaCode", t.FifaCode)
-			rec.Set("name", t.Name)
+			// Display name may be overridden (e.g. Türkiye); byName + ExtID below
+			// stay on the openfootball name so live-results matching is unchanged.
+			rec.Set("name", displayName(t.Name))
 			rec.Set("iso2", iso2)
 			rec.Set("confederation", t.Confed)
 			if err := txApp.Save(rec); err != nil {

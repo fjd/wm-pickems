@@ -4,7 +4,12 @@
 	import { push } from '$lib/push.svelte';
 	import { goto } from '$app/navigation';
 	import Avatar from '$lib/components/Avatar.svelte';
+<<<<<<< HEAD
 	import { SUPPORTED_LANGS, type Lang } from '$lib/translations/index';
+=======
+	import { NOTIFY_EVENTS } from '$lib/notify';
+	import { api, type NotifyPolicy } from '$lib/api';
+>>>>>>> upstream/main
 
 	const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
@@ -20,6 +25,7 @@
 	let resetSent = $state(false);
 	let resetError = $state('');
 
+<<<<<<< HEAD
 	const languages: { code: Lang; label: string }[] = [
 		{ code: 'en', label: 'English' },
 		{ code: 'de', label: 'Deutsch' }
@@ -58,7 +64,39 @@
 			hintKey: 'settings.notifyLeagueLeadHint'
 		}
 	];
+=======
+	// Email change: PocketBase mails a confirmation link to the NEW address;
+	// nothing changes until it's confirmed there with the account password.
+	let newEmail = $state('');
+	let emailBusy = $state(false);
+	let emailSentTo = $state('');
+	let emailError = $state('');
+>>>>>>> upstream/main
 
+	async function sendEmailChange(e: Event) {
+		e.preventDefault();
+		emailError = '';
+		const target = newEmail.trim();
+		if (!target) return;
+		if (target.toLowerCase() === (auth.user?.email ?? '').toLowerCase()) {
+			emailError = 'That is already your current address.';
+			return;
+		}
+		emailBusy = true;
+		try {
+			await auth.requestEmailChange(target);
+			emailSentTo = target;
+			newEmail = '';
+		} catch (err: unknown) {
+			emailError =
+				(err as { message?: string })?.message ??
+				'Could not send the confirmation email.';
+		} finally {
+			emailBusy = false;
+		}
+	}
+
+	// Notification preferences. Each event defaults to ON when no pref is stored.
 	type Channel = 'email' | 'push';
 	let prefs = $state<Record<string, { email?: boolean; push?: boolean }>>({
 		...(auth.user?.notifyPrefs ?? {})
@@ -66,8 +104,53 @@
 	let notifyBusy = $state(false);
 	let notifyError = $state('');
 
-	// Absent pref defaults to ON (matches the backend default-on semantics).
-	const isOn = (key: string, ch: Channel) => prefs[key]?.[ch] !== false;
+	// Global delivery policy (admin-controlled). When a channel is paused
+	// platform-wide its toggles are shown forced-off and disabled, so users see
+	// it's out of their hands rather than silently not arriving.
+	let policy = $state<NotifyPolicy | null>(null);
+	$effect(() => {
+		api.notifyPolicy()
+			.then((p) => (policy = p))
+			.catch(() => (policy = null));
+	});
+	// Force-disabled if the master channel switch is off, or this event's channel
+	// is overridden off. Unknown policy (load failed) = not forced (fail open).
+	const forcedOff = (key: string, ch: Channel) =>
+		!!policy && (policy.channels[ch] === false || policy.disabled[key]?.[ch] === true);
+	const emailPaused = $derived(!!policy && policy.channels.email === false);
+	const pushPaused = $derived(!!policy && policy.channels.push === false);
+
+	// Absent pref defaults to ON (matches the backend default-on semantics). A
+	// forced-off channel reads as off regardless of the stored pref.
+	const isOn = (key: string, ch: Channel) =>
+		!forcedOff(key, ch) && prefs[key]?.[ch] !== false;
+
+	// Per-channel master switch, stored under the reserved "*" event. When off,
+	// the backend silences that channel for every event; the per-event prefs
+	// stay stored so flipping the master back restores them.
+	const masterOn = (ch: Channel) => prefs['*']?.[ch] !== false;
+
+	// Email verification — unverified addresses receive no email at all, so the
+	// email toggles are locked until the account is verified.
+	let verifyBusy = $state(false);
+	let verifySent = $state(false);
+	let verifyError = $state('');
+	const unverified = $derived(!!auth.user && !auth.user.verified);
+
+	async function sendVerify() {
+		verifyError = '';
+		verifyBusy = true;
+		try {
+			await auth.requestVerification();
+			verifySent = true;
+		} catch (err: unknown) {
+			verifyError =
+				(err as { message?: string })?.message ??
+				'Could not send the verification email.';
+		} finally {
+			verifyBusy = false;
+		}
+	}
 
 	let testMsg = $state('');
 	let testBusy = $state(false);
@@ -88,6 +171,7 @@
 	}
 
 	async function toggleNotify(key: string, ch: Channel) {
+		if (forcedOff(key, ch)) return; // admin-paused — not user-changeable
 		const next = {
 			...prefs,
 			[key]: { ...prefs[key], [ch]: !isOn(key, ch) }
@@ -239,7 +323,45 @@
 	</form>
 
 	<section class="card">
+<<<<<<< HEAD
 		<h3>{t('settings.passwordSection')}</h3>
+=======
+		<h3>Email</h3>
+		<p class="muted small">
+			You're signed in as <strong>{auth.user?.email ?? ''}</strong>. Enter a
+			new address and we'll send a confirmation link there — the change only
+			applies once you confirm it with your account password.
+		</p>
+		{#if emailError}<p class="error">{emailError}</p>{/if}
+		{#if emailSentTo}
+			<p class="ok">
+				Confirmation sent to <strong>{emailSentTo}</strong> — open it there to
+				finish the change.
+			</p>
+		{:else}
+			<form class="email-row" onsubmit={sendEmailChange}>
+				<input
+					class="input"
+					type="email"
+					bind:value={newEmail}
+					placeholder="new@example.com"
+					autocomplete="email"
+					required
+				/>
+				<button class="btn secondary" disabled={emailBusy}>
+					{emailBusy ? 'Sending…' : 'Change email'}
+				</button>
+			</form>
+			<p class="muted hint">
+				Signed in with Google and never set a password? Send yourself a reset
+				link below first — confirming the change requires it.
+			</p>
+		{/if}
+	</section>
+
+	<section class="card">
+		<h3>Password</h3>
+>>>>>>> upstream/main
 		<p class="muted small">
 			{@html t('settings.passwordResetDesc', { email: auth.user?.email ?? '' })}
 		</p>
@@ -308,12 +430,73 @@
 			{#if push.error}<p class="error small">{push.error}</p>{/if}
 		</div>
 
+		{#if unverified}
+			<div class="paused-note small verify-note">
+				<p>
+					Your email isn't verified yet — email notifications stay off until
+					you confirm <strong>{auth.user?.email}</strong>.
+				</p>
+				{#if verifyError}<p class="error">{verifyError}</p>{/if}
+				{#if verifySent}
+					<p class="ok">Verification email sent — check your inbox.</p>
+				{:else}
+					<button
+						type="button"
+						class="btn secondary tiny"
+						onclick={sendVerify}
+						disabled={verifyBusy}
+					>
+						{verifyBusy ? 'Sending…' : 'Send verification email'}
+					</button>
+				{/if}
+			</div>
+		{/if}
+
 		{#if notifyError}<p class="error">{notifyError}</p>{/if}
+		{#if emailPaused || pushPaused}
+			<p class="paused-note small">
+				{#if emailPaused && pushPaused}
+					Email and push notifications are temporarily paused by the admins.
+				{:else if emailPaused}
+					Email notifications are temporarily paused by the admins.
+				{:else}
+					Push notifications are temporarily paused by the admins.
+				{/if}
+			</p>
+		{/if}
 		<ul class="notify-list">
 			<li class="notify-row notify-head">
 				<span></span>
 				<span class="col-label">{t('settings.emailCol')}</span>
 				<span class="col-label">{t('settings.pushCol')}</span>
+			</li>
+			<li class="notify-row notify-master">
+				<div class="notify-text">
+					<span class="notify-label">All notifications</span>
+					<span class="muted notify-hint">
+						Master switch per channel — turning one off silences every email
+						or push below at once.
+					</span>
+				</div>
+				{#each ['email', 'push'] as const as ch}
+					<button
+						type="button"
+						role="switch"
+						aria-checked={!forcedOff('*', ch) && masterOn(ch)}
+						aria-label={`All notifications — ${ch}${forcedOff('*', ch) ? ' (paused by admins)' : ''}`}
+						title={forcedOff('*', ch) ? 'Paused by the admins' : undefined}
+						class="toggle"
+						class:on={!forcedOff('*', ch) && masterOn(ch)}
+						class:forced={forcedOff('*', ch)}
+						onclick={() => toggleNotify('*', ch)}
+						disabled={notifyBusy ||
+							forcedOff('*', ch) ||
+							(ch === 'push' && !push.subscribed) ||
+							(ch === 'email' && unverified)}
+					>
+						<span class="knob"></span>
+					</button>
+				{/each}
 			</li>
 			{#each NOTIFY_EVENTS as ev (ev.key)}
 				<li class="notify-row">
@@ -326,11 +509,17 @@
 							type="button"
 							role="switch"
 							aria-checked={isOn(ev.key, ch)}
-							aria-label={`${t(ev.labelKey)} — ${ch}`}
+							aria-label={`${ev.label} — ${ch}${forcedOff(ev.key, ch) ? ' (paused by admins)' : ''}`}
+							title={forcedOff(ev.key, ch) ? 'Paused by the admins' : undefined}
 							class="toggle"
 							class:on={isOn(ev.key, ch)}
+							class:forced={forcedOff(ev.key, ch)}
 							onclick={() => toggleNotify(ev.key, ch)}
-							disabled={notifyBusy || (ch === 'push' && !push.subscribed)}
+							disabled={notifyBusy ||
+								forcedOff(ev.key, ch) ||
+								!masterOn(ch) ||
+								(ch === 'push' && !push.subscribed) ||
+								(ch === 'email' && unverified)}
 						>
 							<span class="knob"></span>
 						</button>
@@ -348,8 +537,11 @@
 
 <style>
 	.settings {
-		max-width: 380px;
-		margin: 8dvh auto 0;
+		/* Left-aligned and filling a comfortable form width, matching the other
+		   pages (leagues/announcements/admin) rather than a narrow centred column
+		   that leaves the desktop content area looking empty. */
+		max-width: 640px;
+		margin: 0;
 	}
 	h1 {
 		margin: 0;
@@ -399,6 +591,11 @@
 	.push-device {
 		margin: 0 0 0.5rem;
 	}
+	.email-row {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
 	.push-row {
 		display: flex;
 		align-items: center;
@@ -424,6 +621,12 @@
 	.notify-head {
 		padding: 0.2rem 0 0.4rem;
 		border-top: none;
+	}
+	/* Master row: visually anchored to the column header, separated from the
+	   per-event rows by the regular row border below it. */
+	.notify-master {
+		border-top: none;
+		padding-top: 0.4rem;
 	}
 	.col-label {
 		text-align: center;
@@ -462,9 +665,36 @@
 		opacity: 0.6;
 		cursor: default;
 	}
+	/* Admin-paused: dim further and strike a faint diagonal so it reads as
+	   "locked off by someone else", distinct from a user-chosen off. */
+	.toggle.forced {
+		opacity: 0.4;
+		background: repeating-linear-gradient(
+			-45deg,
+			var(--surface-2),
+			var(--surface-2) 4px,
+			var(--border) 4px,
+			var(--border) 5px
+		);
+	}
 	.toggle.on {
 		background: var(--accent);
 		border-color: var(--accent);
+	}
+	.paused-note {
+		margin: 0 0 0.6rem;
+		padding: 0.5rem 0.7rem;
+		border-radius: var(--radius-sm);
+		background: color-mix(in srgb, var(--warning) 12%, transparent);
+		border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border));
+		color: var(--text);
+	}
+	.verify-note p {
+		margin: 0 0 0.6rem;
+	}
+	.verify-note .ok,
+	.verify-note .error {
+		margin: 0;
 	}
 	.knob {
 		display: block;

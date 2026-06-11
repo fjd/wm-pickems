@@ -21,7 +21,8 @@
 		UserMinus,
 		UserPlus,
 		Bot,
-		ShieldCheck
+		ShieldCheck,
+		MessageSquare
 	} from '@lucide/svelte';
 
 	interface Cfg {
@@ -64,6 +65,8 @@
 
 	let revealed = $state(false);
 	let openRow = $state<string | null>(null);
+	// The invite/share card is hidden by default behind the header "Share" toggle.
+	let showShare = $state(false);
 
 	let id = $derived($page.params.id ?? '');
 	let league = $state<{ id: string; name: string } | null>(null);
@@ -72,6 +75,10 @@
 	let loaded = $state(false);
 	let error = $state('');
 	let tab = $state<'total' | 'tipsPoints' | 'forecastPoints'>('total');
+
+	// Chat (private leagues only).
+	let canChat = $state(false);
+	let chatUnread = $state(0);
 
 	// Owner-only management.
 	let isOwner = $state(false);
@@ -90,6 +97,7 @@
 		cfg = null;
 		editing = false;
 		confirmRegen = false;
+		showShare = false;
 		mgmtError = '';
 		availableBots = [];
 		Promise.all([api.leaderboard(lid), api.myLeagues()])
@@ -101,9 +109,38 @@
 				invite = me?.inviteCode ?? '';
 				isOwner = me?.role === 'owner';
 				isPrivate = me?.private ?? false;
+				canChat = !!me && me.inviteCode !== 'GLOBAL';
+				if (canChat) {
+					api
+						.chatUnread()
+						.then((r) => (chatUnread = r.unread[lid] ?? 0))
+						.catch(() => {});
+				}
 			})
 			.catch(() => (error = t('errors.couldNotLoadLeague')))
 			.finally(() => (loaded = true));
+	});
+
+	// Keep the chat unread badge live: bump it when a new message lands in this
+	// league while we're on the league page (the chat itself marks read on open,
+	// and re-mounting the page re-syncs the baseline count).
+	$effect(() => {
+		if (!canChat || !id) return;
+		const lid = id;
+		let unsub: (() => void) | null = null;
+		pb.collection('league_messages')
+			.subscribe(
+				'*',
+				(e) => {
+					if (e.action === 'create' && (e.record as { user?: string }).user !== auth.user?.id) {
+						chatUnread += 1;
+					}
+				},
+				{ filter: `league="${lid}"` }
+			)
+			.then((u) => (unsub = u))
+			.catch(() => {});
+		return () => unsub?.();
 	});
 
 	function enterEdit() {
@@ -272,7 +309,7 @@
 				<h1>{league.name}</h1>
 			{/if}
 		</div>
-		{#if isOwner}
+		{#if isOwner || (invite && invite !== 'GLOBAL')}
 			<div class="lactions">
 				{#if editing}
 					<button
@@ -288,15 +325,36 @@
 						aria-label={t('leagueDetail.doneEditing')}><X size={18} /></button
 					>
 				{:else}
-					<button
-						class="btn secondary icon"
-						onclick={enterEdit}
-						aria-label={t('leagueDetail.manageLeague')}><Settings size={18} /></button
-					>
+					{#if invite && invite !== 'GLOBAL'}
+						<button
+							class="btn secondary sharebtn"
+							class:active={showShare}
+							aria-pressed={showShare}
+							onclick={() => (showShare = !showShare)}
+						>
+							<Share2 size={16} /> Share
+						</button>
+					{/if}
+					{#if isOwner}
+						<button
+							class="btn secondary icon"
+							onclick={enterEdit}
+							aria-label="{t('leagueDetail.manageLeague')}"><Settings size={18} /></button
+						>
+					{/if}
 				{/if}
 			</div>
 		{/if}
 	</div>
+
+	{#if canChat}
+		<a class="chatfab" href={`/leagues/${id}/chat`} aria-label="League chat" title="League chat">
+			<MessageSquare size={24} />
+			{#if chatUnread > 0}
+				<span class="fab-badge">{chatUnread > 99 ? '99+' : chatUnread}</span>
+			{/if}
+		</a>
+	{/if}
 
 	{#if mgmtError}<p class="error">{mgmtError}</p>{/if}
 
@@ -319,7 +377,7 @@
 		</section>
 	{/if}
 
-	{#if invite && invite !== 'GLOBAL'}
+	{#if invite && invite !== 'GLOBAL' && (showShare || editing)}
 		<section class="card invite">
 			<div class="irow">
 				<div class="ic">
@@ -634,6 +692,59 @@
 	.icon {
 		width: auto;
 		padding: 0.6rem;
+	}
+	/* Floating chat button, bottom-right, above the mobile tab bar. */
+	.chatfab {
+		position: fixed;
+		right: 1rem;
+		bottom: calc(var(--nav-h) + 1rem);
+		z-index: 40;
+		display: grid;
+		place-items: center;
+		width: 56px;
+		height: 56px;
+		border-radius: var(--radius-pill);
+		background: var(--accent);
+		color: var(--accent-fg);
+		box-shadow: var(--shadow-pop);
+		transition: transform 0.1s ease;
+	}
+	.chatfab:active {
+		transform: scale(0.94);
+	}
+	@media (min-width: 900px) {
+		.chatfab {
+			right: 1.5rem;
+			bottom: 1.5rem;
+		}
+	}
+	.fab-badge {
+		position: absolute;
+		top: -3px;
+		right: -3px;
+		min-width: 20px;
+		height: 20px;
+		padding: 0 0.25rem;
+		display: grid;
+		place-items: center;
+		border-radius: var(--radius-pill);
+		background: var(--danger);
+		color: #fff;
+		font-size: 0.7rem;
+		font-weight: 800;
+		font-variant-numeric: tabular-nums;
+		border: 2px solid var(--bg);
+	}
+	/* Header "Share" toggle: reveals the invite/share card. Filled accent when
+	   the card is open so the toggle state is obvious. */
+	.sharebtn {
+		width: auto;
+		padding: 0.6rem 0.85rem;
+	}
+	.sharebtn.active {
+		color: var(--accent-fg);
+		background: var(--accent);
+		border-color: var(--accent);
 	}
 	.vis {
 		margin-bottom: 1rem;

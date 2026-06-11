@@ -119,6 +119,43 @@
 		}
 	}
 
+	// ---- API-Football diagnostic ----
+	type ApiCheck = {
+		account?: {
+			subscription?: { plan?: string; active?: boolean; end?: string };
+			requests?: { current?: number; limit_day?: number };
+		};
+		statusError?: string;
+		season?: number;
+		fixtures?: number;
+		statusHistogram?: Record<string, number>;
+		unmappedTeams?: string[];
+		ourMatchesTotal?: number;
+		ourMatchesMapped?: number;
+		withExtraTime?: number;
+		withPenalties?: number;
+	};
+	let apiSeason = $state(2026);
+	let apiResult = $state<ApiCheck | null>(null);
+	let apiBusy = $state(false);
+	let apiErr = $state('');
+
+	async function runApiCheck(season: number) {
+		apiBusy = true;
+		apiErr = '';
+		apiResult = null;
+		try {
+			apiResult = await pb.send<ApiCheck>(`/api/dev/apicheck?season=${season}`, {
+				method: 'GET'
+			});
+		} catch (e: unknown) {
+			const err = e as { data?: { error?: string }; message?: string };
+			apiErr = err.data?.error ?? err.message ?? 'apicheck failed';
+		} finally {
+			apiBusy = false;
+		}
+	}
+
 	async function reset() {
 		busy = true;
 		msg = '';
@@ -239,6 +276,94 @@
 	</section>
 
 	<section class="card">
+		<h3>API-Football check</h3>
+		<p class="muted small">
+			Read-only probe of the live-results API (uses <code>API_FOOTBALL_KEY</code
+			>). Point at 2026 to confirm your plan covers it, or a finished season
+			(2022) to exercise the results/ET/penalty path.
+		</p>
+		<div class="apirow">
+			<input
+				class="input season"
+				type="number"
+				bind:value={apiSeason}
+				min="2018"
+				max="2030"
+				aria-label="Season"
+			/>
+			<button class="btn" disabled={apiBusy} onclick={() => runApiCheck(apiSeason)}>
+				{apiBusy ? 'Checking…' : 'Run check'}
+			</button>
+			<button
+				class="chip"
+				disabled={apiBusy}
+				onclick={() => {
+					apiSeason = 2022;
+					runApiCheck(2022);
+				}}>2022 (finished)</button
+			>
+		</div>
+
+		{#if apiErr}<p class="error">{apiErr}</p>{/if}
+
+		{#if apiResult}
+			{@const r = apiResult}
+			{@const ok = (r.fixtures ?? 0) > 0}
+			<div class="verdict" class:good={ok} class:warn={!ok}>
+				{#if ok}
+					✓ Reached the API — {r.fixtures} fixture(s) for season {r.season}.
+				{:else}
+					No fixtures for season {r.season}. Your plan likely doesn't cover it
+					(stays on openfootball).
+				{/if}
+			</div>
+
+			{#if r.account?.subscription}
+				<p class="muted small acct">
+					Plan: <b>{r.account.subscription.plan ?? '—'}</b>
+					{#if r.account.requests}
+						· requests today: {r.account.requests.current ?? 0}/{r.account
+							.requests.limit_day ?? '—'}
+					{/if}
+				</p>
+			{:else if r.statusError}
+				<p class="muted small acct">Account status unavailable: {r.statusError}</p>
+			{/if}
+
+			<div class="kv">
+				<span><i>Fixtures</i><b>{r.fixtures ?? 0}</b></span>
+				<span
+					><i>Our matches mapped</i><b
+						class:warn={r.ourMatchesMapped !== r.ourMatchesTotal}
+						>{r.ourMatchesMapped ?? 0}/{r.ourMatchesTotal ?? 0}</b
+					></span
+				>
+				<span><i>With extra time</i><b>{r.withExtraTime ?? 0}</b></span>
+				<span><i>With penalties</i><b>{r.withPenalties ?? 0}</b></span>
+			</div>
+
+			{#if r.statusHistogram && Object.keys(r.statusHistogram).length}
+				<div class="hist">
+					{#each Object.entries(r.statusHistogram) as [k, v] (k)}
+						<span class="hchip">{k}<b>{v}</b></span>
+					{/each}
+				</div>
+			{/if}
+
+			{#if r.unmappedTeams?.length}
+				<p class="error small">
+					Unmapped teams ({r.unmappedTeams.length}): {r.unmappedTeams.join(', ')}
+				</p>
+			{/if}
+
+			<details class="raw">
+				<summary>Raw response</summary>
+				<pre>{JSON.stringify(r, null, 2)}</pre>
+			</details>
+		{/if}
+	</section>
+
+	<section class="card">
 		<h3>{t('dev.reset')}</h3>
 		<p class="muted small">
 			{t('dev.resetDesc')}
@@ -290,5 +415,106 @@
 	code {
 		font-family: var(--font-mono);
 		color: var(--accent);
+	}
+
+	/* ---- API-Football check ---- */
+	.apirow {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+		margin-top: 0.9rem;
+	}
+	.season {
+		width: 6rem;
+		flex: none;
+	}
+	.apirow .btn {
+		width: auto;
+	}
+	.verdict {
+		margin-top: 0.9rem;
+		padding: 0.6rem 0.8rem;
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--border);
+		font-weight: 600;
+		font-size: 0.9rem;
+	}
+	.verdict.good {
+		color: var(--success);
+		border-color: color-mix(in srgb, var(--success) 45%, var(--border));
+		background: color-mix(in srgb, var(--success) 8%, transparent);
+	}
+	.verdict.warn {
+		color: var(--warning);
+		border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+		background: color-mix(in srgb, var(--warning) 8%, transparent);
+	}
+	.acct {
+		margin: 0.6rem 0 0;
+	}
+	.kv {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0.4rem 1rem;
+		margin-top: 0.8rem;
+	}
+	.kv span {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.6rem;
+		padding: 0.35rem 0;
+		border-bottom: 1px solid var(--border);
+	}
+	.kv i {
+		color: var(--muted);
+		font-style: normal;
+		font-size: 0.85rem;
+	}
+	.kv b {
+		font-family: var(--font-mono);
+	}
+	.kv b.warn {
+		color: var(--warning);
+	}
+	.hist {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		margin-top: 0.8rem;
+	}
+	.hchip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0.2rem 0.55rem;
+		background: var(--surface-2);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-pill);
+		font-size: 0.78rem;
+		color: var(--muted);
+	}
+	.hchip b {
+		font-family: var(--font-mono);
+		color: var(--text);
+	}
+	.raw {
+		margin-top: 0.85rem;
+	}
+	.raw summary {
+		cursor: pointer;
+		color: var(--muted);
+		font-size: 0.82rem;
+	}
+	.raw pre {
+		margin: 0.6rem 0 0;
+		padding: 0.7rem;
+		background: var(--surface-2);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		overflow: auto;
+		max-height: 320px;
+		font-size: 0.78rem;
+		line-height: 1.5;
 	}
 </style>

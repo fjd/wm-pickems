@@ -4,6 +4,11 @@
 // actions that manage the PushManager subscription and sync it to the backend.
 import { pb } from './pb';
 
+// localStorage key: the account id this device's push subscription is currently
+// registered to on the server. Lets syncAccount() skip the common no-change case
+// and only re-bind when the signed-in account actually differs.
+const BOUND_KEY = 'push-bound-user';
+
 // VAPID public keys are base64url; PushManager wants a Uint8Array.
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
 	const padding = '='.repeat((4 - (base64.length % 4)) % 4);
@@ -35,6 +40,60 @@ class Push {
 		}
 		this.permission = Notification.permission;
 		void this.refresh();
+		// A browser push subscription is per-device, not per-account. On a shared
+		// device, signing in as a different account would otherwise leave the
+		// server-side subscription pointing at the previous account (so pushes go
+		// to the wrong person and the new account silently gets none). Re-bind the
+		// device's subscription to whoever is signed in — on initial load and on
+		// every login/logout. syncAccount() is a no-op when nothing changed.
+		pb.authStore.onChange(() => void this.syncAccount(), true);
+	}
+
+	// Current signed-in user id, or null when signed out.
+	private get uid(): string | null {
+		return pb.authStore.isValid ? (pb.authStore.record?.id ?? null) : null;
+	}
+
+	// Re-point this device's existing push subscription at the current account
+	// when it differs from the one it's bound to. The server's /subscribe upserts
+	// by endpoint and reassigns the owner, so this moves the row to the new user.
+	private async syncAccount() {
+		if (!this.supported) return;
+		const uid = this.uid;
+		if (!uid) return; // signed out — leave the sub until someone signs in
+		let bound: string | null = null;
+		try {
+			bound = localStorage.getItem(BOUND_KEY);
+		} catch {
+			/* private mode */
+		}
+		if (bound === uid) return; // already bound to this account
+		try {
+			const reg = await navigator.serviceWorker.ready;
+			const sub = await reg.pushManager.getSubscription();
+			if (!sub) return; // device isn't subscribed — nothing to re-bind
+			await pb.send('/api/push/subscribe', { method: 'POST', body: sub.toJSON() });
+			this.subscribed = true;
+			this.setBound(uid);
+		} catch {
+			/* best effort — a transient failure self-heals on the next auth change */
+		}
+	}
+
+	private setBound(uid: string) {
+		try {
+			localStorage.setItem(BOUND_KEY, uid);
+		} catch {
+			/* ignore */
+		}
+	}
+
+	private clearBound() {
+		try {
+			localStorage.removeItem(BOUND_KEY);
+		} catch {
+			/* ignore */
+		}
 	}
 
 	// Sync `subscribed` with the actual PushManager state.
@@ -88,6 +147,7 @@ class Push {
 			};
 			await pb.send('/api/push/subscribe', { method: 'POST', body: json });
 			this.subscribed = true;
+			if (this.uid) this.setBound(this.uid);
 			// Fire an instant confirmation so the user sees push actually works.
 			this.test().catch(() => {});
 		} catch (err: unknown) {
@@ -125,6 +185,7 @@ class Push {
 					.catch(() => {});
 			}
 			this.subscribed = false;
+			this.clearBound();
 		} catch (err: unknown) {
 			this.error =
 				(err as { message?: string })?.message ??

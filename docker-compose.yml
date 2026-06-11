@@ -10,12 +10,14 @@ services:
       - WMP_DEV=${WMP_DEV:-}
       - API_FOOTBALL_KEY=${API_FOOTBALL_KEY:-}
       - RESULTS_SOURCE=${RESULTS_SOURCE:-}
+      - SYNC_CRON=${SYNC_CRON:-}
       - PB_ADMIN_EMAIL=${PB_ADMIN_EMAIL:-}
       - PB_ADMIN_PASSWORD=${PB_ADMIN_PASSWORD:-}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       # Email notifications (see .env.example).
       - MAIL_PROVIDER=${MAIL_PROVIDER:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
       - MAILJET_API_KEY=${MAILJET_API_KEY:-}
       - MAILJET_SECRET=${MAILJET_SECRET:-}
       - MAIL_FROM=${MAIL_FROM:-}
@@ -27,6 +29,10 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-}
+      # League chat: push cadence, email-digest cadence, and the KLIPY GIF key.
+      - CHAT_NOTIFY_CRON=${CHAT_NOTIFY_CRON:-}
+      - CHAT_DIGEST_CRON=${CHAT_DIGEST_CRON:-}
+      - KLIPY_API_KEY=${KLIPY_API_KEY:-}
     volumes:
       - pb_data:/pb_data
     networks: [wmpickems]

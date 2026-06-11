@@ -36,6 +36,12 @@ type rankLine struct {
 	Of     int
 }
 
+// chatLine is one league's unread count in the chat digest email.
+type chatLine struct {
+	League string
+	Count  int
+}
+
 // tplData is the union of fields every template might reference. Unused fields
 // for a given event are simply left zero. Common fields (AppName, SettingsUrl,
 // CTA*) are filled by the dispatcher; the rest by each detector.
@@ -61,6 +67,17 @@ type tplData struct {
 	Ranks        []rankLine
 
 	League string // league name (took-the-lead event)
+
+	// Title/Body back the free-text "announcement" broadcast event.
+	Title string
+	Body  string
+	// HighPriority lifts the push to high urgency + keeps it on screen until
+	// acted on (announcement broadcasts that opt in).
+	HighPriority bool
+
+	// ChatTotal/ChatLeagues back the periodic unread-chat digest email.
+	ChatTotal   int
+	ChatLeagues []chatLine
 }
 
 // render produces the subject, HTML body, and text body for an event by

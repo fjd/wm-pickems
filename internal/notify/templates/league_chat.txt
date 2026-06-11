@@ -1,0 +1,10 @@
+{{.ChatTotal}} unread chat message{{if ne .ChatTotal 1}}s{{end}}
+
+Your friends have been chatting:
+{{range .ChatLeagues}}
+- {{.League}}: {{.Count}} new{{end}}
+
+Open your chats: {{.CTAUrl}}
+
+—
+Manage your notifications: {{.SettingsUrl}}

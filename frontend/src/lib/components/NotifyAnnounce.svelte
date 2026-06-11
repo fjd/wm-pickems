@@ -4,6 +4,7 @@
 	// the session but it returns on the next visit, so it can't be lost before
 	// it's read — only ticking "Don't show again" persists the dismissal
 	// (localStorage). Once push is enabled it never shows again regardless.
+	import { auth } from '$lib/auth.svelte';
 	import { push } from '$lib/push.svelte';
 	import { pwa } from '$lib/pwa.svelte';
 	import { t } from '$lib/i18n.svelte';
@@ -38,8 +39,11 @@
 	});
 
 	// Show only after the subscription check settled, and only if not already
-	// subscribed/dismissed.
-	let open = $derived(push.ready && !dismissed && !push.subscribed);
+	// subscribed/dismissed. Unverified users see the verify-email prompt
+	// instead — never both sheets at once.
+	let open = $derived(
+		push.ready && !dismissed && !push.subscribed && !!auth.user?.verified
+	);
 
 	async function enable() {
 		await push.enable();

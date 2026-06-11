@@ -9,7 +9,10 @@
 		FlaskConical,
 		Settings,
 		Shield,
-		Crown
+		Crown,
+		Megaphone,
+		LayoutDashboard,
+		ExternalLink
 	} from '@lucide/svelte';
 
 	let {
@@ -64,6 +67,14 @@
 					<FlaskConical size={17} /> {t('userMenu.devTools')}
 				</a>
 			{/if}
+			{#if auth.isAdmin}
+				<a class="item" href="/announcements" onclick={() => (open = false)}>
+					<Megaphone size={17} /> Announcements
+				</a>
+				<a class="item" href="/admin" onclick={() => (open = false)}>
+					<LayoutDashboard size={17} /> Admin area
+				</a>
+			{/if}
 			{#if auth.isOwner}
 				<a class="item" href="/owner" onclick={() => (open = false)}>
 					<Crown size={17} /> Owner stats
@@ -79,6 +90,7 @@
 					onclick={() => (open = false)}
 				>
 					<Shield size={17} /> {t('userMenu.adminDashboard')}
+					<ExternalLink size={14} class="ext" />
 				</a>
 			{/if}
 			<button class="item" onclick={() => auth.logout()}>
@@ -173,5 +185,10 @@
 	}
 	.item:hover {
 		background: var(--surface);
+	}
+	/* External-link affordance pushed to the right edge of the row. */
+	:global(.item .ext) {
+		margin-left: auto;
+		color: var(--muted);
 	}
 </style>

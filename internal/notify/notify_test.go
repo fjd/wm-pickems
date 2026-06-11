@@ -70,6 +70,10 @@ func TestPrefEnabledFromRaw(t *testing.T) {
 		{"push off while email on", `{"tips_reminder":{"email":true,"push":false}}`, "tips_reminder", "push", false},
 		{"push on while email off", `{"tips_reminder":{"email":false,"push":true}}`, "tips_reminder", "push", true},
 		{"push absent default on", `{"tips_reminder":{"email":false}}`, "tips_reminder", "push", true},
+		{"master email off silences event", `{"*":{"email":false},"tips_reminder":{"email":true}}`, "tips_reminder", "email", false},
+		{"master email off leaves push alone", `{"*":{"email":false}}`, "tips_reminder", "push", true},
+		{"master explicitly on falls through to event", `{"*":{"email":true},"tips_reminder":{"email":false}}`, "tips_reminder", "email", false},
+		{"master absent channel default on", `{"*":{"push":false}}`, "tips_reminder", "email", true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -120,11 +124,12 @@ func TestRenderPushTipsCompact(t *testing.T) {
 }
 
 func TestRenderPushAllEvents(t *testing.T) {
-	events := []string{"stage_starting", "forecast_reminder", "tips_reminder", "results_recap"}
+	events := []string{"stage_starting", "forecast_reminder", "tips_reminder", "results_recap", "announcement"}
 	data := tplData{
 		StageName: "Round of 32", StartsIn: "12 hours", WhenText: "Sat 18:00 UTC",
 		Count: 2, Matches: []matchLine{{Home: "Brazil", Away: "Spain", WhenText: "soon"}},
 		Finalized: 3, PointsGained: 7, Total: 42,
+		Title: "Heads up", Body: "We shipped a new feature.",
 	}
 	for _, ev := range events {
 		t.Run(ev, func(t *testing.T) {
@@ -164,6 +169,37 @@ func TestApplyConfigDefaults(t *testing.T) {
 			if got.LeadHours != tc.wantLead || got.RecapHourUTC != tc.wantRecapHr {
 				t.Fatalf("applyConfigDefaults(%+v) = %+v, want lead=%d recap=%d",
 					tc.in, got, tc.wantLead, tc.wantRecapHr)
+			}
+		})
+	}
+}
+
+func TestChannelGate(t *testing.T) {
+	boolp := func(b bool) *bool { return &b }
+	tests := []struct {
+		name      string
+		stored    storedConfig
+		event, ch string
+		wantAllow bool
+	}{
+		{"defaults allow email", storedConfig{}, "results_recap", "email", true},
+		{"defaults allow push", storedConfig{}, "results_recap", "push", true},
+		{"master email off blocks email", storedConfig{Channels: &storedChannels{Email: boolp(false)}}, "results_recap", "email", false},
+		{"master email off leaves push", storedConfig{Channels: &storedChannels{Email: boolp(false)}}, "results_recap", "push", true},
+		{"master push off blocks push", storedConfig{Channels: &storedChannels{Push: boolp(false)}}, "league_chat", "push", false},
+		{"per-event override blocks one channel",
+			storedConfig{Disabled: map[string]map[string]bool{"results_recap": {"email": true}}}, "results_recap", "email", false},
+		{"per-event override spares other events",
+			storedConfig{Disabled: map[string]map[string]bool{"results_recap": {"email": true}}}, "tips_reminder", "email", true},
+		{"per-event override spares other channel",
+			storedConfig{Disabled: map[string]map[string]bool{"results_recap": {"email": true}}}, "results_recap", "push", true},
+		{"explicit master on", storedConfig{Channels: &storedChannels{Email: boolp(true)}}, "league_lead", "email", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := applyConfigDefaults(tc.stored)
+			if got := cfg.channelAllowed(tc.event, tc.ch); got != tc.wantAllow {
+				t.Fatalf("channelAllowed(%q,%q) = %v, want %v", tc.event, tc.ch, got, tc.wantAllow)
 			}
 		})
 	}

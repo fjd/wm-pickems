@@ -15,10 +15,15 @@ cp .env.example .env
 | `HTTP_PORT` | no | Host port (default `8090`). |
 | `API_FOOTBALL_KEY` | optional | Only used if it's a **paid** API-Football plan (the free tier has no WC2026 access). |
 | `RESULTS_SOURCE` | no | `auto` (default): API-Football if its key reaches WC2026, else the free **openfootball** JSON. Force with `apifootball` / `openfootball`. Manual override always works. openfootball is community-updated (hours, not real-time). |
-| `MAIL_PROVIDER` | optional | Email transport: `mailjet` \| `smtp` \| `log` \| blank (auto). Auto = Mailjet if its keys are set, else PocketBase SMTP if enabled, else a log-only sink. |
+| `SYNC_CRON` | no | Override the results-sync cadence (default `*/30 * * * *`). Tighten to e.g. `*/5 * * * *` for near-instant scores during matches; mind your plan's request quota. |
+| `MAIL_PROVIDER` | optional | Email transport: `resend` \| `mailjet` \| `smtp` \| `log` \| blank (auto). Auto = Resend if its key is set, else Mailjet if its keys are set, else PocketBase SMTP if enabled, else a log-only sink. The chosen provider also carries PocketBase's built-in emails (account verification, password reset). Notification emails only go to users with a verified email address. |
+| `RESEND_API_KEY` | optional | Resend API key (needed when using the `resend` provider). |
 | `MAILJET_API_KEY` / `MAILJET_SECRET` | optional | Mailjet Send API credentials (needed when using the `mailjet` provider). |
-| `MAIL_FROM` / `MAIL_FROM_NAME` | optional | Sender identity (must be a verified Mailjet sender). Falls back to PocketBase's configured sender. |
+| `MAIL_FROM` / `MAIL_FROM_NAME` | optional | Sender identity (must be on a verified domain/sender of your mail provider). Falls back to PocketBase's configured sender. |
 | `NOTIFY_CRON` | no | Override the notify scheduler cadence (default `*/15 * * * *`). |
+| `CHAT_NOTIFY_CRON` | no | Override the league-chat push cadence (default `* * * * *`, i.e. every minute). Batches a burst into one push per league with a per-user cooldown. |
+| `CHAT_DIGEST_CRON` | no | Override the league-chat **email** digest cadence (default `0 */6 * * *`, i.e. every 6h). One email per user summarising unread chat; deduped so it won't nag about the same unread. |
+| `KLIPY_API_KEY` | optional | KLIPY GIF API key (klipy.com/developers). Enables the in-chat GIF picker; without it the picker shows "not set up yet". The key stays server-side (search is proxied). |
 | `NOTIFY_DISABLED` | no | Set to `1`/`true` to switch the scheduler off — no automated mail/push is sent. Handy for local testing; dev manual-trigger routes still work. |
 | `NOTIFY_ALLOWLIST` | optional | Comma-separated emails for a gradual rollout — only these addresses get mail. Empty = everyone. |
 | `NOTIFY_LOG_LEVEL` | no | `debug` logs a per-pass heartbeat; default logs only passes that sent/failed mail (plus allowlist changes & errors). |
@@ -91,7 +96,11 @@ Restore by extracting back into the volume before `up`.
 ## 6. TLS / reverse proxy
 
 Terminate TLS at a proxy (Caddy/Traefik/nginx) and forward to the container
-port. Example Caddy:
+port. PocketBase's per-IP rate limiter is enabled and trusts `X-Forwarded-For`
+for the real client IP (set by Caddy/Traefik/nginx automatically). If you ever
+expose the container directly without a proxy, clear the trusted proxy headers
+in Dashboard → Settings → Application so the header can't be spoofed. Example
+Caddy:
 
 ```
 pickems.example.com {

@@ -36,6 +36,11 @@ type Runner struct {
 	// lastAllowKey is the normalized allowlist seen on the previous pass, used
 	// to log when the allowlist changes at runtime.
 	lastAllowKey string
+	// gate is the global delivery policy (master channel switches + per-event
+	// overrides), refreshed at the start of each pass. Safe to share across the
+	// three notification crons: every pass derives it from the same app_meta row,
+	// so a concurrent refresh can only ever make it momentarily stale, never wrong.
+	gate config
 	// verbose enables the per-pass heartbeat log (NOTIFY_LOG_LEVEL=debug).
 	verbose bool
 }
@@ -57,11 +62,13 @@ type Result struct {
 // New builds a Runner, selecting the mail provider once. lastAllowKey is
 // seeded from the current config so the first pass doesn't report a "change".
 func New(app core.App) *Runner {
+	cfg := readConfig(app)
 	return &Runner{
 		app:          app,
 		sender:       mailer.Pick(app),
 		push:         push.NewSender(push.ResolveKeys(app)),
-		lastAllowKey: allowlistKey(readConfig(app).Allowlist),
+		lastAllowKey: allowlistKey(cfg.Allowlist),
+		gate:         cfg,
 		verbose:      strings.EqualFold(os.Getenv("NOTIFY_LOG_LEVEL"), "debug"),
 	}
 }
@@ -80,6 +87,22 @@ func disabled() bool {
 func Register(app core.App, se *core.ServeEvent) {
 	seedNotifyConfig(app)
 	r := New(app)
+
+	// Route PocketBase's own transactional mail (account verification, password
+	// reset, …) through the same provider, so one ESP carries all email and the
+	// PB SMTP settings stay untouched. Wired even when the scheduler is
+	// disabled — system mail must work regardless. The brand mark is attached
+	// to bodies that reference cid:mark (the branded templates from 0025).
+	mailer.RegisterSystemMail(app, r.sender, mailer.Inline{
+		ContentID:   "mark",
+		Filename:    "mark.png",
+		ContentType: "image/png",
+		Data:        markPNG,
+	})
+
+	// Global delivery-policy endpoints (read for all, write for admins). Wired
+	// unconditionally so the switches work even when the scheduler is disabled.
+	registerPolicy(app, se)
 
 	// NOTIFY_DISABLED skips the scheduler entirely so local/test runs never fire
 	// automated notifications. The dev manual-trigger and preview routes below
@@ -102,6 +125,8 @@ func Register(app core.App, se *core.ServeEvent) {
 		if al := readConfig(app).Allowlist; len(al) > 0 {
 			log.Printf("[notify] allowlist active — only %d address(es) will be emailed", len(al))
 		}
+		registerChatCron(app, r)
+		registerChatDigestCron(app, r)
 	}
 
 	// Dev-only manual trigger so the flow can be exercised against the virtual
@@ -115,6 +140,20 @@ func Register(app core.App, se *core.ServeEvent) {
 				return e.JSON(500, map[string]any{"error": err.Error(), "result": res})
 			}
 			return e.JSON(http.StatusOK, res)
+		}).Bind(apis.RequireAuth())
+
+		// Run the chat-notification sweep on demand.
+		se.Router.POST("/api/dev/chat/notify", func(e *core.RequestEvent) error {
+			ctx, cancel := context.WithTimeout(e.Request.Context(), 60*time.Second)
+			defer cancel()
+			return e.JSON(http.StatusOK, map[string]any{"sent": r.chatPass(ctx)})
+		}).Bind(apis.RequireAuth())
+
+		// Run the chat email-digest sweep on demand.
+		se.Router.POST("/api/dev/chat/digest", func(e *core.RequestEvent) error {
+			ctx, cancel := context.WithTimeout(e.Request.Context(), 90*time.Second)
+			defer cancel()
+			return e.JSON(http.StatusOK, map[string]any{"sent": r.chatDigestPass(ctx)})
 		}).Bind(apis.RequireAuth())
 
 		// Render an email in the browser (no auth, dev-only) for fast visual
@@ -182,6 +221,7 @@ func Register(app core.App, se *core.ServeEvent) {
 func (r *Runner) RunOnce(ctx context.Context) (*Result, error) {
 	now := clock.Now(r.app)
 	cfg := readConfig(r.app)
+	r.gate = cfg
 	r.logAllowlistChange(cfg.Allowlist)
 	lead := time.Duration(cfg.LeadHours) * time.Hour
 	base := r.base()
@@ -280,6 +320,10 @@ func seedNotifyConfig(app core.App) {
 		"recapHourUTC":     defaultRecapHourUTC,
 		"countdownHourUTC": defaultCountdownHourUTC,
 		"allowlist":        []string{},
+		// Master delivery switches (both on) + per-event overrides (none). Surfaced
+		// here so the policy is discoverable/editable from the PB dashboard too.
+		"channels": map[string]any{"email": true, "push": true},
+		"disabled": map[string]any{},
 	})
 	if err := app.Save(rec); err != nil {
 		log.Printf("[notify] seed config: %v", err)
@@ -296,8 +340,11 @@ func (r *Runner) base() baseInfo {
 	return baseInfo{appName: name, url: url}
 }
 
-// eligibleUsers returns real (non-bot) users with an email address. When
-// allowlist is non-empty, only addresses on it are returned (gradual rollout).
+// eligibleUsers returns real (non-bot) users with a verified email address.
+// Unverified addresses are never emailed — bounces and spam reports to
+// unconfirmed (possibly mistyped) addresses are what get ESP accounts
+// suspended. When allowlist is non-empty, only addresses on it are returned
+// (gradual rollout).
 func (r *Runner) eligibleUsers(allowlist []string) ([]*core.Record, error) {
 	all, err := r.app.FindRecordsByFilter("users", "id != ''", "", 0, 0)
 	if err != nil {
@@ -312,7 +359,7 @@ func (r *Runner) eligibleUsers(allowlist []string) ([]*core.Record, error) {
 	}
 	out := make([]*core.Record, 0, len(all))
 	for _, u := range all {
-		if users.IsBot(u) || u.Email() == "" {
+		if users.IsBot(u) || u.Email() == "" || !u.Verified() {
 			continue
 		}
 		if allow != nil && !allow[strings.ToLower(u.Email())] {
@@ -331,6 +378,10 @@ func prefEnabled(u *core.Record, event, channel string) bool {
 }
 
 // prefEnabledFromRaw is the pure core of prefEnabled, split out for testing.
+// The reserved "*" event holds the user's per-channel master switches: when a
+// channel is off there, it is silenced for every event regardless of the
+// per-event prefs (which stay stored, so flipping the master back restores
+// them).
 func prefEnabledFromRaw(raw, event, channel string) bool {
 	if raw == "" {
 		return true
@@ -338,6 +389,9 @@ func prefEnabledFromRaw(raw, event, channel string) bool {
 	var prefs map[string]map[string]bool
 	if err := json.Unmarshal([]byte(raw), &prefs); err != nil {
 		return true
+	}
+	if v, ok := prefs["*"][channel]; ok && !v {
+		return false
 	}
 	ev, ok := prefs[event]
 	if !ok {
@@ -376,6 +430,11 @@ func (r *Runner) dispatch(ctx context.Context, res *Result, ncol *core.Collectio
 func (r *Runner) dispatchEmail(ctx context.Context, res *Result, ncol *core.Collection,
 	u *core.Record, event, dedupKey string, data tplData) {
 
+	// Global policy gate (e.g. mail provider suspended). Suppressed platform-wide,
+	// not a user choice, so it's silent and uncounted — like push-not-configured.
+	if !r.gate.channelAllowed(event, "email") {
+		return
+	}
 	res.Considered++
 	if !prefEnabled(u, event, "email") {
 		res.Skipped++
@@ -426,6 +485,9 @@ func (r *Runner) dispatchPush(ctx context.Context, res *Result, ncol *core.Colle
 	if r.push == nil || !r.push.Enabled() {
 		return
 	}
+	if !r.gate.channelAllowed(event, "push") {
+		return
+	}
 	subs, err := push.Subscriptions(r.app, u.Id)
 	if err != nil || len(subs) == 0 {
 		return
@@ -455,9 +517,14 @@ func (r *Runner) dispatchPush(ctx context.Context, res *Result, ncol *core.Colle
 		return
 	}
 
-	ok, sendErr := r.sendPush(ctx, subs, push.Notification{
+	n := push.Notification{
 		Title: title, Body: body, URL: toPath(data.CTAUrl), Tag: event, Icon: pushIcon(event, data),
-	})
+	}
+	if data.HighPriority {
+		n.Urgency = push.UrgencyHigh
+		n.RequireInteraction = true
+	}
+	ok, sendErr := r.sendPush(ctx, subs, n)
 	if ok == 0 {
 		rec.Set("status", "failed")
 		if sendErr != nil {
@@ -575,6 +642,14 @@ func (r *Runner) sampleData(event string) tplData {
 		d.League = "Friends"
 		d.Total = 48
 		d.CTAText, d.CTAUrl = "See the leaderboard", base.url+"/leagues"
+	case "announcement":
+		d.Title = "New: live match tracker is here"
+		d.Body = "We just shipped a live tracker so you can follow scores in real time. Open the app to check it out and get your tips in before kickoff."
+		d.CTAText, d.CTAUrl = "Open WM Tips", base.url+"/"
+	case "league_chat":
+		d.ChatTotal = 5
+		d.ChatLeagues = []chatLine{{League: "Squad", Count: 3}, {League: "Office Pool", Count: 2}}
+		d.CTAText, d.CTAUrl = "Open your chats", base.url+"/leagues"
 	case "kickoff_countdown":
 		d.DaysLeft = 3
 		d.WhenText = when

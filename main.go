@@ -15,6 +15,8 @@ import (
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 	"github.com/pocketbase/pocketbase/tools/hook"
 
+	"github.com/floholz/wm-pickems/internal/announce"
+	"github.com/floholz/wm-pickems/internal/chat"
 	"github.com/floholz/wm-pickems/internal/dev"
 	"github.com/floholz/wm-pickems/internal/forecast"
 	"github.com/floholz/wm-pickems/internal/leagues"
@@ -32,6 +34,11 @@ import (
 )
 
 func main() {
+	// Local dev only (WMP_DEV=1): pull ./.env into the environment so go run /
+	// make run match what docker-compose injects. Must happen before anything
+	// reads env (cron config, mail provider selection, etc.).
+	dev.LoadDotenv()
+
 	app := pocketbase.New()
 
 	// Go-code migrations (collections/schema live in ./migrations).
@@ -56,6 +63,8 @@ func main() {
 		push.Register(e.App, e)
 		notify.Register(e.App, e)
 		stats.Register(e.App, e)
+		announce.Register(e.App, e)
+		chat.Register(e.App, e)
 		dev.Register(e.App, e)
 
 		// Serve the web manifest with the correct MIME so it installs as a
